@@ -12,7 +12,10 @@ services:
     startCommand: |
       ls -la # Check files before starting
       ls -la dist/src || true # Check if dist/src exists (won't fail if not)
-      npm run start:render
+      echo "Network interfaces:"
+      ifconfig || ip addr # Print network interfaces for debugging
+      echo "Starting server with NODE_OPTIONS and host 0.0.0.0..."
+      HOST=0.0.0.0 NODE_OPTIONS="--max-old-space-size=2048" node dist/src/main.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -20,4 +23,6 @@ services:
         value: 3001
       - key: RENDER
         value: true
+      - key: HOST
+        value: 0.0.0.0
     healthCheckPath: /api/health 

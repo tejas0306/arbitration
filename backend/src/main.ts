@@ -16,11 +16,27 @@ export async function bootstrap() {
   // Compression for better performance
   app.use(compression());
   
-  // Enable CORS for frontend
+  // Enable CORS for frontend - allow specific domains and credentials
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  console.log('Allowing CORS for:', frontendUrl);
+  
   app.enableCors({
-    origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'https://arbitration-portal.vercel.app'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: [
+      frontendUrl,
+      'https://arbitration-two.vercel.app',
+      'https://arbitration-git-main-tejas0306s-projects.vercel.app',
+      'https://arbitration-portal.vercel.app', 
+      'http://localhost:3000',
+      // Add a regex pattern to match all subdomains of vercel.app
+      /https:\/\/arbitration-.*\.vercel\.app$/
+    ],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Content-Disposition'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+    maxAge: 3600, // 1 hour
   });
   
   // Global validation pipe

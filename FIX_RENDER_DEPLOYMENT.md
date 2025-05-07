@@ -8,16 +8,17 @@ This document details the steps to fix deployment issues for the NestJS backend 
 2. **Module Not Found**: `Cannot find module '/opt/render/project/src/backend/dist/main'`
 3. **TypeScript Error**: Error in health check implementation
 4. **Module Import Error**: Non-existent module import
+5. **Build Output Path**: The build output is in dist/src/main.js instead of dist/main.js
 
 ## Changes Made
 
 ### 1. Updated package.json
 
 - Modified `build` script to use the correct NestJS CLI path
-- Added `.js` extension to `start:prod` script for clarity
-- Created `start:render` script with memory allocation settings:
+- Updated `start:prod` and `start:render` scripts to use the correct path to main.js:
   ```json
-  "start:render": "NODE_OPTIONS=\"--max-old-space-size=2048\" node dist/main.js"
+  "start:prod": "node dist/src/main.js",
+  "start:render": "NODE_OPTIONS=\"--max-old-space-size=2048\" node dist/src/main.js"
   ```
 
 ### 2. Created render.yaml
@@ -35,10 +36,10 @@ services:
       ls -la  # Debug the files in the directory
       npm run build
       ls -la dist # Debug the build output
-      find . -name "main.js" # Find where main.js is located
+      find dist -name "main.js" # Find where main.js is located
     startCommand: |
       ls -la # Check files before starting
-      ls -la dist || true # Check if dist exists (won't fail if not)
+      ls -la dist/src || true # Check if dist/src exists (won't fail if not)
       npm run start:render
     envVars:
       - key: NODE_ENV
@@ -109,6 +110,10 @@ import { UserModule } from './user/user.module';
   ],
 })
 ```
+
+### 5. Fixed Build Output Path
+
+Updated all scripts and configurations to use the correct build output path `dist/src/main.js` instead of `dist/main.js`.
 
 ## How to Fix the Deployment
 

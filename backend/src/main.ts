@@ -18,7 +18,8 @@ export async function bootstrap() {
   
   // Enable CORS for frontend
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'https://arbitration-portal.vercel.app'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
   
@@ -29,14 +30,13 @@ export async function bootstrap() {
     transform: true,
   }));
   
-  // Global prefix - only in standalone mode
-  if (process.env.NODE_ENV !== 'production') {
-    app.setGlobalPrefix('api');
-  }
+  // Global prefix for API routes
+  app.setGlobalPrefix('api');
   
-  // Only listen to port in development, not in serverless environment
-  if (process.env.NODE_ENV !== 'production') {
-    await app.listen(process.env.PORT || 3001);
+  // Only listen to port in development or Render (not in Vercel serverless)
+  if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+    const port = process.env.PORT || 3001;
+    await app.listen(port);
     console.log(`Application is running on: ${await app.getUrl()}`);
   }
   

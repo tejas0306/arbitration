@@ -109,4 +109,63 @@ npm run start
      - For frontend: Run commands from the root directory
      - For backend: Run commands from the backend directory
 
-For other issues, please check the browser console and backend logs for error details. 
+For other issues, please check the browser console and backend logs for error details.
+
+## Deployment
+
+This project is configured for deployment to:
+- **Frontend (Next.js)**: [Vercel](https://vercel.com)
+- **Backend (NestJS)**: [Render](https://render.com)
+
+### Quick Deployment
+
+Run the deployment script:
+
+```bash
+./deploy.sh
+```
+
+This script will:
+1. Check for server component issues
+2. Test the build locally
+3. Prepare the app for deployment
+4. Guide you through deployment options
+
+### Manual Deployment
+
+#### Frontend (Next.js) on Vercel
+
+1. **Prepare for deployment**:
+   ```bash
+   ./prepare-for-vercel.sh
+   ```
+
+2. **Deploy to Vercel**:
+   ```bash
+   ./static-deploy.sh
+   ```
+
+3. **Set environment variables in Vercel Dashboard**:
+   - `NEXT_PUBLIC_API_URL`: URL to your backend API
+   - `NEXT_PUBLIC_SKIP_AUTH_VERIFICATION`: Set to `true` for testing
+
+#### Backend (NestJS) on Render
+
+1. Follow the instructions in [DEPLOY_TO_RENDER.md](backend/DEPLOY_TO_RENDER.md)
+
+2. Set environment variables in Render Dashboard:
+   - `NODE_ENV`: `production`
+   - `DATABASE_URL`: Your PostgreSQL connection string
+   - `JWT_SECRET`: Secret for JWT token generation
+   - `FRONTEND_URL`: Your Vercel frontend URL
+   - `PORT`: Usually `3001`
+   - `RENDER`: `true`
+
+### Deployment Documentation
+
+For more detailed deployment instructions, see:
+- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Overview of deployment options
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Step-by-step deployment checklist
+- [SERVER_COMPONENT_FIXES.md](SERVER_COMPONENT_FIXES.md) - Details on server component fixes
+- [DEPLOY_TO_VERCEL.md](DEPLOY_TO_VERCEL.md) - Vercel-specific deployment guide
+- [backend/DEPLOY_TO_RENDER.md](backend/DEPLOY_TO_RENDER.md) - Render-specific deployment guide 

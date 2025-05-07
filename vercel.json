@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "NEXT_PUBLIC_SKIP_AUTH_VERIFICATION=true npm run build",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "functions": {
@@ -12,6 +12,6 @@
   },
   "env": {
     "NODE_ENV": "production",
-    "NEXT_PUBLIC_API_URL": "/api"
+    "NEXT_PUBLIC_SKIP_AUTH_VERIFICATION": "true"
   }
 }

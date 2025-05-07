@@ -1,6 +1,5 @@
-import Header from "@/components/header"
-import Footer from "@/components/footer"
-import ProtectedRoute from "@/components/protected-route"
+import { Suspense } from 'react'
+import DashboardLayoutClient from '@/components/dashboard-layout-client'
 
 export default function MyCasesLayout({
   children,
@@ -8,14 +7,10 @@ export default function MyCasesLayout({
   children: React.ReactNode
 }) {
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Footer />
-      </div>
-    </ProtectedRoute>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <DashboardLayoutClient>
+        {children}
+      </DashboardLayoutClient>
+    </Suspense>
   )
 } 

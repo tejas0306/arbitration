@@ -7,6 +7,7 @@ This document details the steps to fix deployment issues for the NestJS backend 
 1. **Memory Issues**: JavaScript heap out of memory during build or startup
 2. **Module Not Found**: `Cannot find module '/opt/render/project/src/backend/dist/main'`
 3. **TypeScript Error**: Error in health check implementation
+4. **Module Import Error**: Non-existent module import
 
 ## Changes Made
 
@@ -90,6 +91,23 @@ Then imported it in the app module:
   ],
 })
 export class AppModule {}
+```
+
+### 4. Fixed Module Import Error
+
+Removed a non-existent module import from app.module.ts:
+
+```typescript
+// Removed this import as it doesn't exist
+import { UserModule } from './user/user.module';
+
+// And removed it from the imports array
+@Module({
+  imports: [
+    // UserModule is removed, as it doesn't exist
+    // ... other modules
+  ],
+})
 ```
 
 ## How to Fix the Deployment

@@ -6,7 +6,6 @@ import { AuthModule } from './modules/auth.module';
 import { ArbitrationModule } from './modules/arbitration.module';
 import { VerificationModule } from './modules/verification.module';
 import { PrismaService } from './services/prisma.service';
-import { UserModule } from './user/user.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -14,7 +13,6 @@ import { HealthModule } from './health/health.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    UserModule,
     AuthModule,
     ArbitrationModule,
     VerificationModule,

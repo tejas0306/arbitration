@@ -365,6 +365,7 @@ export const arbitrationApi = {
 export const auth = {
   login: async (credentials: { email: string; password: string }) => {
     try {
+      console.log('Starting login request to:', `${API_URL}/api/auth/login`);
       const response = await apiClient.post('/auth/login', credentials);
       console.log('Login response:', response.data);
       
@@ -530,6 +531,10 @@ export const auth = {
   
   // Check if the user is currently authenticated
   isAuthenticated: () => {
+    if (typeof window === 'undefined') {
+      return false; // Not authenticated on server-side
+    }
+    
     const token = localStorage.getItem('auth_token');
     const expiryStr = localStorage.getItem('token_expiry');
     
@@ -541,7 +546,9 @@ export const auth = {
         const expiry = JSON.parse(expiryStr);
         if (Date.now() > expiry) {
           // Token expired, clean up
-          auth.logout();
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('token_expiry');
           return false;
         }
       } catch (e) {

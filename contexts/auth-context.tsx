@@ -31,14 +31,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setIsLoading(true)
+        
         // Skip auth check in development if needed
         if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
+          console.log('Skipping auth verification in development')
+          // Even when skipping verification, try to load user from localStorage
+          const storedUser = localStorage.getItem('user')
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser))
+            } catch (e) {
+              console.error('Error parsing stored user:', e)
+            }
+          }
           setIsLoading(false)
           return
         }
         
         // Get token from localStorage
         const token = localStorage.getItem('auth_token')
+        const storedUser = localStorage.getItem('user')
         
         if (!token) {
           setUser(null)
@@ -46,9 +59,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
         
-        // Verify token by getting current user
-        const userData = await auth.getCurrentUser()
-        setUser(userData)
+        // Try to use stored user first
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser))
+          } catch (e) {
+            console.error('Error parsing stored user:', e)
+          }
+        }
+        
+        // Verify token by getting current user from API
+        try {
+          const userData = await auth.getCurrentUser()
+          if (userData) {
+            setUser(userData)
+            // Update localStorage with latest user data
+            localStorage.setItem('user', JSON.stringify(userData))
+          }
+        } catch (error) {
+          console.error('User verification failed:', error)
+          // If API call fails but we have stored user, keep using that
+          // Only clear if we couldn't parse stored user earlier
+          if (!storedUser) {
+            setUser(null)
+            localStorage.removeItem('auth_token')
+            localStorage.removeItem('user')
+          }
+        }
       } catch (error) {
         console.error('Authentication error:', error)
         setUser(null)
@@ -67,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      const response = await auth.login(email, password)
+      const response = await auth.login({email, password})
       
       // Store token and user data
       localStorage.setItem('auth_token', response.token)

@@ -6,6 +6,7 @@ This document details the steps to fix deployment issues for the NestJS backend 
 
 1. **Memory Issues**: JavaScript heap out of memory during build or startup
 2. **Module Not Found**: `Cannot find module '/opt/render/project/src/backend/dist/main'`
+3. **TypeScript Error**: Error in health check implementation
 
 ## Changes Made
 
@@ -48,15 +49,47 @@ services:
     healthCheckPath: /api/health
 ```
 
-### 3. Added Health Check Endpoint
+### 3. Added Health Check Controller
 
-Modified `main.ts` to include a health check endpoint:
+Created a proper NestJS health check controller:
 
 ```typescript
-// Add health check endpoint for Render
-app.get('/api/health', (req, res) => {
-  res.status(200).send('OK');
-});
+// src/health/health.controller.ts
+import { Controller, Get } from '@nestjs/common';
+
+@Controller('health')
+export class HealthController {
+  @Get()
+  healthCheck() {
+    return { status: 'ok' };
+  }
+}
+```
+
+And registered it in a module:
+
+```typescript
+// src/health/health.module.ts
+import { Module } from '@nestjs/common';
+import { HealthController } from './health.controller';
+
+@Module({
+  controllers: [HealthController],
+})
+export class HealthModule {}
+```
+
+Then imported it in the app module:
+
+```typescript
+// src/app.module.ts
+@Module({
+  imports: [
+    // ... other modules
+    HealthModule,
+  ],
+})
+export class AppModule {}
 ```
 
 ## How to Fix the Deployment
@@ -93,6 +126,6 @@ If you prefer to configure manually:
 After deployment:
 
 1. Check the build logs for any errors
-2. Verify the service is running by accessing the health endpoint
+2. Verify the service is running by accessing the health endpoint at `/api/health`
 3. Test API endpoints from your frontend or using a tool like Postman
 4. Monitor the service in Render dashboard for any issues 

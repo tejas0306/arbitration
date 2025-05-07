@@ -1,0 +1,7 @@
+# This file helps debug build issues on Render
+# It will be included in the build and can help identify file locations
+
+# Expected build output should be in ./dist/main.js
+# Current working directory during build should be /opt/render/project/src/backend
+
+# If this file exists after build, it confirms the build process reached this directory 

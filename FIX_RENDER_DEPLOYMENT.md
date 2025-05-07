@@ -9,6 +9,7 @@ This document details the steps to fix deployment issues for the NestJS backend 
 3. **TypeScript Error**: Error in health check implementation
 4. **Module Import Error**: Non-existent module import
 5. **Build Output Path**: The build output is in dist/src/main.js instead of dist/main.js
+6. **Network Binding**: Application not binding to all interfaces for external connections
 
 ## Changes Made
 
@@ -40,7 +41,10 @@ services:
     startCommand: |
       ls -la # Check files before starting
       ls -la dist/src || true # Check if dist/src exists (won't fail if not)
-      npm run start:render
+      echo "Network interfaces:"
+      ifconfig || ip addr # Print network interfaces for debugging
+      echo "Starting server with NODE_OPTIONS and host 0.0.0.0..."
+      HOST=0.0.0.0 NODE_OPTIONS="--max-old-space-size=2048" node dist/src/main.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -48,6 +52,8 @@ services:
         value: 3001
       - key: RENDER
         value: true
+      - key: HOST
+        value: 0.0.0.0
     healthCheckPath: /api/health
 ```
 
@@ -115,6 +121,30 @@ import { UserModule } from './user/user.module';
 
 Updated all scripts and configurations to use the correct build output path `dist/src/main.js` instead of `dist/main.js`.
 
+### 6. Fixed Network Binding
+
+Updated the main.ts file to explicitly bind to all network interfaces:
+
+```typescript
+// Always listen to port in Render environment
+const port = process.env.PORT || 3001;
+const host = process.env.HOST || '0.0.0.0'; // Bind to all interfaces
+await app.listen(port, host);
+console.log(`Application is running on http://${host}:${port}`);
+```
+
+And removed the conditional startup that was preventing the app from listening in production:
+
+```typescript
+// Removed this conditional
+// if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+//   ...
+// }
+
+// Changed to always run bootstrap
+bootstrap();
+```
+
 ## How to Fix the Deployment
 
 ### Option 1: Using Blueprint (Recommended)
@@ -140,7 +170,7 @@ If you prefer to configure manually:
    - **Root Directory**: backend
    - **Environment**: Node
    - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm run start:render`
+   - **Start Command**: `HOST=0.0.0.0 NODE_OPTIONS="--max-old-space-size=2048" node dist/src/main.js`
    - **Health Check Path**: /api/health
 5. Add the required environment variables
 

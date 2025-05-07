@@ -1,0 +1,358 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+
+@Injectable()
+export class ArbitrationService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(data: any, userId: string) {
+    try {
+      console.log('Processing arbitration data:', {
+        ...data,
+        files: data.files ? 'Files included' : 'No files'
+      });
+      
+      // Generate case number
+      const timestamp = new Date().getTime();
+      const randomNum = Math.floor(Math.random() * 1000);
+      const caseNumber = `ARB-${timestamp}-${randomNum}`;
+      
+      // Extract file references from data.files
+      const fileReferences = data.files || {};
+      
+      // Create documents structure to store file references
+      const documents = {
+        // File references related to claimant company documents
+        companyDocs: {
+          coi: fileReferences.coi || null,
+          panCard: fileReferences.panCard || null, 
+          gstCert: fileReferences.gstCert || null
+        },
+        // Supporting documents
+        supportingDocuments: Object.keys(fileReferences)
+          .filter(key => key.startsWith('supportingDocuments_'))
+          .map(key => fileReferences[key]),
+        // Evidence files
+        evidenceFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('evidenceFiles_'))
+          .map(key => fileReferences[key])
+      };
+      
+      // Create the arbitration agreement structure
+      const arbitrationAgreement = {
+        ...data.arbitrationAgreement,
+        agreementFile: fileReferences.agreementFile || null
+      };
+      
+      // Create the final processed data structure that matches the Prisma schema
+      const processedData = {
+        type: data.type,
+        name: data.name,
+        pincode: data.pincode,
+        address1: data.address1,
+        address2: data.address2,
+        city: data.city,
+        district: data.district,
+        state: data.state,
+        country: data.country,
+        email: data.email,
+        phoneCountryCode: data.phoneCountryCode,
+        phone: data.phone,
+        gst: data.gst,
+        pan: data.pan,
+        cin: data.cin,
+        additionalClaimants: data.additionalClaimants,
+        respondents: data.respondents,
+        arbitrationAgreement: arbitrationAgreement,
+        disputeDetails: data.disputeDetails,
+        documents: documents,
+        caseNumber,
+        status: data.status || 'pending',
+        isDraft: false, // When created through submit, it's not a draft
+        lastEditedAt: new Date(),
+        userId: userId, // Link to the user who created it
+      };
+      
+      console.log('Saving arbitration case with data:', {
+        ...processedData,
+        documents: 'Documents object included',
+        status: processedData.status
+      });
+      
+      return this.prisma.arbitration.create({
+        data: processedData,
+      });
+    } catch (error) {
+      console.error('Error creating arbitration case:', error);
+      throw error;
+    }
+  }
+
+  async saveDraft(data: any, userId: string) {
+    try {
+      // Extract file references from data.files
+      const fileReferences = data.files || {};
+      
+      // Create documents structure to store file references
+      const documents = {
+        // File references related to claimant company documents
+        companyDocs: {
+          coi: fileReferences.coi || null,
+          panCard: fileReferences.panCard || null, 
+          gstCert: fileReferences.gstCert || null
+        },
+        // Supporting documents
+        supportingDocuments: Object.keys(fileReferences)
+          .filter(key => key.startsWith('supportingDocuments_'))
+          .map(key => fileReferences[key]),
+        // Evidence files
+        evidenceFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('evidenceFiles_'))
+          .map(key => fileReferences[key])
+      };
+      
+      // Create the arbitration agreement structure
+      const arbitrationAgreement = data.arbitrationAgreement 
+        ? {
+            ...data.arbitrationAgreement,
+            agreementFile: fileReferences.agreementFile || null
+          }
+        : {};
+      
+      // Check if this is an update to an existing draft
+      if (data.id) {
+        // Get the existing draft to update its version
+        const existingDraft = await this.prisma.arbitration.findUnique({
+          where: { id: data.id },
+        });
+        
+        if (!existingDraft) {
+          throw new NotFoundException(`Draft with ID ${data.id} not found`);
+        }
+        
+        // Ensure the user owns this draft
+        if (existingDraft.userId !== userId) {
+          throw new Error('You do not have permission to edit this draft');
+        }
+        
+        // Update the existing draft
+        const processedData = {
+          type: data.type,
+          name: data.name,
+          pincode: data.pincode || '',
+          address1: data.address1 || '',
+          address2: data.address2,
+          city: data.city || '',
+          district: data.district || '',
+          state: data.state || '',
+          country: data.country || '',
+          email: data.email || '',
+          phoneCountryCode: data.phoneCountryCode || '+91',
+          phone: data.phone || '',
+          gst: data.gst,
+          pan: data.pan,
+          cin: data.cin,
+          additionalClaimants: data.additionalClaimants || [],
+          respondents: data.respondents || [],
+          arbitrationAgreement: arbitrationAgreement,
+          disputeDetails: data.disputeDetails || {},
+          documents: documents,
+          status: 'draft',
+          isDraft: true,
+          lastEditedAt: new Date(),
+          version: existingDraft.version + 1,
+        };
+        
+        console.log('Updating draft with data:', {
+          ...processedData,
+          documents: 'Documents object included'
+        });
+        
+        return this.prisma.arbitration.update({
+          where: { id: data.id },
+          data: processedData,
+        });
+      } else {
+        // Create a new draft
+        const timestamp = new Date().getTime();
+        const randomNum = Math.floor(Math.random() * 1000);
+        const caseNumber = `DRAFT-${timestamp}-${randomNum}`;
+        
+        const processedData = {
+          type: data.type || '',
+          name: data.name || '',
+          pincode: data.pincode || '',
+          address1: data.address1 || '',
+          address2: data.address2 || '',
+          city: data.city || '',
+          district: data.district || '',
+          state: data.state || '',
+          country: data.country || '',
+          email: data.email || '',
+          phoneCountryCode: data.phoneCountryCode || '+91',
+          phone: data.phone || '',
+          gst: data.gst || '',
+          pan: data.pan || '',
+          cin: data.cin || '',
+          additionalClaimants: data.additionalClaimants || [],
+          respondents: data.respondents || [],
+          arbitrationAgreement: arbitrationAgreement,
+          disputeDetails: data.disputeDetails || {},
+          documents: documents,
+          caseNumber,
+          status: 'draft',
+          isDraft: true,
+          lastEditedAt: new Date(),
+          userId: userId,
+        };
+        
+        console.log('Creating new draft with data:', {
+          ...processedData,
+          documents: 'Documents object included'
+        });
+        
+        return this.prisma.arbitration.create({
+          data: processedData,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      throw error;
+    }
+  }
+
+  async findAll() {
+    return this.prisma.arbitration.findMany({
+      where: { isDraft: false },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  async findUserDrafts(userId: string) {
+    return this.prisma.arbitration.findMany({
+      where: { 
+        userId: userId,
+        isDraft: true 
+      },
+      orderBy: { lastEditedAt: 'desc' },
+    });
+  }
+
+  async findOne(id: string) {
+    const arbitration = await this.prisma.arbitration.findUnique({
+      where: { id },
+    });
+
+    if (!arbitration) {
+      throw new NotFoundException(`Arbitration case with ID ${id} not found`);
+    }
+
+    return arbitration;
+  }
+
+  async findByCaseNumber(caseNumber: string) {
+    const arbitration = await this.prisma.arbitration.findUnique({
+      where: { caseNumber },
+    });
+
+    if (!arbitration) {
+      throw new NotFoundException(`Arbitration case with case number ${caseNumber} not found`);
+    }
+
+    return arbitration;
+  }
+
+  async update(id: string, data: any, userId: string) {
+    try {
+      // Check if the case exists and belongs to the user
+      const existingCase = await this.prisma.arbitration.findUnique({
+        where: { id },
+      });
+      
+      if (!existingCase) {
+        throw new NotFoundException(`Arbitration case with ID ${id} not found`);
+      }
+      
+      if (existingCase.userId !== userId) {
+        throw new Error('You do not have permission to update this case');
+      }
+      
+      // Only allow updates to drafts or cases in specific statuses
+      if (!existingCase.isDraft && !['pending', 'revise_required'].includes(existingCase.status)) {
+        throw new Error('This case cannot be edited in its current status');
+      }
+      
+      return await this.prisma.arbitration.update({
+        where: { id },
+        data: {
+          ...data,
+          lastEditedAt: new Date(),
+          version: existingCase.version + 1,
+        },
+      });
+    } catch (error) {
+      console.error('Error updating case:', error);
+      throw error;
+    }
+  }
+
+  async updateStatus(id: string, status: string) {
+    try {
+      return await this.prisma.arbitration.update({
+        where: { id },
+        data: { status },
+      });
+    } catch (error) {
+      throw new NotFoundException(`Arbitration case with ID ${id} not found`);
+    }
+  }
+
+  async submitDraft(id: string, userId: string) {
+    try {
+      // Check if the draft exists and belongs to the user
+      const existingDraft = await this.prisma.arbitration.findUnique({
+        where: { id },
+      });
+      
+      if (!existingDraft) {
+        throw new NotFoundException(`Draft with ID ${id} not found`);
+      }
+      
+      if (existingDraft.userId !== userId) {
+        throw new Error('You do not have permission to submit this draft');
+      }
+      
+      if (!existingDraft.isDraft) {
+        throw new Error('This case has already been submitted');
+      }
+      
+      // Generate a proper case number
+      const timestamp = new Date().getTime();
+      const randomNum = Math.floor(Math.random() * 1000);
+      const caseNumber = `ARB-${timestamp}-${randomNum}`;
+      
+      return await this.prisma.arbitration.update({
+        where: { id },
+        data: {
+          isDraft: false,
+          status: 'pending',
+          caseNumber,
+          lastEditedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('Error submitting draft:', error);
+      throw error;
+    }
+  }
+
+  async delete(id: string) {
+    try {
+      return await this.prisma.arbitration.delete({
+        where: { id },
+      });
+    } catch (error) {
+      throw new NotFoundException(`Arbitration case with ID ${id} not found`);
+    }
+  }
+} 

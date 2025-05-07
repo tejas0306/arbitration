@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLAIMANT
+  RESPONDENT
+  ARBITRATOR
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         UserRole @default(CLAIMANT)
+  organization String?
+  // Fields specific to arbitrators
+  expertise    String?
+  qualifications String?
+  experience   Int?     // Years of experience
+  bio          String?  // Professional bio
+  // Common fields
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  // Add relation to arbitrations
+  arbitrations Arbitration[]
+}
+
+model Arbitration {
+  id                  String   @id @default(uuid())
+  caseNumber          String   @unique @default(uuid())
+  type                String
+  name                String
+  pincode            String
+  address1           String
+  address2           String?
+  city               String
+  district           String
+  state              String
+  country            String
+  email              String
+  phoneCountryCode   String
+  phone              String
+  gst                String?
+  pan                String?
+  cin                String?
+  additionalClaimants Json[]
+  respondents        Json[]
+  arbitrationAgreement Json
+  disputeDetails     Json
+  documents         Json?
+  status            String   @default("pending")
+  // New fields for editable petitions
+  isDraft           Boolean  @default(true)
+  version           Int      @default(1)
+  lastEditedAt      DateTime @default(now())
+  // Add relation to user
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

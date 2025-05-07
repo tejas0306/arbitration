@@ -1,0 +1,8 @@
+{
+  "name": "arbitration-portal-demo",
+  "version": "1.0.0",
+  "description": "Demo of Arbitration Portal verification features",
+  "scripts": {
+    "build": "echo 'No build step needed for static site'"
+  }
+} 

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "npm install --legacy-peer-deps && npx prisma generate && NEXT_PUBLIC_SKIP_AUTH_VERIFICATION=true npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": "out",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://your-backend-api-url.com"
+  }
+}

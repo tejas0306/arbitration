@@ -33,10 +33,8 @@ export async function bootstrap() {
   // Global prefix for API routes
   app.setGlobalPrefix('api');
   
-  // Add health check endpoint for Render
-  app.get('/api/health', (req, res) => {
-    res.status(200).send('OK');
-  });
+  // We cannot add route handlers directly, we need to use controllers
+  // Health check endpoint will be defined in a dedicated controller
   
   // Only listen to port in development or Render (not in Vercel serverless)
   if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {

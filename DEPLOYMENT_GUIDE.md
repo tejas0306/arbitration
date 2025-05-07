@@ -108,4 +108,81 @@ For most use cases, we recommend:
 2. Deploy the NestJS backend to a dedicated hosting service (Heroku, DigitalOcean, AWS, etc.)
 3. Connect the two by setting the `NEXT_PUBLIC_API_URL` environment variable in your Vercel project
 
-This approach provides the best performance, scalability, and maintainability for your application. 
+This approach provides the best performance, scalability, and maintainability for your application.
+
+## Deploying the Backend to Render
+
+### Option 1: Using Blueprint (Recommended)
+
+1. Create a `render.yaml` file in your repository root (already done)
+2. In the Render dashboard, click "New Blueprint"
+3. Connect your GitHub repository
+4. Render will automatically detect the configuration from `render.yaml`
+5. Set the required environment variables:
+   - `DATABASE_URL`: Your PostgreSQL connection string
+   - `JWT_SECRET`: Secret for JWT token generation
+   - `FRONTEND_URL`: Your Vercel frontend URL
+
+### Option 2: Manual Configuration
+
+If not using Blueprint, follow these steps:
+
+1. In the Render dashboard, click "New Web Service"
+2. Connect your GitHub repository
+3. Configure the service:
+   - **Name**: arbitration-api (or your preferred name)
+   - **Root Directory**: backend
+   - **Environment**: Node
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `NODE_OPTIONS="--max-old-space-size=2048" npm run start:prod`
+   - **Health Check Path**: /api/health
+
+4. Add the required environment variables as listed above
+
+### Troubleshooting Render Deployment
+
+#### Memory Issues
+If you encounter "JavaScript heap out of memory" errors:
+- Set `NODE_OPTIONS="--max-old-space-size=2048"` in your Start Command
+- Or add it as an environment variable
+
+#### Module Not Found Errors
+If you see "Cannot find module '/opt/render/project/src/backend/dist/main'":
+- Make sure you've set the Root Directory to "backend"
+- Check that your build is producing files in the expected location (dist/main.js)
+
+#### Health Check Failures
+If your service fails health checks:
+- Verify the health check endpoint exists at /api/health
+- Check the logs for other errors preventing startup
+
+## Deploying the Frontend to Vercel
+
+1. Connect your GitHub repository to Vercel
+2. Set the required environment variables:
+   - `NEXT_PUBLIC_API_URL`: URL to your Render backend API
+   - `NEXT_PUBLIC_SKIP_AUTH_VERIFICATION`: Set to `true` for testing environments
+
+3. Deploy your application
+
+### Troubleshooting Vercel Deployment
+
+#### Server Component Errors
+If you encounter errors related to server components:
+- Make sure all client-side hooks are in client components (with "use client" directive)
+- Follow the pattern outlined in SERVER_COMPONENT_FIXES.md
+
+## Connecting the Frontend and Backend
+
+After both services are deployed:
+
+1. Update the Vercel environment variable `NEXT_PUBLIC_API_URL` to point to your Render API URL
+2. Update the Render environment variable `FRONTEND_URL` to point to your Vercel frontend URL
+3. Redeploy both services if necessary
+
+## Monitoring and Maintenance
+
+- Set up health check monitoring in Render dashboard
+- Review logs regularly for errors
+- Consider setting up database backups
+- Monitor API usage and performance 

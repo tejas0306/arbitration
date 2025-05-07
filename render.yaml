@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: arbitration-api
+    env: node
+    rootDir: backend
+    buildCommand: |
+      npm install
+      ls -la  # Debug the files in the directory
+      npm run build
+      ls -la dist # Debug the build output
+      find . -name "main.js" # Find where main.js is located
+    startCommand: |
+      ls -la # Check files before starting
+      ls -la dist || true # Check if dist exists (won't fail if not)
+      npm run start:render
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: RENDER
+        value: true
+    healthCheckPath: /api/health 

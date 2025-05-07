@@ -33,6 +33,11 @@ export async function bootstrap() {
   // Global prefix for API routes
   app.setGlobalPrefix('api');
   
+  // Add health check endpoint for Render
+  app.get('/api/health', (req, res) => {
+    res.status(200).send('OK');
+  });
+  
   // Only listen to port in development or Render (not in Vercel serverless)
   if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
     const port = process.env.PORT || 3001;

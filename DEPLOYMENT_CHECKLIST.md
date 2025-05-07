@@ -137,4 +137,79 @@ If database connections fail:
 
 - Check the build logs for specific errors
 - For Next.js issues, verify `next.config.mjs` settings
-- For NestJS issues, check `nest-cli.json` and build command 
+- For NestJS issues, check `nest-cli.json` and build command
+
+## Backend (NestJS) Deployment to Render
+
+### Memory Issues Fix
+- **Problem**: JavaScript heap out of memory during build/start on Render
+- **Solution**: Configure Node memory limit for Render
+
+1. Create a `start.sh` script in the backend directory:
+```bash
+#!/bin/bash
+export NODE_OPTIONS="--max-old-space-size=2048"
+npm run start:prod
+```
+
+2. Make the script executable:
+```bash
+chmod +x start.sh
+```
+
+3. Update your `package.json` to use this script:
+```json
+"scripts": {
+  "start": "./start.sh",
+  // other scripts remain unchanged
+}
+```
+
+4. In Render dashboard:
+   - Update Start Command to: `npm run start`
+   - Add environment variable: `NODE_OPTIONS="--max-old-space-size=2048"`
+
+5. Alternative solution if the above doesn't work:
+   - In Render dashboard, change Start Command directly to:
+     `NODE_OPTIONS="--max-old-space-size=2048" npm run start:prod`
+
+### Other Deployment Checks
+
+1. **Environment Variables**:
+   - `DATABASE_URL`: PostgreSQL connection string
+   - `JWT_SECRET`: Secret for JWT token generation
+   - `FRONTEND_URL`: Your Vercel frontend URL
+   - `PORT`: Usually `3001`
+   - `NODE_ENV`: `production`
+
+2. **Database Connection**:
+   - Ensure database is accessible from Render
+   - Use connection pooling if necessary
+
+3. **Build Command**:
+   - Default: `npm install && npm run build`
+   - If memory issues persist: `NODE_OPTIONS="--max-old-space-size=2048" npm install && NODE_OPTIONS="--max-old-space-size=2048" npm run build`
+
+4. **Health Check Endpoint**:
+   - Add `/health` or `/api/health` endpoint that returns 200 status code
+   - Configure health check in Render dashboard
+
+## Frontend (Next.js) Deployment to Vercel
+
+1. **Environment Variables**:
+   - `NEXT_PUBLIC_API_URL`: URL to your backend API on Render
+   - `NEXT_PUBLIC_SKIP_AUTH_VERIFICATION`: Set to `true` for testing environments only
+
+2. **Build Settings**:
+   - Framework Preset: Next.js
+   - Build Command: `npm run build`
+   - Output Directory: `.next`
+
+3. **Deployment Checks**:
+   - Server Component Issues: Run `./fix-server-components.sh` before deploying
+   - Local Build Test: Run `npm run build` locally to catch errors before deploying
+
+4. **Post-Deployment Verification**:
+   - Check authentication flow
+   - Test arbitration petition submission
+   - Verify API connectivity 

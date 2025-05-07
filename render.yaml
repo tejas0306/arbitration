@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: arbitration-api
+    env: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: NODE_OPTIONS="--max-old-space-size=2048" npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+    healthCheckPath: /api/health 

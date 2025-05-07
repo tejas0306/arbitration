@@ -1,11 +1,17 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Header from "@/components/header"
+import Footer from "@/components/footer"
 import { auth } from '@/lib/api'
 import { toast } from 'sonner'
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export default function DashboardLayoutClient({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -39,7 +45,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         const errorMessage = error.message || 'Your session has expired. Please log in again.'
         toast.error(errorMessage)
         
-        // No need to manually clear tokens here, auth.getCurrentUser will handle that
         router.push('/auth/login')
       } finally {
         setIsLoading(false)
@@ -57,6 +62,14 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     )
   }
 
-  // Only render children if authenticated
-  return isAuthenticated ? <>{children}</> : null
-}
+  // Only render content if authenticated
+  return isAuthenticated ? (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-grow">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  ) : null
+} 

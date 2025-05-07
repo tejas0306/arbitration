@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { auth } from '@/lib/api'
-import { toast } from 'sonner'
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import ArbitrationForm from "@/components/arbitration-form"
+import { auth } from "@/lib/api"
+import { toast } from "sonner"
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export default function ArbitrationFormWrapper() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -22,7 +23,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
           return
         }
         
-        // Check if token exists and is valid
+        // Check if token exists
         if (!auth.isAuthenticated()) {
           toast.error('Please log in to access this feature')
           router.push('/auth/login')
@@ -34,12 +35,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         setIsAuthenticated(true)
       } catch (error: any) {
         console.error('Authentication error:', error)
-        
-        // Use the error message from the API if available
-        const errorMessage = error.message || 'Your session has expired. Please log in again.'
-        toast.error(errorMessage)
-        
-        // No need to manually clear tokens here, auth.getCurrentUser will handle that
+        toast.error('Session expired. Please log in again.')
         router.push('/auth/login')
       } finally {
         setIsLoading(false)
@@ -57,6 +53,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     )
   }
 
-  // Only render children if authenticated
-  return isAuthenticated ? <>{children}</> : null
-}
+  // Only render form if authenticated
+  return isAuthenticated ? <ArbitrationForm /> : null
+} 

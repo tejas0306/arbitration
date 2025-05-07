@@ -6,8 +6,11 @@ This checklist helps ensure your Arbitration Portal deployment to Vercel (fronte
 
 ### Code Structure & Configuration
 
-- [ ] Ensure all client-side hooks (`useRouter`, `useSearchParams`, etc.) are properly wrapped in client components
+- [ ] Ensure all client-side hooks (`useRouter`, `useSearchParams`, `useAuth`, etc.) are properly wrapped in client components
 - [ ] Verify all pages using client components are wrapped in Suspense boundaries
+- [ ] Check that all layouts using protected routes or auth functionality are structured correctly:
+  - [ ] No direct client hooks in server components
+  - [ ] Layout components should use the DashboardLayoutClient pattern
 - [ ] Check that all required environment variables are documented
 - [ ] Confirm `next.config.mjs` is properly configured with:
   - [ ] `output: 'standalone'` for Vercel deployment
@@ -31,6 +34,7 @@ This checklist helps ensure your Arbitration Portal deployment to Vercel (fronte
 
 - [ ] Run the server component check script: `./fix-server-components.sh`
 - [ ] Run the Vercel preparation script: `./prepare-for-vercel.sh`
+- [ ] Test the build locally: `NEXT_PUBLIC_SKIP_AUTH_VERIFICATION=true npm run build`
 - [ ] Set up the following environment variables in Vercel:
   - [ ] `NEXT_PUBLIC_API_URL` - URL to your Render backend API
   - [ ] `NEXT_PUBLIC_SKIP_AUTH_VERIFICATION` - Set to `true` initially for testing
@@ -113,6 +117,7 @@ This checklist helps ensure your Arbitration Portal deployment to Vercel (fronte
 If you see errors about calling client hooks from server components:
 - Use the `fix-server-components.sh` script to identify problematic pages
 - Convert client logic to client components and wrap with Suspense
+- For layout files using ProtectedRoute, use the DashboardLayoutClient pattern
 
 ### CORS Issues
 

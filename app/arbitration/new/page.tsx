@@ -1,8 +1,5 @@
 import { Metadata } from 'next';
-import ArbitrationForm from '@/components/arbitration-form';
-import Header from '@/components/header';
-import Footer from '@/components/footer';
-import ProtectedRoute from '@/components/protected-route';
+import { Suspense } from 'react';
 import ArbitrationFormPage from '@/components/arbitration-form-page';
 
 export const metadata: Metadata = {
@@ -11,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function NewArbitrationPage() {
-  return <ArbitrationFormPage />;
-} 
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen">Loading...</div>}>
+      <ArbitrationFormPage />
+    </Suspense>
+  );
+}

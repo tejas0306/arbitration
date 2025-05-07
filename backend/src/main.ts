@@ -36,17 +36,14 @@ export async function bootstrap() {
   // We cannot add route handlers directly, we need to use controllers
   // Health check endpoint will be defined in a dedicated controller
   
-  // Only listen to port in development or Render (not in Vercel serverless)
-  if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
-    const port = process.env.PORT || 3001;
-    await app.listen(port);
-    console.log(`Application is running on: ${await app.getUrl()}`);
-  }
+  // Always listen to port in Render environment
+  const port = process.env.PORT || 3001;
+  const host = process.env.HOST || '0.0.0.0'; // Bind to all interfaces
+  await app.listen(port, host);
+  console.log(`Application is running on http://${host}:${port}`);
   
   return app;
 }
 
-// Only run bootstrap immediately in non-production
-if (process.env.NODE_ENV !== 'production') {
-  bootstrap();
-}
+// Run bootstrap in all environments
+bootstrap();

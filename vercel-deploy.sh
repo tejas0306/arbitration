@@ -28,8 +28,8 @@ echo "This will deploy your application to Vercel."
 echo "You may be prompted to login if you haven't already."
 echo "You will need to set up your environment variables in the Vercel dashboard after deployment."
 
-# Deploy with production flag, ignoring build errors
-npx vercel --prod --yes --skip-build
+# Deploy with production flag
+npx vercel --prod --yes
 
 echo "===== Deployment completed ====="
 echo "Please set up the following environment variables in your Vercel project settings:"

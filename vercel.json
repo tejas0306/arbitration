@@ -1,11 +1,17 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "buildCommand": "npm install --legacy-peer-deps && npx prisma generate && NEXT_PUBLIC_SKIP_AUTH_VERIFICATION=true npm run build",
-  "devCommand": "npm run dev",
+  "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": "out",
+  "outputDirectory": ".next",
+  "functions": {
+    "api/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://your-backend-api-url.com"
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_API_URL": "/api"
   }
 }

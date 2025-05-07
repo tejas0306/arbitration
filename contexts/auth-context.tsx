@@ -1,73 +1,60 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { useRouter } from "next/navigation"
-import { auth, setLogoutCallback } from "@/lib/api"
-import { toast } from "sonner"
+import React, { createContext, useState, useContext, useEffect } from 'react'
+import { auth } from '@/lib/api'
+import { useRouter } from 'next/navigation'
 
-type User = {
+interface User {
   id: string
-  name: string
   email: string
-  role: string
+  name?: string
+  role?: string
 }
 
-type AuthContextType = {
+interface AuthContextType {
   user: User | null
-  isAuthenticated: boolean
   isLoading: boolean
-  login: (token: string, userData: User) => void
+  isAuthenticated: boolean
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
+  register: (userData: any) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
-
-  // Setup the logout callback
+  
+  // Check if user is authenticated on initial load
   useEffect(() => {
-    setLogoutCallback(() => {
-      setUser(null)
-      router.push("/auth/login")
-    })
-  }, [router])
-
-  useEffect(() => {
-    // Check if user is logged in on initial load
     const checkAuth = async () => {
-      setIsLoading(true)
-      
       try {
-        // First check if we have a valid token
-        if (!auth.isAuthenticated()) {
+        // Skip auth check in development if needed
+        if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
           setIsLoading(false)
           return
         }
         
-        // Try to get user data from localStorage first for quick loading
-        const storedUser = localStorage.getItem("user")
-        if (storedUser) {
-          try {
-            setUser(JSON.parse(storedUser))
-          } catch (e) {
-            // Invalid user data, will fetch from server instead
-            console.error("Error parsing stored user:", e)
-          }
+        // Get token from localStorage
+        const token = localStorage.getItem('auth_token')
+        
+        if (!token) {
+          setUser(null)
+          setIsLoading(false)
+          return
         }
         
-        // Validate the token by fetching current user from server
+        // Verify token by getting current user
         const userData = await auth.getCurrentUser()
-        
-        // Update user data with latest from server
         setUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
       } catch (error) {
-        console.error("Auth check error:", error)
-        // Clear auth data
-        auth.logout()
+        console.error('Authentication error:', error)
+        setUser(null)
+        // Clear invalid token
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user')
       } finally {
         setIsLoading(false)
       }
@@ -75,29 +62,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     checkAuth()
   }, [])
-
-  const login = (token: string, userData: User) => {
-    // Use the token and user data provided by the login API
-    setUser(userData)
-    
-    // No need to set auth_token here as it will be handled by the auth.login() function
-    // This function should be called after auth.login() is successful
+  
+  // Login function
+  const login = async (email: string, password: string) => {
+    setIsLoading(true)
+    try {
+      const response = await auth.login(email, password)
+      
+      // Store token and user data
+      localStorage.setItem('auth_token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
+      
+      setUser(response.user)
+      router.push('/dashboard')
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
   }
-
+  
+  // Logout function
   const logout = () => {
     auth.logout()
     setUser(null)
-    router.push("/auth/login")
+    router.push('/auth/login')
   }
-
+  
+  // Register function
+  const register = async (userData: any) => {
+    setIsLoading(true)
+    try {
+      const response = await auth.register(userData)
+      
+      // Store token and user data
+      localStorage.setItem('auth_token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
+      
+      setUser(response.user)
+      router.push('/dashboard')
+    } catch (error) {
+      console.error('Registration error:', error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
   return (
-    <AuthContext.Provider
-      value={{
-        user,
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        isLoading, 
         isAuthenticated: !!user,
-        isLoading,
         login,
         logout,
+        register
       }}
     >
       {children}
@@ -108,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }

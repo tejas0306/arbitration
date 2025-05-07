@@ -4,8 +4,11 @@ import { AppModule } from './app.module';
 import helmet from 'helmet';
 import * as compression from 'compression';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+export async function bootstrap() {
+  const app = await NestFactory.create(AppModule, {
+    // Disable logger in production for serverless
+    logger: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : undefined,
+  });
   
   // Security middleware
   app.use(helmet());
@@ -26,10 +29,21 @@ async function bootstrap() {
     transform: true,
   }));
   
-  // Global prefix
-  app.setGlobalPrefix('api');
+  // Global prefix - only in standalone mode
+  if (process.env.NODE_ENV !== 'production') {
+    app.setGlobalPrefix('api');
+  }
   
-  await app.listen(process.env.PORT || 3001);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  // Only listen to port in development, not in serverless environment
+  if (process.env.NODE_ENV !== 'production') {
+    await app.listen(process.env.PORT || 3001);
+    console.log(`Application is running on: ${await app.getUrl()}`);
+  }
+  
+  return app;
 }
-bootstrap();
+
+// Only run bootstrap immediately in non-production
+if (process.env.NODE_ENV !== 'production') {
+  bootstrap();
+}

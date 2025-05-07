@@ -7,13 +7,29 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    unoptimized: process.env.NODE_ENV !== 'production',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
-  output: 'export',
-  // Disable server-side rendering and static optimization
+  // Only use export in non-production environments
+  ...(process.env.NODE_ENV !== 'production' && {
+    output: 'export',
+  }),
+  // Configure rewrites to proxy API requests to the NestJS backend in development
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/:path*` : '/api/:path*',
+      },
+    ];
+  },
   experimental: {
-    // This will allow client components with server-only hooks in certain environments
-    appDir: true,
+    serverComponentsExternalPackages: ['@prisma/client'],
   }
 }
 

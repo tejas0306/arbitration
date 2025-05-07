@@ -6,6 +6,11 @@ services:
     buildCommand: |
       npm install
       ls -la  # Debug the files in the directory
+      npx prisma generate
+      # Modify this line based on your preference: 
+      # - db push is good for development/prototyping (doesn't require migrations)
+      # - migrate deploy is better for production (requires migration files)
+      npx prisma db push --accept-data-loss
       npm run build
       ls -la dist # Debug the build output
       find dist -name "main.js" # Find where main.js is located

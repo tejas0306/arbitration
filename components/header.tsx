@@ -24,18 +24,34 @@ export default function Header() {
             <Link href="/" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
               Home
             </Link>
-            <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
-              About
-            </Link>
-            <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
-              Services
-            </Link>
-            <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
-              FAQs
-            </Link>
-            <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
-              Contact
-            </Link>
+            
+            {!isAuthenticated && (
+              <>
+                <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  About
+                </Link>
+                <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  Services
+                </Link>
+                <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  FAQs
+                </Link>
+                <Link href="#" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  Contact
+                </Link>
+              </>
+            )}
+            
+            {isAuthenticated && (
+              <>
+                <Link href="/dashboard" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  Dashboard
+                </Link>
+                <Link href="/dashboard/my-cases" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  My Cases
+                </Link>
+              </>
+            )}
           </div>
           
           {isAuthenticated ? (

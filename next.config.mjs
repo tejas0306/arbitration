@@ -15,10 +15,8 @@ const nextConfig = {
       },
     ],
   },
-  // Only use export in non-production environments
-  ...(process.env.NODE_ENV !== 'production' && {
-    output: 'export',
-  }),
+  // Use standalone for production, which supports client-side functionality
+  output: 'standalone',
   // Configure rewrites to proxy API requests to the NestJS backend in development
   async rewrites() {
     return [
@@ -28,9 +26,8 @@ const nextConfig = {
       },
     ];
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
-  }
+  experimental: {},
+  serverExternalPackages: ['@prisma/client']
 }
 
 export default nextConfig

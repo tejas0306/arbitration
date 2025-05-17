@@ -8,25 +8,66 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
+// Define types for the data
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+}
+
+interface Case {
+  id: string;
+  caseNumber?: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+interface Draft {
+  id: string;
+  name?: string;
+  type?: string;
+  status?: string;
+  createdAt: string;
+  updatedAt?: string;
+  lastEditedAt?: string;
+  claimantDetails?: {
+    name?: string;
+  };
+  disputeCategory?: string;
+}
+
 export default function DashboardPage() {
-  const [userData, setUserData] = useState(null);
-  const [cases, setCases] = useState([]);
-  const [drafts, setDrafts] = useState([]);
+  const [userData, setUserData] = useState<User | null>(null);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('cases');
 
   // Define fetchData at the component level so it can be used by multiple functions
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log('Fetching dashboard data...');
+      
       // Fetch user data
-      const user = await api.auth.getCurrentUser();
-      setUserData(user);
+      try {
+        const user = await api.auth.getCurrentUser();
+        console.log('User data fetched successfully');
+        setUserData(user);
+      } catch (userErr) {
+        console.error('Error fetching user data:', userErr);
+        // Continue to fetch other data even if user data fails
+      }
 
       // Fetch arbitration cases
       try {
+        console.log('Fetching arbitration cases...');
         const casesData = await api.arbitration.getAll();
+        console.log('Cases fetched successfully:', casesData.length);
         setCases(casesData);
       } catch (caseErr) {
         console.error('Error fetching cases:', caseErr);
@@ -35,15 +76,23 @@ export default function DashboardPage() {
 
       // Fetch drafts
       try {
+        console.log('Fetching drafts...');
         const draftsData = await api.arbitration.getDrafts();
-        setDrafts(draftsData);
+        console.log('Drafts fetched successfully:', draftsData);
+        if (Array.isArray(draftsData)) {
+          console.log(`Received ${draftsData.length} drafts`);
+          setDrafts(draftsData);
+        } else {
+          console.warn('Received non-array draft data:', draftsData);
+          setDrafts([]);
+        }
       } catch (draftErr) {
         console.error('Error fetching drafts:', draftErr);
         setDrafts([]);
         // Continue execution - we can still show the dashboard without drafts
       }
     } catch (err) {
-      console.error('Error fetching user data:', err);
+      console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);
@@ -99,15 +148,39 @@ export default function DashboardPage() {
           <div className="max-w-5xl mx-auto">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
               <h1 className="text-3xl font-bold text-indigo-800 mb-4 md:mb-0">Dashboard</h1>
-              <Link 
-                href="/arbitration/new" 
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out inline-flex items-center shadow-md"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                New Arbitration Request
-              </Link>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => fetchData()}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out inline-flex items-center"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Refreshing...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </span>
+                  )}
+                </button>
+                <Link 
+                  href="/arbitration/new" 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out inline-flex items-center shadow-md"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  New Arbitration Request
+                </Link>
+              </div>
             </div>
 
             {userData && (
@@ -273,16 +346,16 @@ export default function DashboardPage() {
                         {drafts.map((draft) => (
                           <tr key={draft.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {draft.title || `Draft ${draft.id}`}
+                              {draft.claimantDetails?.name || draft.name || `Draft ${draft.id.substring(0, 8)}`}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {draft.type}
+                              {draft.disputeCategory || draft.type || 'Arbitration'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {new Date(draft.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(draft.updatedAt).toLocaleDateString()}
+                              {new Date(draft.updatedAt || draft.lastEditedAt || draft.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-3">
                               <Link 

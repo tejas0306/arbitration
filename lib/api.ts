@@ -178,14 +178,16 @@ export const arbitrationApi = {
       }
       
       // Log full request URL for debugging
-      const fullUrl = `${API_URL}/api/arbitration/drafts`;
+      const fullUrl = `${API_URL}/api/arbitration/draft`;
       console.log('Attempting to save draft to:', fullUrl);
       
       // Log formData entries in a more user-friendly way
       const formDataLog: Record<string, any> = {};
+      let hasFiles = false;
       formData.forEach((value, key) => {
         // Don't log file contents, just file names for files
         if (value instanceof File) {
+          hasFiles = true;
           formDataLog[key] = `File: ${value.name} (${value.type}, ${value.size} bytes)`;
         } else if (typeof value === 'string' && value.startsWith('{')) {
           // Try to parse JSON strings for better logging
@@ -200,6 +202,7 @@ export const arbitrationApi = {
       });
       
       console.log('Draft FormData contents:', formDataLog);
+      console.log('FormData has files:', hasFiles);
       
       // Fix: Use correct endpoint to match the backend controller
       const response = await apiClient.post('/arbitration/draft', formData, {
@@ -249,10 +252,19 @@ export const arbitrationApi = {
   // Enhanced methods for draft management
   getDrafts: async () => {
     try {
+      console.log('Fetching drafts from:', `${API_URL}/api/arbitration/draft`);
       const response = await apiClient.get('/arbitration/draft');
+      console.log('Got drafts response:', response.data ? 'SUCCESS' : 'EMPTY');
       return response.data;
-    } catch (error) {
-      console.error('Error getting drafts:', error);
+    } catch (error: any) {
+      console.error('Error getting drafts:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullUrl: error.config?.baseURL + error.config?.url,
+      });
       throw error;
     }
   },
@@ -288,8 +300,22 @@ export const arbitrationApi = {
   },
 
   getAll: async () => {
-    const response = await apiClient.get('/arbitration/cases');
-    return response.data;
+    try {
+      console.log('Fetching all cases from:', `${API_URL}/api/arbitration/cases`);
+      const response = await apiClient.get('/arbitration/cases');
+      console.log('Got cases response:', response.data ? 'SUCCESS' : 'EMPTY');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error getting cases:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullUrl: error.config?.baseURL + error.config?.url,
+      });
+      throw error;
+    }
   },
 
   getById: async (id: string) => {

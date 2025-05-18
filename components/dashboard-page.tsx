@@ -20,30 +20,63 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear any previous errors
+      
+      console.log('Fetching dashboard data...');
+      
       // Fetch user data
-      const user = await api.auth.getCurrentUser();
-      setUserData(user);
+      try {
+        const user = await api.auth.getCurrentUser();
+        setUserData(user);
+        console.log('User data fetched successfully');
+      } catch (userErr) {
+        console.error('Error fetching user data:', userErr);
+        toast.error('Unable to load your profile information');
+        // Continue execution to try loading other data
+      }
 
       // Fetch arbitration cases
       try {
+        console.log('Fetching arbitration cases...');
         const casesData = await api.arbitration.getAll();
-        setCases(casesData);
+        setCases(casesData || []);
+        console.log(`Fetched ${casesData?.length || 0} cases`);
       } catch (caseErr) {
         console.error('Error fetching cases:', caseErr);
+        console.error('Cases error details:', {
+          message: caseErr.message,
+          response: caseErr.response?.data,
+          status: caseErr.response?.status,
+          url: caseErr.config?.url,
+          baseURL: caseErr.config?.baseURL
+        });
+        
+        toast.error('Unable to load your active cases');
         setCases([]);
       }
 
       // Fetch drafts
       try {
+        console.log('Fetching draft submissions...');
         const draftsData = await api.arbitration.getDrafts();
-        setDrafts(draftsData);
+        setDrafts(draftsData || []);
+        console.log(`Fetched ${draftsData?.length || 0} drafts`);
       } catch (draftErr) {
         console.error('Error fetching drafts:', draftErr);
+        console.error('Drafts error details:', {
+          message: draftErr.message,
+          response: draftErr.response?.data,
+          status: draftErr.response?.status,
+          url: draftErr.config?.url,
+          baseURL: draftErr.config?.baseURL
+        });
+        
+        toast.error('Unable to load your saved drafts');
         setDrafts([]);
         // Continue execution - we can still show the dashboard without drafts
       }
     } catch (err) {
-      console.error('Error fetching user data:', err);
+      console.error('Dashboard general error:', err);
       setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);

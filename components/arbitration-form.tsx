@@ -12,7 +12,10 @@ const steps = [
   "Respondent Details",
   "Arbitration Agreement",
   "Dispute Details",
+  "Prayers & Reliefs",
   "Documents",
+  "Payment",
+  "Arguments",
   "Review & Submit",
 ]
 
@@ -45,6 +48,16 @@ const initialAdditionalClaimant = {
   address: "",
 }
 
+const initialManagerDetails = {
+  name: "",
+  email: "",
+  phoneCountryCode: "+91",
+  phone: "",
+  address: "",
+  designation: "",
+  authority: "",
+}
+
 const initialRespondent = {
   type: "",
   name: "",
@@ -61,6 +74,11 @@ const initialArbitrationAgreement = {
   agreementDate: "",
   agreementType: "",
   agreementFile: null,
+  resolutionMode: "",
+  seatOfArbitration: "",
+  signedOnPlace: "",
+  agreementParties: "",
+  arbitratorSelection: "",
 }
 
 const initialDisputeDetails = {
@@ -68,11 +86,33 @@ const initialDisputeDetails = {
   disputeAmount: "",
   disputeDescription: "",
   disputeDate: "",
+  serviceType: "",
+  applicableActs: [] as string[],
+  disputeCategory: "",
+  disputeSubCategory: "",
+  natureOfDispute: "",
+  factsOfCase: "",
+  clauseReferences: "",
+}
+
+const initialPrayers = {
+  prayers: "",
 }
 
 const initialDocuments = {
-  supportingDocuments: [],
-  evidenceFiles: [],
+  supportingDocuments: [] as File[],
+  evidenceFiles: [] as File[],
+  documentTypes: {} as Record<string, string>,
+}
+
+const initialPayment = {
+  paymentHead: "",
+  paymentAmount: "",
+  paymentDetails: "",
+}
+
+const initialArguments = {
+  argumentsPerIssue: [] as string[],
 }
 
 const countryCodes = [
@@ -109,10 +149,14 @@ export default function ArbitrationForm() {
   const [activeStep, setActiveStep] = useState(0)
   const [claimant, setClaimant] = useState(initialClaimant)
   const [additionalClaimants, setAdditionalClaimants] = useState([initialAdditionalClaimant])
+  const [managerDetails, setManagerDetails] = useState(initialManagerDetails)
   const [respondents, setRespondents] = useState([initialRespondent])
   const [arbitrationAgreement, setArbitrationAgreement] = useState(initialArbitrationAgreement)
   const [disputeDetails, setDisputeDetails] = useState(initialDisputeDetails)
+  const [prayers, setPrayers] = useState(initialPrayers)
   const [documents, setDocuments] = useState(initialDocuments)
+  const [payment, setPayment] = useState(initialPayment)
+  const [argumentsData, setArgumentsData] = useState(initialArguments)
   const [errors, setErrors] = useState<any>({})
   const [isClient, setIsClient] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -232,7 +276,8 @@ export default function ArbitrationForm() {
         clearTimeout(autoSaveTimer);
       }
     };
-  }, [claimant, additionalClaimants, respondents, arbitrationAgreement, disputeDetails, formChanged]);
+  }, [claimant, additionalClaimants, managerDetails, respondents, arbitrationAgreement, 
+      disputeDetails, prayers, documents, payment, argumentsData, formChanged]);
 
   // Auto-save draft function
   const autoSaveDraft = async () => {
@@ -354,6 +399,11 @@ export default function ArbitrationForm() {
       setAdditionalClaimants(data.additionalClaimants);
     }
     
+    // Load manager details
+    if (data.managerDetails) {
+      setManagerDetails(data.managerDetails);
+    }
+    
     // Load respondents
     if (data.respondents && data.respondents.length > 0) {
       setRespondents(data.respondents);
@@ -364,6 +414,11 @@ export default function ArbitrationForm() {
       setArbitrationAgreement({
         agreementDate: data.arbitrationAgreement.agreementDate || '',
         agreementType: data.arbitrationAgreement.agreementType || '',
+        resolutionMode: data.arbitrationAgreement.resolutionMode || '',
+        seatOfArbitration: data.arbitrationAgreement.seatOfArbitration || '',
+        signedOnPlace: data.arbitrationAgreement.signedOnPlace || '',
+        agreementParties: data.arbitrationAgreement.agreementParties || '',
+        arbitratorSelection: data.arbitrationAgreement.arbitratorSelection || '',
         agreementFile: null,
       });
     }
@@ -375,7 +430,48 @@ export default function ArbitrationForm() {
         disputeAmount: data.disputeDetails.disputeAmount || '',
         disputeDescription: data.disputeDetails.disputeDescription || '',
         disputeDate: data.disputeDetails.disputeDate || '',
+        serviceType: data.disputeDetails.serviceType || '',
+        applicableActs: data.disputeDetails.applicableActs || [],
+        disputeCategory: data.disputeDetails.disputeCategory || '',
+        disputeSubCategory: data.disputeDetails.disputeSubCategory || '',
+        natureOfDispute: data.disputeDetails.natureOfDispute || '',
+        factsOfCase: data.disputeDetails.factsOfCase || '',
+        clauseReferences: data.disputeDetails.clauseReferences || '',
       });
+      
+      // If prayers data is in the disputeDetails.reliefSought field, use that
+      if (data.disputeDetails.reliefSought) {
+        setPrayers({
+          prayers: data.disputeDetails.reliefSought
+        });
+      } else if (data.disputeDetails.prayerClauses) {
+        setPrayers({
+          prayers: data.disputeDetails.prayerClauses
+        });
+      }
+    }
+    
+    // Load prayers and reliefs from root object (for backward compatibility)
+    if (data.prayers) {
+      setPrayers(data.prayers);
+    }
+    
+    // Load payment information
+    if (data.payment) {
+      setPayment(data.payment);
+    }
+    
+    // Load arguments
+    if (data.arguments) {
+      setArgumentsData(data.arguments);
+    }
+    
+    // Load document types
+    if (data.documentTypes) {
+      setDocuments(prev => ({
+        ...prev,
+        documentTypes: data.documentTypes
+      }));
     }
   };
 
@@ -420,29 +516,67 @@ export default function ArbitrationForm() {
       pan: claimant.pan,
       cin: claimant.cin,
       additionalClaimants: additionalClaimants,
+      managerDetails: managerDetails,
       respondents: respondents,
       arbitrationAgreement: {
         agreementDate: arbitrationAgreement.agreementDate,
         agreementType: arbitrationAgreement.agreementType,
+        resolutionMode: arbitrationAgreement.resolutionMode,
+        seatOfArbitration: arbitrationAgreement.seatOfArbitration,
+        signedOnPlace: arbitrationAgreement.signedOnPlace,
+        agreementParties: arbitrationAgreement.agreementParties,
+        arbitratorSelection: arbitrationAgreement.arbitratorSelection,
       },
-      disputeDetails: disputeDetails,
+      disputeDetails: {
+        ...disputeDetails,
+        // Add prayers as reliefSought in the dispute details
+        reliefSought: prayers.prayers,
+        prayerClauses: prayers.prayers, // Adding to both fields to ensure compatibility
+      },
+      // Keep prayers in the root object for backward compatibility with frontend
+      prayers: prayers,
+      payment: payment,
+      arguments: argumentsData,
+      documentTypes: documents.documentTypes,
       id: currentDraftId || undefined,
+      // Track which files are included
+      includedFiles: {
+        coi: claimant.coi ? true : false,
+        panCard: claimant.panCard ? true : false,
+        gstCert: claimant.gstCert ? true : false,
+        agreementFile: arbitrationAgreement.agreementFile ? true : false,
+        supportingDocuments: documents.supportingDocuments.length > 0,
+        evidenceFiles: documents.evidenceFiles.length > 0,
+      }
     };
 
     // Add the structured data as a JSON string
     formData.append('data', JSON.stringify(arbitrationData));
 
     // Add files separately
-    if (claimant.coi) formData.append('coi', claimant.coi as File);
-    if (claimant.panCard) formData.append('panCard', claimant.panCard as File);
-    if (claimant.gstCert) formData.append('gstCert', claimant.gstCert as File);
+    if (claimant.coi) {
+      console.log('Appending COI file:', claimant.coi);
+      formData.append('coi', claimant.coi);
+    }
+    
+    if (claimant.panCard) {
+      console.log('Appending PAN card file:', claimant.panCard);
+      formData.append('panCard', claimant.panCard);
+    }
+    
+    if (claimant.gstCert) {
+      console.log('Appending GST cert file:', claimant.gstCert);
+      formData.append('gstCert', claimant.gstCert);
+    }
     
     if (arbitrationAgreement.agreementFile) {
-      formData.append('agreementFile', arbitrationAgreement.agreementFile as File);
+      console.log('Appending agreement file:', arbitrationAgreement.agreementFile);
+      formData.append('agreementFile', arbitrationAgreement.agreementFile);
     }
 
     // Add supporting documents
     if (documents.supportingDocuments.length > 0) {
+      console.log(`Appending ${documents.supportingDocuments.length} supporting documents`);
       documents.supportingDocuments.forEach((file, index) => {
         formData.append(`supportingDocuments_${index}`, file);
       });
@@ -450,6 +584,7 @@ export default function ArbitrationForm() {
     
     // Add evidence files
     if (documents.evidenceFiles.length > 0) {
+      console.log(`Appending ${documents.evidenceFiles.length} evidence files`);
       documents.evidenceFiles.forEach((file, index) => {
         formData.append(`evidenceFiles_${index}`, file);
       });
@@ -490,7 +625,8 @@ export default function ArbitrationForm() {
           console.error('Error in draft submission flow:', submitError);
           const errorMessage = submitError.message || 'Error submitting draft';
           toast.error(errorMessage);
-          throw submitError; // Re-throw to stop execution
+          // Don't rethrow to continue execution
+          return; // Exit function but don't throw
         }
       } else {
         // Otherwise, save as draft first, then submit
@@ -503,6 +639,10 @@ export default function ArbitrationForm() {
             // Now submit the saved draft
             await arbitrationApi.submitDraft(saveDraftResponse.id);
             toast.success('Arbitration request submitted successfully!');
+            
+            // Reset form and go back to first step on success
+            setCurrentDraftId(null);
+            resetForm();
           } else {
             throw new Error('Failed to save draft before submission');
           }
@@ -510,7 +650,8 @@ export default function ArbitrationForm() {
           console.error('Error in direct submission flow:', directError);
           const errorMessage = directError.message || 'Error submitting arbitration request';
           toast.error(errorMessage);
-          throw directError;
+          // Don't rethrow to continue execution
+          return; // Exit function but don't throw
         }
       }
       
@@ -635,6 +776,11 @@ export default function ArbitrationForm() {
           setAdditionalClaimants(draft.additionalClaimants);
         }
         
+        // Load manager details
+        if (draft.managerDetails) {
+          setManagerDetails(draft.managerDetails);
+        }
+        
         // Load respondents
         if (draft.respondents && draft.respondents.length > 0) {
           setRespondents(draft.respondents);
@@ -646,6 +792,11 @@ export default function ArbitrationForm() {
             agreementDate: draft.arbitrationAgreement.agreementDate || '',
             agreementType: draft.arbitrationAgreement.agreementType || '',
             agreementFile: null,
+            resolutionMode: draft.arbitrationAgreement.resolutionMode || '',
+            seatOfArbitration: draft.arbitrationAgreement.seatOfArbitration || '',
+            signedOnPlace: draft.arbitrationAgreement.signedOnPlace || '',
+            agreementParties: draft.arbitrationAgreement.agreementParties || '',
+            arbitratorSelection: draft.arbitrationAgreement.arbitratorSelection || '',
           });
         }
         
@@ -656,7 +807,48 @@ export default function ArbitrationForm() {
             disputeAmount: draft.disputeDetails.disputeAmount || '',
             disputeDescription: draft.disputeDetails.disputeDescription || '',
             disputeDate: draft.disputeDetails.disputeDate || '',
+            serviceType: draft.disputeDetails.serviceType || '',
+            applicableActs: draft.disputeDetails.applicableActs || [],
+            disputeCategory: draft.disputeDetails.disputeCategory || '',
+            disputeSubCategory: draft.disputeDetails.disputeSubCategory || '',
+            natureOfDispute: draft.disputeDetails.natureOfDispute || '',
+            factsOfCase: draft.disputeDetails.factsOfCase || '',
+            clauseReferences: draft.disputeDetails.clauseReferences || '',
           });
+          
+          // If prayers data is in the disputeDetails.reliefSought field, use that
+          if (draft.disputeDetails.reliefSought) {
+            setPrayers({
+              prayers: draft.disputeDetails.reliefSought
+            });
+          } else if (draft.disputeDetails.prayerClauses) {
+            setPrayers({
+              prayers: draft.disputeDetails.prayerClauses
+            });
+          }
+        }
+        
+        // Load prayers and reliefs from root object (for backward compatibility)
+        if (draft.prayers) {
+          setPrayers(draft.prayers);
+        }
+        
+        // Load payment information
+        if (draft.payment) {
+          setPayment(draft.payment);
+        }
+        
+        // Load arguments
+        if (draft.arguments) {
+          setArgumentsData(draft.arguments);
+        }
+        
+        // Load document types
+        if (draft.documentTypes) {
+          setDocuments(prev => ({
+            ...prev,
+            documentTypes: draft.documentTypes
+          }));
         }
         
         toast.success('Draft loaded successfully!');
@@ -672,10 +864,14 @@ export default function ArbitrationForm() {
   const resetForm = () => {
     setClaimant(initialClaimant);
     setAdditionalClaimants([initialAdditionalClaimant]);
+    setManagerDetails(initialManagerDetails);
     setRespondents([initialRespondent]);
     setArbitrationAgreement(initialArbitrationAgreement);
     setDisputeDetails(initialDisputeDetails);
+    setPrayers(initialPrayers);
     setDocuments(initialDocuments);
+    setPayment(initialPayment);
+    setArgumentsData(initialArguments);
     setCurrentDraftId(null);
     setActiveStep(0);
   };
@@ -703,6 +899,20 @@ export default function ArbitrationForm() {
       // Optional: GST, CIN, COI, PAN card, GST cert validation
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
+    } else if (activeStep === 1) {
+      // Validate manager details
+      const newErrors: any = {}
+      if (managerDetails.name && !managerDetails.designation) {
+        newErrors.managerDesignation = "Manager designation is required if name is provided"
+      }
+      if (managerDetails.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(managerDetails.email)) {
+        newErrors.managerEmail = "Valid email is required"
+      }
+      if (managerDetails.phone && (managerDetails.phone.length !== 10 || !/^\d{10}$/.test(managerDetails.phone))) {
+        newErrors.managerPhone = "Valid 10-digit Indian mobile number is required"
+      }
+      setErrors(newErrors)
+      if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 2) {
       // Validate respondent details
       const newErrors: any = {}
@@ -720,6 +930,11 @@ export default function ArbitrationForm() {
       if (!arbitrationAgreement.agreementDate) newErrors.agreementDate = "Agreement date is required"
       if (!arbitrationAgreement.agreementType) newErrors.agreementType = "Agreement type is required"
       if (!arbitrationAgreement.agreementFile) newErrors.agreementFile = "Agreement file is required"
+      if (!arbitrationAgreement.resolutionMode) newErrors.resolutionMode = "Resolution mode is required"
+      if (!arbitrationAgreement.seatOfArbitration) newErrors.seatOfArbitration = "Seat of arbitration is required"
+      if (!arbitrationAgreement.signedOnPlace) newErrors.signedOnPlace = "Signed-on place is required"
+      if (!arbitrationAgreement.agreementParties) newErrors.agreementParties = "Agreement parties is required"
+      if (!arbitrationAgreement.arbitratorSelection) newErrors.arbitratorSelection = "Arbitrator selection is required"
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 4) {
@@ -729,6 +944,39 @@ export default function ArbitrationForm() {
       if (!disputeDetails.disputeAmount) newErrors.disputeAmount = "Dispute amount is required"
       if (!disputeDetails.disputeDescription) newErrors.disputeDescription = "Dispute description is required"
       if (!disputeDetails.disputeDate) newErrors.disputeDate = "Dispute date is required"
+      if (!disputeDetails.serviceType) newErrors.serviceType = "Service type is required"
+      if (!disputeDetails.disputeCategory) newErrors.disputeCategory = "Dispute category is required"
+      if (!disputeDetails.disputeSubCategory) newErrors.disputeSubCategory = "Dispute sub-category is required"
+      if (!disputeDetails.natureOfDispute) newErrors.natureOfDispute = "Nature of dispute is required"
+      if (!disputeDetails.factsOfCase) newErrors.factsOfCase = "Facts of the case is required"
+      if (!disputeDetails.clauseReferences) newErrors.clauseReferences = "Clause references is required"
+      if (disputeDetails.applicableActs.length === 0) newErrors.applicableActs = "At least one applicable act is required"
+      setErrors(newErrors)
+      if (Object.keys(newErrors).length > 0) return
+    } else if (activeStep === 5) {
+      // Validate prayers & reliefs
+      const newErrors: any = {}
+      if (!prayers.prayers) newErrors.prayers = "Prayers & reliefs is required"
+      setErrors(newErrors)
+      if (Object.keys(newErrors).length > 0) return
+    } else if (activeStep === 7) {
+      // Validate payment details
+      const newErrors: any = {}
+      if (!payment.paymentHead) newErrors.paymentHead = "Payment head is required"
+      if (!payment.paymentAmount) newErrors.paymentAmount = "Payment amount is required"
+      if (!payment.paymentDetails) newErrors.paymentDetails = "Payment details is required"
+      setErrors(newErrors)
+      if (Object.keys(newErrors).length > 0) return
+    } else if (activeStep === 8) {
+      // Validate arguments
+      const newErrors: any = {}
+      if (argumentsData.argumentsPerIssue.length === 0) newErrors.argumentsPerIssue = "At least one argument is required"
+      setErrors(newErrors)
+      if (Object.keys(newErrors).length > 0) return
+    } else if (activeStep === 9) {
+      // Validate review & submit
+      const newErrors: any = {}
+      if (!isAuthenticated) newErrors.authentication = "Please log in to submit your petition"
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     }
@@ -903,11 +1151,25 @@ export default function ArbitrationForm() {
 
   const handleArbitrationAgreementChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, files } = e.target as any
-    setArbitrationAgreement((prev) => ({
-      ...prev,
-      [name]: files ? files[0] : value,
-    }))
-    setFormChanged(true)
+    
+    if (files && files.length > 0) {
+      console.log(`Handling file upload for ${name}: ${files[0].name} (${files[0].type}, ${files[0].size} bytes)`);
+      setArbitrationAgreement((prev) => {
+        const newState = {
+          ...prev,
+          [name]: files[0]
+        };
+        return newState;
+      });
+    } else {
+      console.log(`Setting ${name} value:`, value);
+      setArbitrationAgreement((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+    
+    setFormChanged(true);
   }
 
   const handleDisputeDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -921,12 +1183,29 @@ export default function ArbitrationForm() {
 
   const handleDocumentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target
-    if (files) {
-      setDocuments((prev) => ({
-        ...prev,
-        [name]: Array.from(files),
-      }))
-      setFormChanged(true)
+    if (files && files.length > 0) {
+      console.log(`Handling ${files.length} files for ${name}`);
+      // Log file info for debugging
+      Array.from(files).forEach((file, index) => {
+        console.log(`File ${index + 1}: ${file.name} (${file.type}, ${file.size} bytes)`);
+      });
+      
+      // Only update if the name is a valid property of our documents state
+      if (name === 'supportingDocuments' || name === 'evidenceFiles') {
+        setDocuments((prev) => {
+          const newState = {
+            ...prev,
+            [name]: Array.from(files),
+          };
+          console.log(`Updated ${name} array, now has ${newState[name as keyof typeof newState].length} files`);
+          return newState;
+        });
+        setFormChanged(true);
+      } else {
+        console.error(`Invalid document field name: ${name}`);
+      }
+    } else {
+      console.log(`No files selected for ${name}`);
     }
   }
 
@@ -1284,6 +1563,69 @@ export default function ArbitrationForm() {
       }));
     }
   };
+
+  const handlePrayersChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setPrayers((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+    setFormChanged(true)
+  }
+
+  const handlePaymentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setPayment((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+    setFormChanged(true)
+  }
+
+  const handleArgumentChange = (index: number, value: string) => {
+    const newArguments = [...argumentsData.argumentsPerIssue]
+    newArguments[index] = value
+    setArgumentsData((prev) => ({
+      ...prev,
+      argumentsPerIssue: newArguments,
+    }))
+    setFormChanged(true)
+  }
+
+  const addArgument = () => {
+    setArgumentsData((prev) => ({
+      ...prev,
+      argumentsPerIssue: [...prev.argumentsPerIssue, ""],
+    }))
+  }
+
+  const removeArgument = (index: number) => {
+    const newArguments = argumentsData.argumentsPerIssue.filter((_, i) => i !== index)
+    setArgumentsData((prev) => ({
+      ...prev,
+      argumentsPerIssue: newArguments,
+    }))
+  }
+
+  const handleManagerDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setManagerDetails((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+    setFormChanged(true)
+  }
+
+  const handleDocumentTypeChange = (docType: string, category: string, index: number) => {
+    setDocuments((prev) => ({
+      ...prev,
+      documentTypes: {
+        ...prev.documentTypes,
+        [`${category}_${index}`]: docType
+      }
+    }))
+    setFormChanged(true)
+  }
 
   if (!isClient) {
     return null // or a loading spinner
@@ -1663,6 +2005,88 @@ export default function ArbitrationForm() {
             <Button onClick={addAdditionalClaimant} variant="outline">
               Add Additional Claimant
             </Button>
+            
+            <div className="mt-8 border-t pt-6">
+              <h4 className="font-medium mb-4">Manager Details</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-1">Manager Name</label>
+                  <input
+                    name="name"
+                    value={managerDetails.name}
+                    onChange={handleManagerDetailsChange}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Designation</label>
+                  <input
+                    name="designation"
+                    value={managerDetails.designation}
+                    onChange={handleManagerDetailsChange}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                  {errors.managerDesignation && (
+                    <div className="text-red-500 text-xs mt-1">{errors.managerDesignation}</div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Email</label>
+                  <input
+                    name="email"
+                    type="email"
+                    value={managerDetails.email}
+                    onChange={handleManagerDetailsChange}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                  {errors.managerEmail && (
+                    <div className="text-red-500 text-xs mt-1">{errors.managerEmail}</div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Phone</label>
+                  <div className="flex gap-2">
+                    <select
+                      name="phoneCountryCode"
+                      value="+91"
+                      disabled={true}
+                      className="w-24 border rounded px-2 py-1 bg-gray-100"
+                    >
+                      <option value="+91">+91 (India)</option>
+                    </select>
+                    <input
+                      name="phone"
+                      value={managerDetails.phone}
+                      onChange={(e) => handlePhoneChange(e, setManagerDetails, 'phone')}
+                      placeholder="10-digit Indian mobile number"
+                      className="flex-1 border rounded px-2 py-1"
+                    />
+                  </div>
+                  {errors.managerPhone && (
+                    <div className="text-red-500 text-xs mt-1">{errors.managerPhone}</div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Address</label>
+                  <input
+                    name="address"
+                    value={managerDetails.address}
+                    onChange={handleManagerDetailsChange}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Authority</label>
+                  <input
+                    name="authority"
+                    value={managerDetails.authority}
+                    onChange={handleManagerDetailsChange}
+                    className="w-full border rounded px-2 py-1"
+                    placeholder="Authority to represent claimants"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )
       case 2: // Respondent Details
@@ -1939,6 +2363,80 @@ export default function ArbitrationForm() {
                   <div className="text-red-500 text-xs mt-1">{errors.agreementType}</div>
                 )}
               </div>
+              <div>
+                <label className="block text-sm mb-1">Resolution Mode*</label>
+                <select
+                  name="resolutionMode"
+                  value={arbitrationAgreement.resolutionMode}
+                  onChange={handleArbitrationAgreementChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select mode</option>
+                  <option value="physical">Physical</option>
+                  <option value="virtual">Virtual</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+                {errors.resolutionMode && (
+                  <div className="text-red-500 text-xs mt-1">{errors.resolutionMode}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Seat of Arbitration*</label>
+                <input
+                  name="seatOfArbitration"
+                  value={arbitrationAgreement.seatOfArbitration}
+                  onChange={handleArbitrationAgreementChange}
+                  className="w-full border rounded px-2 py-1"
+                  placeholder="e.g., Mumbai, Delhi"
+                />
+                {errors.seatOfArbitration && (
+                  <div className="text-red-500 text-xs mt-1">{errors.seatOfArbitration}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Signed-on Place*</label>
+                <input
+                  name="signedOnPlace"
+                  value={arbitrationAgreement.signedOnPlace}
+                  onChange={handleArbitrationAgreementChange}
+                  className="w-full border rounded px-2 py-1"
+                  placeholder="Location where agreement was signed"
+                />
+                {errors.signedOnPlace && (
+                  <div className="text-red-500 text-xs mt-1">{errors.signedOnPlace}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Agreement Between Parties*</label>
+                <input
+                  name="agreementParties"
+                  value={arbitrationAgreement.agreementParties}
+                  onChange={handleArbitrationAgreementChange}
+                  className="w-full border rounded px-2 py-1"
+                  placeholder="Names of parties to the agreement"
+                />
+                {errors.agreementParties && (
+                  <div className="text-red-500 text-xs mt-1">{errors.agreementParties}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Arbitrator Selection*</label>
+                <select
+                  name="arbitratorSelection"
+                  value={arbitrationAgreement.arbitratorSelection}
+                  onChange={handleArbitrationAgreementChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select option</option>
+                  <option value="sole">Sole Arbitrator</option>
+                  <option value="panel">Panel of Arbitrators</option>
+                  <option value="institution">Institutional Appointment</option>
+                  <option value="court">Court Appointment</option>
+                </select>
+                {errors.arbitratorSelection && (
+                  <div className="text-red-500 text-xs mt-1">{errors.arbitratorSelection}</div>
+                )}
+              </div>
               <div className="col-span-2">
                 <label className="block text-sm mb-1">Agreement File*</label>
                 <input
@@ -1957,7 +2455,7 @@ export default function ArbitrationForm() {
       case 4: // Dispute Details
         return (
           <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Dispute Details</h3>
+            <h3 className="font-medium text-lg mb-4">Dispute Details & Classification</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm mb-1">Dispute Type*</label>
@@ -1979,6 +2477,66 @@ export default function ArbitrationForm() {
                 )}
               </div>
               <div>
+                <label className="block text-sm mb-1">Service Type*</label>
+                <select
+                  name="serviceType"
+                  value={disputeDetails.serviceType}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select service type</option>
+                  <option value="fast_track">Fast Track</option>
+                  <option value="regular">Regular</option>
+                  <option value="emergency">Emergency</option>
+                  <option value="institutional">Institutional</option>
+                </select>
+                {errors.serviceType && (
+                  <div className="text-red-500 text-xs mt-1">{errors.serviceType}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Dispute Category*</label>
+                <select
+                  name="disputeCategory"
+                  value={disputeDetails.disputeCategory}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select category</option>
+                  <option value="contractual">Contractual</option>
+                  <option value="corporate">Corporate</option>
+                  <option value="real_estate">Real Estate</option>
+                  <option value="banking">Banking & Finance</option>
+                  <option value="international">International</option>
+                  <option value="employment">Employment</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.disputeCategory && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeCategory}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Dispute Sub-Category*</label>
+                <select
+                  name="disputeSubCategory"
+                  value={disputeDetails.disputeSubCategory}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select sub-category</option>
+                  <option value="breach">Breach of Contract</option>
+                  <option value="payment">Payment Dispute</option>
+                  <option value="quality">Quality/Performance Issue</option>
+                  <option value="delivery">Delivery Delay</option>
+                  <option value="warranty">Warranty Claim</option>
+                  <option value="termination">Contract Termination</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.disputeSubCategory && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeSubCategory}</div>
+                )}
+              </div>
+              <div>
                 <label className="block text-sm mb-1">Dispute Amount (INR)*</label>
                 <input
                   name="disputeAmount"
@@ -1989,19 +2547,6 @@ export default function ArbitrationForm() {
                 />
                 {errors.disputeAmount && (
                   <div className="text-red-500 text-xs mt-1">{errors.disputeAmount}</div>
-                )}
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm mb-1">Dispute Description*</label>
-                <textarea
-                  name="disputeDescription"
-                  value={disputeDetails.disputeDescription}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                  rows={4}
-                />
-                {errors.disputeDescription && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeDescription}</div>
                 )}
               </div>
               <div>
@@ -2017,38 +2562,424 @@ export default function ArbitrationForm() {
                   <div className="text-red-500 text-xs mt-1">{errors.disputeDate}</div>
                 )}
               </div>
+              <div>
+                <label className="block text-sm mb-1">Nature of Dispute*</label>
+                <select
+                  name="natureOfDispute"
+                  value={disputeDetails.natureOfDispute}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select nature</option>
+                  <option value="civil">Civil</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="constitutional">Constitutional</option>
+                  <option value="family">Family</option>
+                  <option value="property">Property</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.natureOfDispute && (
+                  <div className="text-red-500 text-xs mt-1">{errors.natureOfDispute}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Applicable Acts*</label>
+                <div className="border rounded p-2 h-28 overflow-y-auto">
+                  <div className="space-y-1">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="arbitration_act"
+                        checked={disputeDetails.applicableActs.includes('arbitration_act')}
+                        onChange={(e) => {
+                          const newActs = e.target.checked 
+                            ? [...disputeDetails.applicableActs, 'arbitration_act'] 
+                            : disputeDetails.applicableActs.filter(act => act !== 'arbitration_act');
+                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
+                          setFormChanged(true);
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="arbitration_act" className="text-sm">Arbitration and Conciliation Act, 1996</label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="contract_act"
+                        checked={disputeDetails.applicableActs.includes('contract_act')}
+                        onChange={(e) => {
+                          const newActs = e.target.checked 
+                            ? [...disputeDetails.applicableActs, 'contract_act'] 
+                            : disputeDetails.applicableActs.filter(act => act !== 'contract_act');
+                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
+                          setFormChanged(true);
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="contract_act" className="text-sm">Indian Contract Act, 1872</label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="specific_relief_act"
+                        checked={disputeDetails.applicableActs.includes('specific_relief_act')}
+                        onChange={(e) => {
+                          const newActs = e.target.checked 
+                            ? [...disputeDetails.applicableActs, 'specific_relief_act'] 
+                            : disputeDetails.applicableActs.filter(act => act !== 'specific_relief_act');
+                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
+                          setFormChanged(true);
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="specific_relief_act" className="text-sm">Specific Relief Act, 1963</label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="companies_act"
+                        checked={disputeDetails.applicableActs.includes('companies_act')}
+                        onChange={(e) => {
+                          const newActs = e.target.checked 
+                            ? [...disputeDetails.applicableActs, 'companies_act'] 
+                            : disputeDetails.applicableActs.filter(act => act !== 'companies_act');
+                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
+                          setFormChanged(true);
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="companies_act" className="text-sm">Companies Act, 2013</label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="other_act"
+                        checked={disputeDetails.applicableActs.includes('other_act')}
+                        onChange={(e) => {
+                          const newActs = e.target.checked 
+                            ? [...disputeDetails.applicableActs, 'other_act'] 
+                            : disputeDetails.applicableActs.filter(act => act !== 'other_act');
+                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
+                          setFormChanged(true);
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="other_act" className="text-sm">Other Acts</label>
+                    </div>
+                  </div>
+                </div>
+                {errors.applicableActs && (
+                  <div className="text-red-500 text-xs mt-1">{errors.applicableActs}</div>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Contract Clause References*</label>
+                <input
+                  name="clauseReferences"
+                  value={disputeDetails.clauseReferences}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                  placeholder="e.g., Clause 12.3, 15.2, etc."
+                />
+                {errors.clauseReferences && (
+                  <div className="text-red-500 text-xs mt-1">{errors.clauseReferences}</div>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Facts of the Case*</label>
+                <textarea
+                  name="factsOfCase"
+                  value={disputeDetails.factsOfCase}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                  rows={4}
+                  placeholder="Provide a clear and concise statement of the facts related to the dispute"
+                />
+                {errors.factsOfCase && (
+                  <div className="text-red-500 text-xs mt-1">{errors.factsOfCase}</div>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Dispute Description*</label>
+                <textarea
+                  name="disputeDescription"
+                  value={disputeDetails.disputeDescription}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                  rows={4}
+                />
+                {errors.disputeDescription && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeDescription}</div>
+                )}
+              </div>
             </div>
           </div>
         )
-      case 5: // Documents
+      case 5: // Prayers & Reliefs
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
+            <div>
+              <label className="block text-sm mb-1">Prayers & Reliefs Sought*</label>
+              <textarea
+                name="prayers"
+                value={prayers.prayers}
+                onChange={handlePrayersChange}
+                className="w-full border rounded px-2 py-1"
+                rows={8}
+                placeholder="Detail the specific remedies, compensation, or actions you are seeking from the arbitral tribunal"
+              />
+              {errors.prayers && (
+                <div className="text-red-500 text-xs mt-1">{errors.prayers}</div>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Clearly state each prayer point separately, including monetary claims, specific performance requests, 
+                declaratory reliefs, costs, and any interim measures sought.
+              </p>
+            </div>
+          </div>
+        )
+      case 7: // Payment
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Payment</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">Payment Head*</label>
+                <select
+                  name="paymentHead"
+                  value={payment.paymentHead}
+                  onChange={handlePaymentChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select payment head</option>
+                  <option value="filing_fee">Filing Fee</option>
+                  <option value="arbitrator_fee">Arbitrator Fee</option>
+                  <option value="administrative_fee">Administrative Fee</option>
+                  <option value="emergency_fee">Emergency Arbitration Fee</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.paymentHead && (
+                  <div className="text-red-500 text-xs mt-1">{errors.paymentHead}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Payment Amount (INR)*</label>
+                <input
+                  name="paymentAmount"
+                  type="number"
+                  value={payment.paymentAmount}
+                  onChange={handlePaymentChange}
+                  className="w-full border rounded px-2 py-1"
+                  placeholder="Enter amount in INR"
+                />
+                {errors.paymentAmount && (
+                  <div className="text-red-500 text-xs mt-1">{errors.paymentAmount}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Payment Details*</label>
+                <textarea
+                  name="paymentDetails"
+                  value={payment.paymentDetails}
+                  onChange={handlePaymentChange}
+                  className="w-full border rounded px-2 py-1"
+                  rows={4}
+                  placeholder="Provide detailed payment information"
+                />
+                {errors.paymentDetails && (
+                  <div className="text-red-500 text-xs mt-1">{errors.paymentDetails}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      case 8: // Arguments
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Arguments</h3>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-sm">
+                  Present your arguments in support of your claims, organized by issue.
+                </p>
+                <Button onClick={addArgument} variant="outline" size="sm">
+                  Add Argument
+                </Button>
+              </div>
+              
+              {argumentsData.argumentsPerIssue.length > 0 ? (
+                argumentsData.argumentsPerIssue.map((arg, index) => (
+                  <div key={index} className="border p-4 rounded-lg space-y-2 mb-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">Issue/Argument {index + 1}</h4>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeArgument(index)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <textarea
+                      value={arg}
+                      onChange={(e) => handleArgumentChange(index, e.target.value)}
+                      className="w-full border rounded px-2 py-1"
+                      rows={6}
+                      placeholder={`Present your argument for issue ${index + 1} (limit: 1 page)`}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="border p-4 rounded-lg text-center">
+                  <p className="text-gray-500 mb-4">No arguments added yet</p>
+                  <Button onClick={addArgument} variant="outline">
+                    Add Your First Argument
+                  </Button>
+                </div>
+              )}
+              
+              {errors.argumentsPerIssue && (
+                <div className="text-red-500 text-xs mt-1">{errors.argumentsPerIssue}</div>
+              )}
+              
+              <div className="text-xs text-gray-500 mt-4">
+                Tips:
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                  <li>Structure each argument around a specific issue or claim</li>
+                  <li>Reference relevant facts, laws, and contract clauses</li>
+                  <li>Limit each argument to approximately one page</li>
+                  <li>Present your strongest arguments first</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )
+      case 6: // Documents
         return (
           <div className="space-y-4">
             <h3 className="font-medium text-lg mb-4">Documents</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-6">
               <div>
-                <label className="block text-sm mb-1">Supporting Documents</label>
-                <input
-                  name="supportingDocuments"
-                  type="file"
-                  multiple
-                  onChange={handleDocumentsChange}
-                  className="w-full border rounded px-2 py-1"
-                />
+                <h4 className="font-medium mb-2">Supporting Documents</h4>
+                <div className="space-y-4">
+                  {documents.supportingDocuments.length > 0 ? (
+                    documents.supportingDocuments.map((file, index) => (
+                      <div key={index} className="border p-3 rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-sm font-medium">{file.name}</div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              const newDocs = [...documents.supportingDocuments];
+                              newDocs.splice(index, 1);
+                              setDocuments(prev => ({
+                                ...prev,
+                                supportingDocuments: newDocs
+                              }));
+                              setFormChanged(true);
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Document Type*</label>
+                          <select
+                            value={documents.documentTypes[`supportingDocuments_${index}`] || ""}
+                            onChange={(e) => handleDocumentTypeChange(e.target.value, "supportingDocuments", index)}
+                            className="w-full border rounded px-2 py-1"
+                          >
+                            <option value="">Select document type</option>
+                            <option value="contract">Contract</option>
+                            <option value="invoice">Invoice</option>
+                            <option value="correspondence">Correspondence</option>
+                            <option value="legal_notice">Legal Notice</option>
+                            <option value="expert_report">Expert Report</option>
+                            <option value="witness_statement">Witness Statement</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No supporting documents uploaded yet</div>
+                  )}
+                  <input
+                    name="supportingDocuments"
+                    type="file"
+                    multiple
+                    onChange={handleDocumentsChange}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Upload contracts, correspondence, invoices, and any other documents relevant to your case
+                  </p>
+                </div>
               </div>
+              
               <div>
-                <label className="block text-sm mb-1">Evidence Files</label>
-                <input
-                  name="evidenceFiles"
-                  type="file"
-                  multiple
-                  onChange={handleDocumentsChange}
-                  className="w-full border rounded px-2 py-1"
-                />
+                <h4 className="font-medium mb-2">Evidence Files</h4>
+                <div className="space-y-4">
+                  {documents.evidenceFiles.length > 0 ? (
+                    documents.evidenceFiles.map((file, index) => (
+                      <div key={index} className="border p-3 rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-sm font-medium">{file.name}</div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              const newDocs = [...documents.evidenceFiles];
+                              newDocs.splice(index, 1);
+                              setDocuments(prev => ({
+                                ...prev,
+                                evidenceFiles: newDocs
+                              }));
+                              setFormChanged(true);
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Document Type*</label>
+                          <select
+                            value={documents.documentTypes[`evidenceFiles_${index}`] || ""}
+                            onChange={(e) => handleDocumentTypeChange(e.target.value, "evidenceFiles", index)}
+                            className="w-full border rounded px-2 py-1"
+                          >
+                            <option value="">Select document type</option>
+                            <option value="photo">Photographs</option>
+                            <option value="video">Video Evidence</option>
+                            <option value="audio">Audio Recording</option>
+                            <option value="report">Technical Report</option>
+                            <option value="test_results">Test Results</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No evidence files uploaded yet</div>
+                  )}
+                  <input
+                    name="evidenceFiles"
+                    type="file"
+                    multiple
+                    onChange={handleDocumentsChange}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Upload evidence such as photographs, videos, audio recordings, or other proof
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         )
-      case 6: // Review & Submit
+      case 9: // Review & Submit
         return (
           <div>
             <h2 className="text-xl font-semibold mb-6">Review Your Petition</h2>
@@ -2095,24 +3026,53 @@ export default function ArbitrationForm() {
                     <div>
                       <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
                     </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Address:</span> {claimant.address1}, {claimant.address2 && `${claimant.address2}, `}{claimant.city}, {claimant.district}, {claimant.state}, {claimant.country} - {claimant.pincode}
+                    </div>
                   </div>
                 </div>
 
                 <div>
                   <h4 className="font-medium mb-2">Additional Claimants</h4>
-                  {additionalClaimants.map((claimant, index) => (
-                    <div key={index} className="mb-2 text-sm">
+                  {additionalClaimants.length > 0 ? (
+                    additionalClaimants.map((claimant, index) => (
+                      <div key={index} className="mb-2 text-sm">
+                        <div>
+                          <span className="font-medium">Name:</span> {claimant.name}
+                        </div>
+                        <div>
+                          <span className="font-medium">Email:</span> {claimant.email}
+                        </div>
+                        <div>
+                          <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No additional claimants</div>
+                  )}
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Manager Details</h4>
+                  {managerDetails.name ? (
+                    <div className="text-sm">
                       <div>
-                        <span className="font-medium">Name:</span> {claimant.name}
+                        <span className="font-medium">Name:</span> {managerDetails.name}
                       </div>
                       <div>
-                        <span className="font-medium">Email:</span> {claimant.email}
+                        <span className="font-medium">Designation:</span> {managerDetails.designation}
                       </div>
                       <div>
-                        <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                        <span className="font-medium">Email:</span> {managerDetails.email}
+                      </div>
+                      <div>
+                        <span className="font-medium">Authority:</span> {managerDetails.authority}
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="text-sm text-gray-500">No manager details provided</div>
+                  )}
                 </div>
 
                 <div>
@@ -2137,21 +3097,45 @@ export default function ArbitrationForm() {
 
                 <div>
                   <h4 className="font-medium mb-2">Arbitration Agreement</h4>
-                  <div className="text-sm">
+                  <div className="text-sm grid grid-cols-2 gap-2">
                     <div>
                       <span className="font-medium">Date:</span> {arbitrationAgreement.agreementDate}
                     </div>
                     <div>
                       <span className="font-medium">Type:</span> {arbitrationAgreement.agreementType}
                     </div>
+                    <div>
+                      <span className="font-medium">Resolution Mode:</span> {arbitrationAgreement.resolutionMode}
+                    </div>
+                    <div>
+                      <span className="font-medium">Seat of Arbitration:</span> {arbitrationAgreement.seatOfArbitration}
+                    </div>
+                    <div>
+                      <span className="font-medium">Signed-on Place:</span> {arbitrationAgreement.signedOnPlace}
+                    </div>
+                    <div>
+                      <span className="font-medium">Arbitrator Selection:</span> {arbitrationAgreement.arbitratorSelection}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Agreement Parties:</span> {arbitrationAgreement.agreementParties}
+                    </div>
                   </div>
                 </div>
 
                 <div>
                   <h4 className="font-medium mb-2">Dispute Details</h4>
-                  <div className="text-sm">
+                  <div className="text-sm grid grid-cols-2 gap-2">
                     <div>
                       <span className="font-medium">Type:</span> {disputeDetails.disputeType}
+                    </div>
+                    <div>
+                      <span className="font-medium">Service Type:</span> {disputeDetails.serviceType}
+                    </div>
+                    <div>
+                      <span className="font-medium">Category:</span> {disputeDetails.disputeCategory}
+                    </div>
+                    <div>
+                      <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory}
                     </div>
                     <div>
                       <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount}
@@ -2160,8 +3144,69 @@ export default function ArbitrationForm() {
                       <span className="font-medium">Date:</span> {disputeDetails.disputeDate}
                     </div>
                     <div>
-                      <span className="font-medium">Description:</span> {disputeDetails.disputeDescription}
+                      <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute}
                     </div>
+                    <div>
+                      <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs.join(', ')}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Facts of the Case:</span>
+                      <p className="mt-1">{disputeDetails.factsOfCase}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Description:</span>
+                      <p className="mt-1">{disputeDetails.disputeDescription}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
+                  <div className="text-sm">
+                    <p className="whitespace-pre-line">{prayers.prayers}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Documents</h4>
+                  <div className="text-sm">
+                    <div className="mb-2">
+                      <span className="font-medium">Supporting Documents:</span> {documents.supportingDocuments.length} files
+                    </div>
+                    <div>
+                      <span className="font-medium">Evidence Files:</span> {documents.evidenceFiles.length} files
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Payment</h4>
+                  <div className="text-sm grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="font-medium">Payment Head:</span> {payment.paymentHead}
+                    </div>
+                    <div>
+                      <span className="font-medium">Amount:</span> ₹{payment.paymentAmount}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Payment Details:</span> {payment.paymentDetails}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-2">Arguments</h4>
+                  <div className="text-sm">
+                    {argumentsData.argumentsPerIssue.length > 0 ? (
+                      <div>
+                        <span className="font-medium">{argumentsData.argumentsPerIssue.length} argument(s) provided</span>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500">No arguments provided</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2225,39 +3270,41 @@ export default function ArbitrationForm() {
         ))}
       </div>
       <Card>
-        <CardContent className="p-8 min-h-[300px] flex flex-col justify-center">
-          {renderFormContent()}
+        <CardContent className="p-8 min-h-[300px] flex flex-col justify-between">
+          <div className="flex-1">
+            {renderFormContent()}
+          </div>
+          <div className="flex justify-between mt-8 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={activeStep === 0}
+            >
+              Back
+            </Button>
+            
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={saveDraft}
+                disabled={isSavingDraft}
+              >
+                {isSavingDraft ? 'Saving...' : 'Save Draft'}
+              </Button>
+              
+              <Button
+                variant={activeStep === steps.length - 1 ? "default" : "outline"}
+                onClick={handleNext}
+                disabled={isSubmitting}
+              >
+                {activeStep === steps.length - 1 
+                  ? (isSubmitting ? 'Submitting...' : 'Submit') 
+                  : 'Next'}
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
-      <div className="flex justify-between mt-8">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          disabled={activeStep === 0}
-        >
-          Back
-        </Button>
-        
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            onClick={saveDraft}
-            disabled={isSavingDraft}
-          >
-            {isSavingDraft ? 'Saving...' : 'Save Draft'}
-          </Button>
-          
-          <Button
-            variant={activeStep === steps.length - 1 ? "default" : "outline"}
-            onClick={handleNext}
-            disabled={isSubmitting}
-          >
-            {activeStep === steps.length - 1 
-              ? (isSubmitting ? 'Submitting...' : 'Submit') 
-              : 'Next'}
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

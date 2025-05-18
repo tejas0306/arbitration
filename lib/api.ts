@@ -3,10 +3,12 @@ import axios, { AxiosRequestConfig, InternalAxiosRequestConfig, AxiosError } fro
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
 const apiClient = axios.create({
-  baseURL: `${API_URL}/api`,  // Add '/api' prefix to match NestJS global prefix
+  baseURL: '/api',  // Use relative path to let Next.js handle the routing
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 seconds
+  withCredentials: true, // Include cookies in requests
 });
 
 // Keep track of logout function for global usage
@@ -178,7 +180,7 @@ export const arbitrationApi = {
       }
       
       // Log full request URL for debugging
-      const fullUrl = `${API_URL}/api/arbitration/draft`;
+      const fullUrl = '/api/arbitration/draft';
       console.log('Attempting to save draft to:', fullUrl);
       
       // Log formData entries in a more user-friendly way
@@ -204,8 +206,7 @@ export const arbitrationApi = {
       console.log('Draft FormData contents:', formDataLog);
       console.log('FormData has files:', hasFiles);
       
-      // Fix: Use correct endpoint to match the backend controller
-      const response = await apiClient.post('/arbitration/draft', formData, {
+      const response = await apiClient.post('/api/arbitration/draft', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
@@ -252,8 +253,8 @@ export const arbitrationApi = {
   // Enhanced methods for draft management
   getDrafts: async () => {
     try {
-      console.log('Fetching drafts from:', `${API_URL}/api/arbitration/draft`);
-      const response = await apiClient.get('/arbitration/draft');
+      console.log('Fetching drafts from:', '/api/arbitration/drafts');
+      const response = await apiClient.get('/api/arbitration/drafts');
       console.log('Got drafts response:', response.data ? 'SUCCESS' : 'EMPTY');
       return response.data;
     } catch (error: any) {
@@ -272,7 +273,6 @@ export const arbitrationApi = {
   submitDraft: async (draftId: string) => {
     try {
       console.log(`Attempting to submit draft with ID: ${draftId}`);
-      // Use the correct endpoint path to match the backend controller
       const response = await apiClient.post(`/arbitration/draft/${draftId}/submit`);
       console.log('Draft submission response:', response.data);
       return response.data;
@@ -302,7 +302,7 @@ export const arbitrationApi = {
   getAll: async () => {
     try {
       console.log('Fetching all cases from:', `${API_URL}/api/arbitration/cases`);
-      const response = await apiClient.get('/arbitration/cases');
+      const response = await apiClient.get('/api/arbitration/cases');
       console.log('Got cases response:', response.data ? 'SUCCESS' : 'EMPTY');
       return response.data;
     } catch (error: any) {
@@ -323,13 +323,13 @@ export const arbitrationApi = {
       console.log(`Fetching petition with ID: ${id}`);
       // First try to get it as a submitted case
       try {
-        const response = await apiClient.get(`/arbitration/cases/${id}`);
+        const response = await apiClient.get(`/api/arbitration/cases/${id}`);
         return response.data;
       } catch (error: any) {
         console.log(`Not found as a case, trying as a draft...`);
         if (error.response?.status === 404) {
           // If not found as a case, try getting it as a draft
-          const draftResponse = await apiClient.get(`/arbitration/draft/${id}`);
+          const draftResponse = await apiClient.get(`/api/arbitration/draft/${id}`);
           return draftResponse.data;
         }
         throw error;
@@ -392,7 +392,7 @@ export const auth = {
   login: async (credentials: { email: string; password: string }) => {
     try {
       console.log('Starting login request to:', `${API_URL}/api/auth/login`);
-      const response = await apiClient.post('/auth/login', credentials);
+      const response = await apiClient.post('/api/auth/login', credentials);
       console.log('Login response:', response.data);
       
       // The backend might return data in different formats, handle both possibilities
@@ -439,7 +439,7 @@ export const auth = {
         password: '[REDACTED]'  // Don't log the actual password
       });
       
-      const response = await apiClient.post('/auth/register', userData);
+      const response = await apiClient.post('/api/auth/register', userData);
       return response.data;
     } catch (error: any) {
       console.error('Registration error details:', {
@@ -504,7 +504,7 @@ export const auth = {
         // Add detailed logging about the request
         console.log('⚠️ Making request to:', `${API_URL}/api/auth/me`);
         
-        const response = await apiClient.get('/auth/me', {
+        const response = await apiClient.get('/api/auth/me', {
           // Increase timeout for debugging
           timeout: 10000,
         });

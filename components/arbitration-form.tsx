@@ -12,9 +12,7 @@ const steps = [
   "Respondent Details",
   "Arbitration Agreement",
   "Dispute Details",
-  "Arbitrator Selection",
   "Documents",
-  "Arguments",
   "Review & Submit",
 ]
 
@@ -63,41 +61,13 @@ const initialArbitrationAgreement = {
   agreementDate: "",
   agreementType: "",
   agreementFile: null,
-  signedAt: {
-    taluka: "",
-    city: "",
-    district: "",
-    state: ""
-  },
-  seatOfArbitration: "",
-  agreementBetween: {
-    partyA: "",
-    partyB: ""
-  }
 }
 
 const initialDisputeDetails = {
   disputeType: "",
-  disputeCategory: "",
-  disputeSubCategory: "",
   disputeAmount: "",
   disputeDescription: "",
   disputeDate: "",
-  hearingPreference: "physical", // "physical" or "virtual"
-}
-
-const initialPrayers = {
-  reliefs: "",
-}
-
-const initialArbitratorSelection = {
-  selectedArbitrators: [] as string[],
-  preferredArbitrator: "",
-}
-
-const initialArgumentsData = {
-  arguments: "",
-  argumentsFile: null,
 }
 
 const initialDocuments = {
@@ -142,9 +112,6 @@ export default function ArbitrationForm() {
   const [respondents, setRespondents] = useState([initialRespondent])
   const [arbitrationAgreement, setArbitrationAgreement] = useState(initialArbitrationAgreement)
   const [disputeDetails, setDisputeDetails] = useState(initialDisputeDetails)
-  const [prayers, setPrayers] = useState(initialPrayers)
-  const [arbitratorSelection, setArbitratorSelection] = useState(initialArbitratorSelection)
-  const [argumentsData, setArgumentsData] = useState(initialArgumentsData)
   const [documents, setDocuments] = useState(initialDocuments)
   const [errors, setErrors] = useState<any>({})
   const [isClient, setIsClient] = useState(false)
@@ -158,12 +125,6 @@ export default function ArbitrationForm() {
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [formChanged, setFormChanged] = useState(false)
-  
-  // Add component error state
-  const [componentError, setComponentError] = useState<{hasError: boolean; message: string}>({
-    hasError: false,
-    message: '',
-  });
 
   // Add new state for verification loading
   const [isVerifying, setIsVerifying] = useState<{
@@ -199,26 +160,6 @@ export default function ArbitrationForm() {
     respondentCin: {},
   });
 
-  // Function to reset component error state
-  const resetComponentError = () => {
-    setComponentError({
-      hasError: false,
-      message: '',
-    });
-  };
-
-  // Error recovery function
-  const recoverFromError = () => {
-    resetComponentError();
-    // Optionally reload data or reset state
-    if (isAuthenticated) {
-      loadDrafts().catch(err => {
-        console.error('Failed to load drafts during recovery:', err);
-        // Don't set error state here to avoid infinite loop
-      });
-    }
-  };
-
   useEffect(() => {
     setIsClient(true)
     
@@ -227,56 +168,36 @@ export default function ArbitrationForm() {
       try {
         const token = localStorage.getItem('auth_token');
         if (!token) {
-          console.log('No auth token found, redirecting to login');
           toast.error('Please log in to access this feature');
           router.push('/auth/login');
           return;
         }
         
         // Verify token is valid by getting current user
-        try {
-          const user = await auth.getCurrentUser();
-          setIsAuthenticated(true);
-          
-          // Check if we're in edit mode (URL contains draftId or petitionId query param)
-          const url = new URL(window.location.href);
-          const draftId = url.searchParams.get('draftId');
-          const petitionId = url.searchParams.get('petitionId');
-          
-          if (draftId) {
-            setEditMode(true);
-            await loadDraft(draftId);
-          } else if (petitionId) {
-            setEditMode(true);
-            await loadPetition(petitionId);
-          } else {
-            // Load user's drafts only if authenticated and not in edit mode
-            loadDrafts().catch(err => {
-              console.error('Failed to load drafts:', err);
-              // Don't show error to user, just log it
-            });
-          }
-        } catch (userError: any) {
-          console.error('Error fetching current user:', userError);
-          // If we can't get the current user but have a token, still allow access
-          // but don't load drafts or try to edit
-          if (userError.response?.status === 404) {
-            console.log('User endpoint not found, proceeding without user data');
-            setIsAuthenticated(true); // Still consider authenticated with token
-          } else {
-            console.error('Authentication error:', userError);
-            toast.error('Your session has expired. Please log in again.');
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
-            router.push('/auth/login');
-          }
+        const user = await auth.getCurrentUser();
+        setIsAuthenticated(true);
+        
+        // Check if we're in edit mode (URL contains draftId or petitionId query param)
+        const url = new URL(window.location.href);
+        const draftId = url.searchParams.get('draftId');
+        const petitionId = url.searchParams.get('petitionId');
+        
+        if (draftId) {
+          setEditMode(true);
+          await loadDraft(draftId);
+        } else if (petitionId) {
+          setEditMode(true);
+          await loadPetition(petitionId);
+        } else {
+          // Load user's drafts only if authenticated and not in edit mode
+          loadDrafts();
         }
       } catch (error) {
-        console.error('Unexpected error in checkAuth:', error);
-        setComponentError({
-          hasError: true,
-          message: 'Failed to initialize the form. Please refresh the page or try again later.'
-        });
+        console.error('Authentication error:', error);
+        toast.error('Your session has expired. Please log in again.');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        router.push('/auth/login');
       }
     };
     
@@ -444,17 +365,6 @@ export default function ArbitrationForm() {
         agreementDate: data.arbitrationAgreement.agreementDate || '',
         agreementType: data.arbitrationAgreement.agreementType || '',
         agreementFile: null,
-        signedAt: {
-          taluka: data.arbitrationAgreement.signedAt?.taluka || '',
-          city: data.arbitrationAgreement.signedAt?.city || '',
-          district: data.arbitrationAgreement.signedAt?.district || '',
-          state: data.arbitrationAgreement.signedAt?.state || ''
-        },
-        seatOfArbitration: data.arbitrationAgreement.seatOfArbitration || '',
-        agreementBetween: {
-          partyA: data.arbitrationAgreement.agreementBetween?.partyA || '',
-          partyB: data.arbitrationAgreement.agreementBetween?.partyB || ''
-        }
       });
     }
     
@@ -462,35 +372,9 @@ export default function ArbitrationForm() {
     if (data.disputeDetails) {
       setDisputeDetails({
         disputeType: data.disputeDetails.disputeType || '',
-        disputeCategory: data.disputeDetails.disputeCategory || '',
-        disputeSubCategory: data.disputeDetails.disputeSubCategory || '',
         disputeAmount: data.disputeDetails.disputeAmount || '',
         disputeDescription: data.disputeDetails.disputeDescription || '',
         disputeDate: data.disputeDetails.disputeDate || '',
-        hearingPreference: data.disputeDetails.hearingPreference || 'physical',
-      });
-    }
-    
-    // Load prayers
-    if (data.prayers) {
-      setPrayers({
-        reliefs: data.prayers.reliefs || '',
-      });
-    }
-    
-    // Load arbitrator selection
-    if (data.arbitratorSelection) {
-      setArbitratorSelection({
-        selectedArbitrators: data.arbitratorSelection.selectedArbitrators || [],
-        preferredArbitrator: data.arbitratorSelection.preferredArbitrator || '',
-      });
-    }
-    
-    // Load arguments
-    if (data.arguments) {
-      setArgumentsData({
-        arguments: data.arguments.arguments || '',
-        argumentsFile: null,
       });
     }
   };
@@ -499,22 +383,11 @@ export default function ArbitrationForm() {
   const loadDrafts = async () => {
     try {
       setIsLoadingDrafts(true);
-      try {
-        const drafts = await arbitrationApi.getDrafts();
-        setDraftList(drafts || []);
-      } catch (error: any) {
-        console.error('Error loading drafts:', error);
-        // If the endpoint returns 404, set an empty array and don't show error
-        if (error.response?.status === 404) {
-          console.log('Draft endpoint not found or not implemented, using empty array');
-          setDraftList([]);
-        } else {
-          // For other errors, log but don't show toast as it might be handled elsewhere
-          console.error('Error details:', error.response?.data || error.message);
-        }
-      }
+      const drafts = await arbitrationApi.getDrafts();
+      setDraftList(drafts);
     } catch (error) {
-      console.error('Unexpected error in loadDrafts:', error);
+      console.error('Error loading drafts:', error);
+      // Don't show error toast here as it might be due to auth issues which are handled elsewhere
     } finally {
       setIsLoadingDrafts(false);
     }
@@ -551,14 +424,8 @@ export default function ArbitrationForm() {
       arbitrationAgreement: {
         agreementDate: arbitrationAgreement.agreementDate,
         agreementType: arbitrationAgreement.agreementType,
-        signedAt: arbitrationAgreement.signedAt,
-        seatOfArbitration: arbitrationAgreement.seatOfArbitration,
-        agreementBetween: arbitrationAgreement.agreementBetween
       },
       disputeDetails: disputeDetails,
-      prayers: prayers,
-      arbitratorSelection: arbitratorSelection,
-      arguments: argumentsData,
       id: currentDraftId || undefined,
     };
 
@@ -680,35 +547,53 @@ export default function ArbitrationForm() {
 
   const saveDraft = async () => {
     try {
+      // Check if user is authenticated before saving draft
+      if (!isAuthenticated) {
+        toast.error('Please log in to save your draft');
+        router.push('/auth/login');
+        return;
+      }
+      
       setIsSavingDraft(true);
-      console.log("Creating form data for draft submission...");
+      // Use the helper function to create FormData
       const formData = createFormData();
       
-      // Log the current authentication status
-      const token = localStorage.getItem('auth_token');
-      console.log('Auth token available?', !!token);
-      
-      console.log("Submitting draft to API...");
+      // Log the draft data being sent for debugging
+      console.log('Saving draft with data:', formData);
+
+      // Submit as draft
       const response = await arbitrationApi.saveDraft(formData);
-      console.log("Draft saved successfully:", response);
       
+      // Update the current draft ID for future saves
       if (response && response.id) {
         setCurrentDraftId(response.id);
+        setLastSaved(new Date());
+        setFormChanged(false);
+        
+        // Update the drafts list
+        const drafts = await arbitrationApi.getDrafts();
+        setDraftList(drafts);
       }
       
-      setLastSaved(new Date());
-      setFormChanged(false);
-      toast.success('Draft saved successfully');
-    } catch (error: any) { // Add proper type annotation
+      // Show success message
+      toast.success('Draft saved successfully!');
+      
+    } catch (error: any) {
       console.error('Error saving draft:', error);
-      // More detailed error logging
+      
+      // More detailed error information
       if (error.response) {
-        console.error('Server response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
+        if (error.response.status === 401) {
+          toast.error('Your session has expired. Please log in again.');
+          router.push('/auth/login');
+        } else {
+          toast.error(`Failed to save draft: ${error.response.data?.message || 'Server error'}`);
+        }
+      } else if (error.request) {
+        toast.error('No response from server. Please check your connection.');
+      } else {
+        toast.error(`Error: ${error.message}`);
       }
-      toast.error('Failed to save draft. Please try again.');
     } finally {
       setIsSavingDraft(false);
     }
@@ -761,17 +646,6 @@ export default function ArbitrationForm() {
             agreementDate: draft.arbitrationAgreement.agreementDate || '',
             agreementType: draft.arbitrationAgreement.agreementType || '',
             agreementFile: null,
-            signedAt: {
-              taluka: draft.arbitrationAgreement.signedAt?.taluka || '',
-              city: draft.arbitrationAgreement.signedAt?.city || '',
-              district: draft.arbitrationAgreement.signedAt?.district || '',
-              state: draft.arbitrationAgreement.signedAt?.state || ''
-            },
-            seatOfArbitration: draft.arbitrationAgreement.seatOfArbitration || '',
-            agreementBetween: {
-              partyA: draft.arbitrationAgreement.agreementBetween?.partyA || '',
-              partyB: draft.arbitrationAgreement.agreementBetween?.partyB || ''
-            }
           });
         }
         
@@ -779,35 +653,9 @@ export default function ArbitrationForm() {
         if (draft.disputeDetails) {
           setDisputeDetails({
             disputeType: draft.disputeDetails.disputeType || '',
-            disputeCategory: draft.disputeDetails.disputeCategory || '',
-            disputeSubCategory: draft.disputeDetails.disputeSubCategory || '',
             disputeAmount: draft.disputeDetails.disputeAmount || '',
             disputeDescription: draft.disputeDetails.disputeDescription || '',
             disputeDate: draft.disputeDetails.disputeDate || '',
-            hearingPreference: draft.disputeDetails.hearingPreference || 'physical',
-          });
-        }
-        
-        // Load prayers
-        if (draft.prayers) {
-          setPrayers({
-            reliefs: draft.prayers.reliefs || '',
-          });
-        }
-        
-        // Load arbitrator selection
-        if (draft.arbitratorSelection) {
-          setArbitratorSelection({
-            selectedArbitrators: draft.arbitratorSelection.selectedArbitrators || [],
-            preferredArbitrator: draft.arbitratorSelection.preferredArbitrator || '',
-          });
-        }
-        
-        // Load arguments
-        if (draft.arguments) {
-          setArgumentsData({
-            arguments: draft.arguments.arguments || '',
-            argumentsFile: null,
           });
         }
         
@@ -827,9 +675,6 @@ export default function ArbitrationForm() {
     setRespondents([initialRespondent]);
     setArbitrationAgreement(initialArbitrationAgreement);
     setDisputeDetails(initialDisputeDetails);
-    setPrayers(initialPrayers);
-    setArbitratorSelection(initialArbitratorSelection);
-    setArgumentsData(initialArgumentsData);
     setDocuments(initialDocuments);
     setCurrentDraftId(null);
     setActiveStep(0);
@@ -855,9 +700,6 @@ export default function ArbitrationForm() {
       if (claimant.pan && !validatePAN(claimant.pan)) 
         newErrors.pan = "Invalid PAN format. Should be like AAAPL1234C"
       
-      // Validate prayers and reliefs
-      if (!prayers.reliefs) newErrors.reliefs = "Prayers/reliefs is required"
-      
       // Optional: GST, CIN, COI, PAN card, GST cert validation
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
@@ -878,47 +720,15 @@ export default function ArbitrationForm() {
       if (!arbitrationAgreement.agreementDate) newErrors.agreementDate = "Agreement date is required"
       if (!arbitrationAgreement.agreementType) newErrors.agreementType = "Agreement type is required"
       if (!arbitrationAgreement.agreementFile) newErrors.agreementFile = "Agreement file is required"
-      
-      // Validate signedAt fields
-      if (!arbitrationAgreement.signedAt.city) newErrors["signedAt.city"] = "City is required"
-      if (!arbitrationAgreement.signedAt.district) newErrors["signedAt.district"] = "District is required"
-      if (!arbitrationAgreement.signedAt.state) newErrors["signedAt.state"] = "State is required"
-      
-      // Validate seatOfArbitration
-      if (!arbitrationAgreement.seatOfArbitration) newErrors.seatOfArbitration = "Seat of arbitration is required"
-      
-      // Validate agreementBetween
-      if (!arbitrationAgreement.agreementBetween.partyA) newErrors["agreementBetween.partyA"] = "Party A is required"
-      if (!arbitrationAgreement.agreementBetween.partyB) newErrors["agreementBetween.partyB"] = "Party B is required"
-      
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 4) {
       // Validate dispute details
       const newErrors: any = {}
       if (!disputeDetails.disputeType) newErrors.disputeType = "Dispute type is required"
-      if (!disputeDetails.disputeCategory) newErrors.disputeCategory = "Category is required"
-      if (!disputeDetails.disputeSubCategory) newErrors.disputeSubCategory = "Sub-category is required"
       if (!disputeDetails.disputeAmount) newErrors.disputeAmount = "Dispute amount is required"
       if (!disputeDetails.disputeDescription) newErrors.disputeDescription = "Dispute description is required"
       if (!disputeDetails.disputeDate) newErrors.disputeDate = "Dispute date is required"
-      
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 5) {
-      // Validate arbitrator selection
-      const newErrors: any = {}
-      if (arbitratorSelection.selectedArbitrators.length === 0) 
-        newErrors.selectedArbitrators = "At least one arbitrator must be selected"
-      
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 7) {
-      // Validate arguments
-      const newErrors: any = {}
-      if (!argumentsData.arguments && !argumentsData.argumentsFile) 
-        newErrors.arguments = "Either arguments text or file is required"
-      
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     }
@@ -930,7 +740,6 @@ export default function ArbitrationForm() {
       handleSubmit();
     }
   };
-
   const handleBack = () => {
     if (activeStep > 0) setActiveStep(activeStep - 1)
   }
@@ -959,224 +768,154 @@ export default function ArbitrationForm() {
     return gstRegex.test(gst);
   };
 
-  // Handle GST verification
-  const handleVerifyGST = async (gstNumber: string) => {
-    // Skip verification if GST is empty
-    if (!gstNumber) {
-      setVerificationStatus((prev) => ({
-        ...prev,
-        gst: null,
-      }));
-      return;
-    }
-
-    // Validate GST format first
-    if (!validateGST(gstNumber)) {
-      setVerificationStatus((prev) => ({
-        ...prev,
-        gst: {
-          verified: false,
-          message: "Invalid GST format. Format: 22AAAAA0000A1Z5"
-        },
-      }));
-      return;
-    }
-
-    // Start verification
-    setIsVerifying((prev) => ({
-      ...prev,
-      gst: true,
-    }));
-
-    try {
-      const response = await api.verification.verifyGST(gstNumber);
-      
-      // Handle response
-      if (response && response.valid) {
-        setVerificationStatus((prev) => ({
-          ...prev,
-          gst: {
-            verified: true,
-            message: response.message || 'GST verified'
-          },
-        }));
-      } else {
-        throw new Error(response?.message || 'Verification failed');
-      }
-    } catch (error: any) {
-      console.error('GST verification error:', error);
-      setVerificationStatus((prev) => ({
-        ...prev,
-        gst: {
-          verified: false,
-          message: error.message || "GST verification failed"
-        },
-      }));
-    } finally {
-      setIsVerifying((prev) => ({
-        ...prev,
-        gst: false,
-      }));
-    }
-  };
-
-  // Handle PAN verification
-  const handleVerifyPAN = async (panNumber: string) => {
-    // Skip verification if PAN is empty
-    if (!panNumber) {
-      setVerificationStatus((prev) => ({
-        ...prev,
-        pan: null,
-      }));
-      return;
-    }
-
-    // Validate PAN format first
-    if (!validatePAN(panNumber)) {
-      setVerificationStatus((prev) => ({
-        ...prev,
-        pan: {
-          verified: false,
-          message: "Invalid PAN format. Format: AAAPL1234C"
-        },
-      }));
-      return;
-    }
-
-    // Start verification
-    setIsVerifying((prev) => ({
-      ...prev,
-      pan: true,
-    }));
-
-    try {
-      const response = await api.verification.verifyPAN(panNumber);
-      
-      // Handle response
-      if (response && response.valid) {
-        setVerificationStatus((prev) => ({
-          ...prev,
-          pan: {
-            verified: true,
-            message: response.message || 'PAN verified'
-          },
-        }));
-      } else {
-        throw new Error(response?.message || 'Verification failed');
-      }
-    } catch (error: any) {
-      console.error('PAN verification error:', error);
-      setVerificationStatus((prev) => ({
-        ...prev,
-        pan: {
-          verified: false,
-          message: error.message || "PAN verification failed"
-        },
-      }));
-    } finally {
-      setIsVerifying((prev) => ({
-        ...prev,
-        pan: false,
-      }));
-    }
-  };
-
-  // Handle CIN verification
-  const handleVerifyCIN = async (cinNumber: string) => {
-    // Skip verification if CIN is empty
-    if (!cinNumber) {
-      setVerificationStatus((prev) => ({
-        ...prev,
-        cin: null,
-      }));
-      return;
-    }
-
-    // Validate CIN format first
-    if (!validateCIN(cinNumber)) {
-      setVerificationStatus((prev) => ({
-        ...prev,
-        cin: {
-          verified: false,
-          message: "Invalid CIN format. Format: U74140MH2014PTC123456"
-        },
-      }));
-      return;
-    }
-
-    // Start verification
-    setIsVerifying((prev) => ({
-      ...prev,
-      cin: true,
-    }));
-
-    try {
-      const response = await api.verification.verifyCIN(cinNumber);
-      
-      // Handle response
-      if (response && response.valid) {
-        setVerificationStatus((prev) => ({
-          ...prev,
-          cin: {
-            verified: true,
-            message: response.message || 'CIN verified'
-          },
-        }));
-      } else {
-        throw new Error(response?.message || 'Verification failed');
-      }
-    } catch (error: any) {
-      console.error('CIN verification error:', error);
-      setVerificationStatus((prev) => ({
-        ...prev,
-        cin: {
-          verified: false,
-          message: error.message || "CIN verification failed"
-        },
-      }));
-    } finally {
-      setIsVerifying((prev) => ({
-        ...prev,
-        cin: false,
-      }));
-    }
-  };
-
-  const handleArgumentsChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, files } = e.target as any
-    setArgumentsData((prev) => ({
+    
+    // Special handling for pincode field
+    if (name === 'pincode') {
+      // Only allow digits and limit to 6 characters
+      const sanitizedValue = value.replace(/\D/g, '').substring(0, 6);
+      setClaimant((prev) => ({
+        ...prev,
+        [name]: sanitizedValue,
+      }))
+    } 
+    // Special handling for PAN number - convert to uppercase and validate format
+    else if (name === 'pan') {
+      const uppercasePAN = value.toUpperCase();
+      
+      // Store validation error if PAN is not empty and invalid
+      if (uppercasePAN && !validatePAN(uppercasePAN)) {
+        setErrors((prev: any) => ({
+          ...prev,
+          pan: 'Invalid PAN format. Should be like AAAPL1234C'
+        }));
+      } else {
+        // Clear error if PAN is valid or empty
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors.pan;
+          return newErrors;
+        });
+      }
+      
+      setClaimant((prev) => ({
+        ...prev,
+        [name]: uppercasePAN,
+      }))
+    }
+    // Special handling for CIN - convert to uppercase and validate format
+    else if (name === 'cin') {
+      const uppercaseCIN = value.toUpperCase();
+      
+      // Store validation error if CIN is not empty and invalid
+      if (uppercaseCIN && !validateCIN(uppercaseCIN)) {
+        setErrors((prev: any) => ({
+          ...prev,
+          cin: 'Invalid CIN format. Should be like U74140MH2014PTC123456'
+        }));
+      } else {
+        // Clear error if CIN is valid or empty
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors.cin;
+          return newErrors;
+        });
+      }
+      
+      setClaimant((prev) => ({
+        ...prev,
+        [name]: uppercaseCIN,
+      }))
+    }
+    // Special handling for GST - convert to uppercase and validate format
+    else if (name === 'gst') {
+      const uppercaseGST = value.toUpperCase();
+      
+      // Store validation error if GST is not empty and invalid
+      if (uppercaseGST && !validateGST(uppercaseGST)) {
+        setErrors((prev: any) => ({
+          ...prev,
+          gst: 'Invalid GST format. Should be like 22AAAAA0000A1Z5'
+        }));
+      } else {
+        // Clear error if GST is valid or empty
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors.gst;
+          return newErrors;
+        });
+      }
+      
+      setClaimant((prev) => ({
+        ...prev,
+        [name]: uppercaseGST,
+      }))
+    }
+    else {
+      setClaimant((prev) => ({
+        ...prev,
+        [name]: files ? files[0] : value,
+      }))
+    }
+    setFormChanged(true)
+  }
+
+  const handleAdditionalClaimantChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    const newClaimants = [...additionalClaimants]
+    newClaimants[index] = { ...newClaimants[index], [name]: value }
+    setAdditionalClaimants(newClaimants)
+    setFormChanged(true)
+  }
+
+  const handleRespondentChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    
+    // Special handling for PAN number validation
+    if (name === 'pan') {
+      const uppercasePAN = value.toUpperCase();
+      const newRespondents = [...respondents]
+      newRespondents[index] = { ...newRespondents[index], [name]: uppercasePAN }
+      setRespondents(newRespondents)
+    } 
+    // Special handling for CIN number validation
+    else if (name === 'cin') {
+      const uppercaseCIN = value.toUpperCase();
+      const newRespondents = [...respondents]
+      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseCIN }
+      setRespondents(newRespondents)
+    } 
+    // Special handling for GST number validation
+    else if (name === 'gst') {
+      const uppercaseGST = value.toUpperCase();
+      const newRespondents = [...respondents]
+      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseGST }
+      setRespondents(newRespondents)
+    } else {
+      const newRespondents = [...respondents]
+      newRespondents[index] = { ...newRespondents[index], [name]: value }
+      setRespondents(newRespondents)
+    }
+    
+    setFormChanged(true)
+  }
+
+  const handleArbitrationAgreementChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, files } = e.target as any
+    setArbitrationAgreement((prev) => ({
       ...prev,
       [name]: files ? files[0] : value,
     }))
     setFormChanged(true)
   }
 
-  const handlePrayersChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+  const handleDisputeDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setPrayers((prev) => ({
+    setDisputeDetails((prev) => ({
       ...prev,
       [name]: value,
     }))
-    setFormChanged(true)
-  }
-
-  const handleArbitratorSelectionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    
-    if (name === 'selectedArbitrators') {
-      // Convert comma-separated string to array
-      const arbitratorArray = value.split(',').map(item => item.trim()).filter(item => item !== '')
-      setArbitratorSelection((prev) => ({
-        ...prev,
-        selectedArbitrators: arbitratorArray,
-      }))
-    } else {
-      setArbitratorSelection((prev) => ({
-        ...prev,
-        [name]: value,
-      }))
-    }
-    
     setFormChanged(true)
   }
 
@@ -1191,52 +930,383 @@ export default function ArbitrationForm() {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, files } = e.target as any;
-    
-    setClaimant((prev) => ({
-      ...prev,
-      [name]: files ? files[0] : value,
-    }));
-    
-    setFormChanged(true);
-    
-    // Clear related errors when a field is edited
-    if (errors[name]) {
-      setErrors((prev: any) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  };
+  const addAdditionalClaimant = () => {
+    setAdditionalClaimants([...additionalClaimants, initialAdditionalClaimant])
+  }
 
-  const handlePhoneChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: React.Dispatch<React.SetStateAction<any>>,
-    fieldName: string
-  ) => {
-    const { value } = e.target;
-    // Only allow digits and limit to 10 characters
-    const sanitizedValue = value.replace(/\D/g, '').slice(0, 10);
-    
+  const addRespondent = () => {
+    setRespondents([...respondents, initialRespondent])
+  }
+
+  const removeAdditionalClaimant = (index: number) => {
+    const newClaimants = additionalClaimants.filter((_, i) => i !== index)
+    setAdditionalClaimants(newClaimants)
+  }
+
+  const removeRespondent = (index: number) => {
+    const newRespondents = respondents.filter((_, i) => i !== index)
+    setRespondents(newRespondents)
+  }
+
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digit characters
+    const cleaned = value.replace(/\D/g, '')
+    // Limit to 10 digits for Indian phone numbers
+    return cleaned.slice(0, 10)
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, setter: Function, field: string) => {
+    const { value } = e.target
+    const formattedValue = formatPhoneNumber(value)
     setter((prev: any) => ({
       ...prev,
-      [fieldName]: sanitizedValue,
+      [field]: formattedValue
+    }))
+    setFormChanged(true)
+  }
+
+  const handleCountryCodeChange = (e: React.ChangeEvent<HTMLSelectElement>, setter: Function, field: string) => {
+    // For this implementation, we're restricting to Indian phone numbers only,
+    // so we'll always force it to +91 regardless of selection
+    setter((prev: any) => ({
+      ...prev,
+      [field]: '+91'
+    }))
+    setFormChanged(true)
+  }
+
+  // Add verification handlers
+  const handleVerifyGST = async (gstNumber: string) => {
+    if (!gstNumber || gstNumber.length !== 15) return;
+    
+    setIsVerifying(prev => ({ ...prev, gst: true }));
+    try {
+      const result = await api.verification.verifyGST(gstNumber);
+      setVerificationStatus(prev => ({
+        ...prev,
+        gst: {
+          verified: result.valid,
+          message: result.message,
+        },
+      }));
+      
+      // If not valid, also set error state
+      if (!result.valid) {
+        setErrors((prev: any) => ({
+          ...prev,
+          gst: result.message || 'Invalid GST number',
+        }));
+      } else {
+        // Clear any existing error
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors.gst;
+          return newErrors;
+        });
+      }
+    } catch (error: any) {
+      console.error('GST verification error:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        gst: {
+          verified: false,
+          message: 'Verification service unavailable. Please try again later.',
+        },
+      }));
+    } finally {
+      setIsVerifying(prev => ({ ...prev, gst: false }));
+    }
+  };
+  
+  const handleVerifyPAN = async (panNumber: string) => {
+    if (!panNumber || panNumber.length !== 10) return;
+    
+    setIsVerifying(prev => ({ ...prev, pan: true }));
+    try {
+      const result = await api.verification.verifyPAN(panNumber);
+      setVerificationStatus(prev => ({
+        ...prev,
+        pan: {
+          verified: result.valid,
+          message: result.message,
+        },
+      }));
+      
+      // If not valid, also set error state
+      if (!result.valid) {
+        setErrors((prev: any) => ({
+          ...prev,
+          pan: result.message || 'Invalid PAN number',
+        }));
+      } else {
+        // Clear any existing error
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors.pan;
+          return newErrors;
+        });
+      }
+    } catch (error: any) {
+      console.error('PAN verification error:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        pan: {
+          verified: false,
+          message: 'Verification service unavailable. Please try again later.',
+        },
+      }));
+    } finally {
+      setIsVerifying(prev => ({ ...prev, pan: false }));
+    }
+  };
+  
+  const handleVerifyCIN = async (cinNumber: string) => {
+    if (!cinNumber || cinNumber.length !== 21) return;
+    
+    setIsVerifying(prev => ({ ...prev, cin: true }));
+    try {
+      const result = await api.verification.verifyCIN(cinNumber);
+      setVerificationStatus(prev => ({
+        ...prev,
+        cin: {
+          verified: result.valid,
+          message: result.message,
+        },
+      }));
+      
+      // If not valid, also set error state
+      if (!result.valid) {
+        setErrors((prev: any) => ({
+          ...prev,
+          cin: result.message || 'Invalid CIN number',
+        }));
+      } else {
+        // Clear any existing error
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors.cin;
+          return newErrors;
+        });
+      }
+    } catch (error: any) {
+      console.error('CIN verification error:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        cin: {
+          verified: false,
+          message: 'Verification service unavailable. Please try again later.',
+        },
+      }));
+    } finally {
+      setIsVerifying(prev => ({ ...prev, cin: false }));
+    }
+  };
+  
+  const handleVerifyRespondentGST = async (index: number, gstNumber: string) => {
+    if (!gstNumber || gstNumber.length !== 15) return;
+    
+    setIsVerifying(prev => ({
+      ...prev,
+      respondentGst: {
+        ...prev.respondentGst,
+        [index]: true,
+      },
     }));
     
-    setFormChanged(true);
+    try {
+      const result = await api.verification.verifyGST(gstNumber);
+      setVerificationStatus(prev => ({
+        ...prev,
+        respondentGst: {
+          ...prev.respondentGst,
+          [index]: {
+            verified: result.valid,
+            message: result.message,
+          },
+        },
+      }));
+      
+      // If not valid, also set error state
+      if (!result.valid) {
+        setErrors((prev: any) => ({
+          ...prev,
+          [`respondent${index}GST`]: result.message || 'Invalid GST number',
+        }));
+      } else {
+        // Clear any existing error
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors[`respondent${index}GST`];
+          return newErrors;
+        });
+      }
+    } catch (error: any) {
+      console.error('Respondent GST verification error:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        respondentGst: {
+          ...prev.respondentGst,
+          [index]: {
+            verified: false,
+            message: 'Verification service unavailable. Please try again later.',
+          },
+        },
+      }));
+    } finally {
+      setIsVerifying(prev => ({
+        ...prev,
+        respondentGst: {
+          ...prev.respondentGst,
+          [index]: false,
+        },
+      }));
+    }
+  };
+  
+  const handleVerifyRespondentPAN = async (index: number, panNumber: string) => {
+    if (!panNumber || panNumber.length !== 10) return;
     
-    // Clear phone error when field is edited
-    if (errors[fieldName]) {
-      setErrors((prev: any) => {
-        const newErrors = { ...prev };
-        delete newErrors[fieldName];
-        return newErrors;
-      });
+    setIsVerifying(prev => ({
+      ...prev,
+      respondentPan: {
+        ...prev.respondentPan,
+        [index]: true,
+      },
+    }));
+    
+    try {
+      const result = await api.verification.verifyPAN(panNumber);
+      setVerificationStatus(prev => ({
+        ...prev,
+        respondentPan: {
+          ...prev.respondentPan,
+          [index]: {
+            verified: result.valid,
+            message: result.message,
+          },
+        },
+      }));
+      
+      // If not valid, also set error state
+      if (!result.valid) {
+        setErrors((prev: any) => ({
+          ...prev,
+          [`respondent${index}PAN`]: result.message || 'Invalid PAN number',
+        }));
+      } else {
+        // Clear any existing error
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors[`respondent${index}PAN`];
+          return newErrors;
+        });
+      }
+    } catch (error: any) {
+      console.error('Respondent PAN verification error:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        respondentPan: {
+          ...prev.respondentPan,
+          [index]: {
+            verified: false,
+            message: 'Verification service unavailable. Please try again later.',
+          },
+        },
+      }));
+    } finally {
+      setIsVerifying(prev => ({
+        ...prev,
+        respondentPan: {
+          ...prev.respondentPan,
+          [index]: false,
+        },
+      }));
+    }
+  };
+  
+  const handleVerifyRespondentCIN = async (index: number, cinNumber: string) => {
+    if (!cinNumber || cinNumber.length !== 21) return;
+    
+    setIsVerifying(prev => ({
+      ...prev,
+      respondentCin: {
+        ...prev.respondentCin,
+        [index]: true,
+      },
+    }));
+    
+    try {
+      const result = await api.verification.verifyCIN(cinNumber);
+      setVerificationStatus(prev => ({
+        ...prev,
+        respondentCin: {
+          ...prev.respondentCin,
+          [index]: {
+            verified: result.valid,
+            message: result.message,
+          },
+        },
+      }));
+      
+      // If not valid, also set error state
+      if (!result.valid) {
+        setErrors((prev: any) => ({
+          ...prev,
+          [`respondent${index}CIN`]: result.message || 'Invalid CIN number',
+        }));
+      } else {
+        // Clear any existing error
+        setErrors((prev: any) => {
+          const newErrors = {...prev};
+          delete newErrors[`respondent${index}CIN`];
+          return newErrors;
+        });
+      }
+    } catch (error: any) {
+      console.error('Respondent CIN verification error:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        respondentCin: {
+          ...prev.respondentCin,
+          [index]: {
+            verified: false,
+            message: 'Verification service unavailable. Please try again later.',
+          },
+        },
+      }));
+    } finally {
+      setIsVerifying(prev => ({
+        ...prev,
+        respondentCin: {
+          ...prev.respondentCin,
+          [index]: false,
+        },
+      }));
     }
   };
 
+  if (!isClient) {
+    return null // or a loading spinner
+  }
+
+  // If not authenticated, show message
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-3xl mx-auto py-8">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h2 className="text-xl font-bold mb-4">Authentication Required</h2>
+            <p className="mb-4">Please log in to access the petition form</p>
+            <Button onClick={() => router.push('/auth/login')}>
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render form steps
   const renderFormContent = () => {
     switch (activeStep) {
       case 0: // Claimant Details
@@ -1513,66 +1583,444 @@ export default function ArbitrationForm() {
                 />
               </div>
             </div>
-            
-            {/* Add Prayers & Reliefs section */}
-            <div className="mt-8 border-t pt-6">
-              <h3 className="font-medium text-lg mb-4">Prayers & Reliefs*</h3>
-              <textarea
-                name="reliefs"
-                value={prayers.reliefs}
-                onChange={handlePrayersChange}
-                placeholder="Enter prayers and reliefs"
-                className="w-full border rounded px-2 py-1"
-                rows={4}
-              />
-              {errors.reliefs && <div className="text-red-500 text-xs mt-1">{errors.reliefs}</div>}
-            </div>
           </div>
         )
-      
       case 1: // Additional Claimants & Manager
-        // ... existing code ...
-        
-      case 2: // Respondent Details
-        // ... existing code ...
-        
-      case 3: // Arbitration Agreement
-        // ... existing code ...
-        
-      case 4: // Dispute Details
-        // ... existing code ...
-        
-      case 5: // Arbitrator Selection
         return (
           <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Arbitrator Selection</h3>
+            <h3 className="font-medium text-lg mb-4">Additional Claimants & Manager</h3>
+            {additionalClaimants.map((claimant, index) => (
+              <div key={index} className="border p-4 rounded-lg space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">Additional Claimant {index + 1}</h4>
+                  {index > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeAdditionalClaimant(index)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm mb-1">Name</label>
+                    <input
+                      name="name"
+                      value={claimant.name}
+                      onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Email</label>
+                    <input
+                      name="email"
+                      type="email"
+                      value={claimant.email}
+                      onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Phone</label>
+                    <div className="flex gap-2">
+                      <select
+                        name="phoneCountryCode"
+                        value="+91"
+                        disabled={true}
+                        className="w-24 border rounded px-2 py-1 bg-gray-100"
+                      >
+                        <option value="+91">+91 (India)</option>
+                      </select>
+                      <input
+                        name="phone"
+                        value={additionalClaimants[index].phone}
+                        onChange={(e) => handlePhoneChange(e, (unused: any) => {
+                          const newClaimants = [...additionalClaimants]
+                          newClaimants[index] = { ...newClaimants[index], phone: formatPhoneNumber(e.target.value) }
+                          setAdditionalClaimants(newClaimants)
+                        }, 'phone')}
+                        placeholder="10-digit Indian mobile number"
+                        className="flex-1 border rounded px-2 py-1"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Only 10-digit Indian mobile numbers are accepted</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Address</label>
+                    <input
+                      name="address"
+                      value={claimant.address}
+                      onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button onClick={addAdditionalClaimant} variant="outline">
+              Add Additional Claimant
+            </Button>
+          </div>
+        )
+      case 2: // Respondent Details
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Respondent Details</h3>
+            {respondents.map((respondent, index) => (
+              <div key={index} className="border p-4 rounded-lg space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">Respondent {index + 1}</h4>
+                  {index > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeRespondent(index)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm mb-1">Type*</label>
+                    <select
+                      name="type"
+                      value={respondent.type}
+                      onChange={(e) => handleRespondentChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    >
+                      <option value="">Select type</option>
+                      <option value="individual">Individual</option>
+                      <option value="company">Company</option>
+                      <option value="partnership">Partnership</option>
+                      <option value="llp">LLP</option>
+                    </select>
+                    {errors[`respondent${index}Type`] && (
+                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}Type`]}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Name*</label>
+                    <input
+                      name="name"
+                      value={respondent.name}
+                      onChange={(e) => handleRespondentChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    />
+                    {errors[`respondent${index}Name`] && (
+                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}Name`]}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Email*</label>
+                    <input
+                      name="email"
+                      type="email"
+                      value={respondent.email}
+                      onChange={(e) => handleRespondentChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    />
+                    {errors[`respondent${index}Email`] && (
+                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}Email`]}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Phone</label>
+                    <div className="flex gap-2">
+                      <select
+                        name="phoneCountryCode"
+                        value="+91"
+                        disabled={true}
+                        className="w-24 border rounded px-2 py-1 bg-gray-100"
+                      >
+                        <option value="+91">+91 (India)</option>
+                      </select>
+                      <input
+                        name="phone"
+                        value={respondent.phone}
+                        onChange={(e) => handlePhoneChange(e, (index: number) => {
+                          const newRespondents = [...respondents]
+                          newRespondents[index] = { ...newRespondents[index], phone: formatPhoneNumber(e.target.value) }
+                          setRespondents(newRespondents)
+                        }, 'phone')}
+                        placeholder="10-digit Indian mobile number"
+                        className="flex-1 border rounded px-2 py-1"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Only 10-digit Indian mobile numbers are accepted</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Address</label>
+                    <input
+                      name="address"
+                      value={respondent.address}
+                      onChange={(e) => handleRespondentChange(index, e)}
+                      className="w-full border rounded px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">GST Number</label>
+                    <div className="flex">
+                      <input
+                        name="gst"
+                        value={respondent.gst}
+                        onChange={(e) => handleRespondentChange(index, e)}
+                        onBlur={(e) => handleVerifyRespondentGST(index, e.target.value)}
+                        placeholder="22AAAAA0000A1Z5"
+                        className={`w-full border rounded px-2 py-1 ${
+                          errors[`respondent${index}GST`] ? 'border-red-500' : 
+                          verificationStatus.respondentGst[index]?.verified ? 'border-green-500' : ''
+                        }`}
+                      />
+                      {isVerifying.respondentGst[index] && (
+                        <div className="ml-2 flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+                      {!isVerifying.respondentGst[index] && verificationStatus.respondentGst[index] && (
+                        <div className="ml-2 flex items-center">
+                          {verificationStatus.respondentGst[index]?.verified ? (
+                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {errors[`respondent${index}GST`] && (
+                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}GST`]}</div>
+                    )}
+                    {!errors[`respondent${index}GST`] && verificationStatus.respondentGst[index]?.message && (
+                      <div className={`text-xs mt-1 ${
+                        verificationStatus.respondentGst[index]?.verified ? 'text-green-600' : 'text-red-500'
+                      }`}>
+                        {verificationStatus.respondentGst[index]?.message}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">15-digit GST identification number</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">PAN Number</label>
+                    <div className="flex">
+                      <input
+                        name="pan"
+                        value={respondent.pan}
+                        onChange={(e) => handleRespondentChange(index, e)}
+                        onBlur={(e) => handleVerifyRespondentPAN(index, e.target.value)}
+                        placeholder="AAAPL1234C"
+                        className={`w-full border rounded px-2 py-1 ${
+                          errors[`respondent${index}PAN`] ? 'border-red-500' : 
+                          verificationStatus.respondentPan[index]?.verified ? 'border-green-500' : ''
+                        }`}
+                      />
+                      {isVerifying.respondentPan[index] && (
+                        <div className="ml-2 flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+                      {!isVerifying.respondentPan[index] && verificationStatus.respondentPan[index] && (
+                        <div className="ml-2 flex items-center">
+                          {verificationStatus.respondentPan[index]?.verified ? (
+                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {errors[`respondent${index}PAN`] && (
+                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}PAN`]}</div>
+                    )}
+                    {!errors[`respondent${index}PAN`] && verificationStatus.respondentPan[index]?.message && (
+                      <div className={`text-xs mt-1 ${
+                        verificationStatus.respondentPan[index]?.verified ? 'text-green-600' : 'text-red-500'
+                      }`}>
+                        {verificationStatus.respondentPan[index]?.message}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Format: 5 letters, 4 digits, 1 letter</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">CIN</label>
+                    <div className="flex">
+                      <input
+                        name="cin"
+                        value={respondent.cin}
+                        onChange={(e) => handleRespondentChange(index, e)}
+                        onBlur={(e) => handleVerifyRespondentCIN(index, e.target.value)}
+                        placeholder="U74140MH2014PTC123456"
+                        className={`w-full border rounded px-2 py-1 ${
+                          errors[`respondent${index}CIN`] ? 'border-red-500' : 
+                          verificationStatus.respondentCin[index]?.verified ? 'border-green-500' : ''
+                        }`}
+                      />
+                      {isVerifying.respondentCin[index] && (
+                        <div className="ml-2 flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+                      {!isVerifying.respondentCin[index] && verificationStatus.respondentCin[index] && (
+                        <div className="ml-2 flex items-center">
+                          {verificationStatus.respondentCin[index]?.verified ? (
+                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {errors[`respondent${index}CIN`] && (
+                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}CIN`]}</div>
+                    )}
+                    {!errors[`respondent${index}CIN`] && verificationStatus.respondentCin[index]?.message && (
+                      <div className={`text-xs mt-1 ${
+                        verificationStatus.respondentCin[index]?.verified ? 'text-green-600' : 'text-red-500'
+                      }`}>
+                        {verificationStatus.respondentCin[index]?.message}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Corporate Identification Number (21 characters)</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button onClick={addRespondent} variant="outline">
+              Add Respondent
+            </Button>
+          </div>
+        )
+      case 3: // Arbitration Agreement
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Arbitration Agreement</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm mb-1">Selected Arbitrators</label>
+                <label className="block text-sm mb-1">Agreement Date*</label>
                 <input
-                  name="selectedArbitrators"
-                  type="text"
-                  value={arbitratorSelection.selectedArbitrators.join(', ')}
-                  onChange={handleArbitratorSelectionChange}
-                  placeholder="Enter arbitrator names"
+                  name="agreementDate"
+                  type="date"
+                  value={arbitrationAgreement.agreementDate}
+                  onChange={handleArbitrationAgreementChange}
                   className="w-full border rounded px-2 py-1"
                 />
+                {errors.agreementDate && (
+                  <div className="text-red-500 text-xs mt-1">{errors.agreementDate}</div>
+                )}
               </div>
               <div>
-                <label className="block text-sm mb-1">Preferred Arbitrator</label>
+                <label className="block text-sm mb-1">Agreement Type*</label>
+                <select
+                  name="agreementType"
+                  value={arbitrationAgreement.agreementType}
+                  onChange={handleArbitrationAgreementChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select type</option>
+                  <option value="contract">Contract</option>
+                  <option value="agreement">Agreement</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.agreementType && (
+                  <div className="text-red-500 text-xs mt-1">{errors.agreementType}</div>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Agreement File*</label>
                 <input
-                  name="preferredArbitrator"
-                  value={arbitratorSelection.preferredArbitrator}
-                  onChange={handleArbitratorSelectionChange}
-                  placeholder="Enter preferred arbitrator name"
+                  name="agreementFile"
+                  type="file"
+                  onChange={handleArbitrationAgreementChange}
                   className="w-full border rounded px-2 py-1"
                 />
+                {errors.agreementFile && (
+                  <div className="text-red-500 text-xs mt-1">{errors.agreementFile}</div>
+                )}
               </div>
             </div>
           </div>
         )
-        
-      case 6: // Documents
+      case 4: // Dispute Details
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Dispute Details</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">Dispute Type*</label>
+                <select
+                  name="disputeType"
+                  value={disputeDetails.disputeType}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="">Select type</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="construction">Construction</option>
+                  <option value="employment">Employment</option>
+                  <option value="intellectual_property">Intellectual Property</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.disputeType && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeType}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Dispute Amount (INR)*</label>
+                <input
+                  name="disputeAmount"
+                  type="number"
+                  value={disputeDetails.disputeAmount}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                />
+                {errors.disputeAmount && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeAmount}</div>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Dispute Description*</label>
+                <textarea
+                  name="disputeDescription"
+                  value={disputeDetails.disputeDescription}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                  rows={4}
+                />
+                {errors.disputeDescription && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeDescription}</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Dispute Date*</label>
+                <input
+                  name="disputeDate"
+                  type="date"
+                  value={disputeDetails.disputeDate}
+                  onChange={handleDisputeDetailsChange}
+                  className="w-full border rounded px-2 py-1"
+                />
+                {errors.disputeDate && (
+                  <div className="text-red-500 text-xs mt-1">{errors.disputeDate}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      case 5: // Documents
         return (
           <div className="space-y-4">
             <h3 className="font-medium text-lg mb-4">Documents</h3>
@@ -1600,29 +2048,7 @@ export default function ArbitrationForm() {
             </div>
           </div>
         )
-        
-      case 7: // Arguments
-        return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Arguments</h3>
-            <textarea
-              name="arguments"
-              value={argumentsData.arguments}
-              onChange={handleArgumentsChange}
-              placeholder="Enter arguments"
-              className="w-full border rounded px-2 py-1"
-              rows={4}
-            />
-            <input
-              name="argumentsFile"
-              type="file"
-              onChange={handleDocumentsChange}
-              className="w-full border rounded px-2 py-1"
-            />
-          </div>
-        )
-        
-      case 8: // Review & Submit
+      case 6: // Review & Submit
         return (
           <div>
             <h2 className="text-xl font-semibold mb-6">Review Your Petition</h2>
@@ -1673,15 +2099,6 @@ export default function ArbitrationForm() {
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
-                  <div className="text-sm">
-                    <div>
-                      <span className="font-medium">Reliefs:</span> {prayers.reliefs}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
                   <h4 className="font-medium mb-2">Additional Claimants</h4>
                   {additionalClaimants.map((claimant, index) => (
                     <div key={index} className="mb-2 text-sm">
@@ -1727,15 +2144,6 @@ export default function ArbitrationForm() {
                     <div>
                       <span className="font-medium">Type:</span> {arbitrationAgreement.agreementType}
                     </div>
-                    <div>
-                      <span className="font-medium">Seat of Arbitration:</span> {arbitrationAgreement.seatOfArbitration}
-                    </div>
-                    <div>
-                      <span className="font-medium">Between:</span> {arbitrationAgreement.agreementBetween.partyA} and {arbitrationAgreement.agreementBetween.partyB}
-                    </div>
-                    <div>
-                      <span className="font-medium">Signed at:</span> {arbitrationAgreement.signedAt.taluka && `${arbitrationAgreement.signedAt.taluka}, `}{arbitrationAgreement.signedAt.city}, {arbitrationAgreement.signedAt.district}, {arbitrationAgreement.signedAt.state}
-                    </div>
                   </div>
                 </div>
 
@@ -1746,12 +2154,6 @@ export default function ArbitrationForm() {
                       <span className="font-medium">Type:</span> {disputeDetails.disputeType}
                     </div>
                     <div>
-                      <span className="font-medium">Category:</span> {disputeDetails.disputeCategory}
-                    </div>
-                    <div>
-                      <span className="font-medium">SubCategory:</span> {disputeDetails.disputeSubCategory}
-                    </div>
-                    <div>
                       <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount}
                     </div>
                     <div>
@@ -1760,28 +2162,12 @@ export default function ArbitrationForm() {
                     <div>
                       <span className="font-medium">Description:</span> {disputeDetails.disputeDescription}
                     </div>
-                    <div>
-                      <span className="font-medium">Hearing Preference:</span> {disputeDetails.hearingPreference}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Arbitrator Selection</h4>
-                  <div className="text-sm">
-                    <div>
-                      <span className="font-medium">Selected Arbitrators:</span> {arbitratorSelection.selectedArbitrators.join(', ')}
-                    </div>
-                    <div>
-                      <span className="font-medium">Preferred Arbitrator:</span> {arbitratorSelection.preferredArbitrator}
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )
-        
       default:
         return null;
     }
@@ -1789,29 +2175,8 @@ export default function ArbitrationForm() {
 
   return (
     <div className="max-w-3xl mx-auto py-8">
-      {/* Error state */}
-      {componentError.hasError && (
-        <Card className="mb-6 border-red-300 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <h2 className="text-xl font-bold mb-2 text-red-700">Something went wrong</h2>
-              <p className="text-red-600 mb-4">{componentError.message}</p>
-              <Button 
-                onClick={recoverFromError}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Try Again
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Add draft list at the top if there are drafts */}
-      {!componentError.hasError && draftList.length > 0 && (
+      {draftList.length > 0 && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             <h2 className="text-xl font-bold mb-4">Your Drafts</h2>
@@ -1841,62 +2206,58 @@ export default function ArbitrationForm() {
         </Card>
       )}
 
-      {!componentError.hasError && (
-        <>
-          <div className="flex items-center justify-between mb-8">
-            {steps.map((label, idx) => (
-              <div key={label} className="flex-1 flex flex-col items-center">
-                <div
-                  className={`rounded-full w-8 h-8 flex items-center justify-center text-white text-sm font-bold ${
-                    idx === activeStep
-                      ? "bg-blue-600"
-                      : idx < activeStep
-                      ? "bg-green-500"
-                      : "bg-gray-300"
-                  }`}
-                >
-                  {idx + 1}
-                </div>
-                <span className="text-xs mt-2 text-center w-20 truncate">{label}</span>
-              </div>
-            ))}
-          </div>
-          <Card>
-            <CardContent className="p-8 min-h-[300px] flex flex-col justify-center">
-              {renderFormContent()}
-            </CardContent>
-          </Card>
-          <div className="flex justify-between mt-8">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={activeStep === 0}
+      <div className="flex items-center justify-between mb-8">
+        {steps.map((label, idx) => (
+          <div key={label} className="flex-1 flex flex-col items-center">
+            <div
+              className={`rounded-full w-8 h-8 flex items-center justify-center text-white text-sm font-bold ${
+                idx === activeStep
+                  ? "bg-blue-600"
+                  : idx < activeStep
+                  ? "bg-green-500"
+                  : "bg-gray-300"
+              }`}
             >
-              Back
-            </Button>
-            
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                onClick={saveDraft}
-                disabled={isSavingDraft}
-              >
-                {isSavingDraft ? 'Saving...' : 'Save Draft'}
-              </Button>
-              
-              <Button
-                variant={activeStep === steps.length - 1 ? "default" : "outline"}
-                onClick={handleNext}
-                disabled={isSubmitting}
-              >
-                {activeStep === steps.length - 1 
-                  ? (isSubmitting ? 'Submitting...' : 'Submit') 
-                  : 'Next'}
-              </Button>
+              {idx + 1}
             </div>
+            <span className="text-xs mt-2 text-center w-20 truncate">{label}</span>
           </div>
-        </>
-      )}
+        ))}
+      </div>
+      <Card>
+        <CardContent className="p-8 min-h-[300px] flex flex-col justify-center">
+          {renderFormContent()}
+        </CardContent>
+      </Card>
+      <div className="flex justify-between mt-8">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          disabled={activeStep === 0}
+        >
+          Back
+        </Button>
+        
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={saveDraft}
+            disabled={isSavingDraft}
+          >
+            {isSavingDraft ? 'Saving...' : 'Save Draft'}
+          </Button>
+          
+          <Button
+            variant={activeStep === steps.length - 1 ? "default" : "outline"}
+            onClick={handleNext}
+            disabled={isSubmitting}
+          >
+            {activeStep === steps.length - 1 
+              ? (isSubmitting ? 'Submitting...' : 'Submit') 
+              : 'Next'}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

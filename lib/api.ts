@@ -1,18 +1,12 @@
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig, AxiosError } from 'axios';
 
-// Set the API URL with proper fallback
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
-// Create axios client with the proper baseURL including the NestJS global prefix 'api'
 const apiClient = axios.create({
   baseURL: `${API_URL}/api`,  // Add '/api' prefix to match NestJS global prefix
   headers: {
     'Content-Type': 'application/json',
   },
-  // Add reasonable timeouts
-  timeout: 15000, // 15 seconds
-  // Allow cross-site cookies
-  withCredentials: true,
 });
 
 // Keep track of logout function for global usage
@@ -22,16 +16,6 @@ export const setLogoutCallback = (callback: () => void) => {
   logoutCallback = callback;
 };
 
-// For debugging purposes, log all requests
-apiClient.interceptors.request.use((request: InternalAxiosRequestConfig) => {
-  const url = request.baseURL && request.url ? `${request.baseURL}${request.url}` : request.url;
-  console.log('Request URL:', url);
-  return request;
-}, (error) => {
-  console.error('Request setup error:', error);
-  return Promise.reject(error);
-});
-
 // Add request interceptor to include auth token
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('auth_token');
@@ -39,30 +23,12 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
-}, (error) => {
-  console.error('Request config error:', error);
-  return Promise.reject(error);
 });
 
-// Track failed requests for retry
-const failedRequestsQueue: { resolve: (value: unknown) => void; reject: (reason?: any) => void; config: InternalAxiosRequestConfig }[] = [];
-
-// Add response interceptor to handle auth errors and retry failed requests
+// Add response interceptor to handle auth errors
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    // Handle request timeout
-    if (error.code === 'ECONNABORTED') {
-      console.error('Request timed out. Server might be slow or unavailable.');
-      return Promise.reject(new Error('Request timed out. Please try again later.'));
-    }
-    
-    // Handle network errors
-    if (error.code === 'ERR_NETWORK') {
-      console.error('Network error. Server might be down or network is disconnected.');
-      return Promise.reject(new Error('Network error. Please check your internet connection.'));
-    }
-    
     // Handle authentication errors
     if (error.response?.status === 401) {
       console.error('Authentication error - clearing tokens and redirecting to login');
@@ -78,17 +44,6 @@ apiClient.interceptors.response.use(
         window.location.href = '/auth/login';
       }
     }
-    
-    // Add better error logging
-    const errorData = {
-      message: error.message,
-      code: error.code,
-      status: error.response?.status,
-      data: error.response?.data,
-      url: error.config?.url
-    };
-    console.error('API error details:', errorData);
-    
     return Promise.reject(error);
   }
 );
@@ -134,17 +89,6 @@ export interface ArbitrationFormData {
     agreementDate: string;
     agreementType: string;
     agreementFile: File;
-    signedAt: {
-      taluka?: string;
-      city: string;
-      district: string;
-      state: string;
-    };
-    seatOfArbitration: string;
-    agreementBetween: {
-      partyA: string;
-      partyB: string;
-    };
   };
   disputeDetails: {
     disputeType: string;
@@ -233,30 +177,31 @@ export const arbitrationApi = {
         throw new Error('Authentication required. Please log in first.');
       }
       
-      // Extract basic info from formData for debugging
-      const formDataEntries: Record<string, any> = {};
+      // Log full request URL for debugging
+      const fullUrl = `${API_URL}/api/arbitration/drafts`;
+      console.log('Attempting to save draft to:', fullUrl);
+      
+      // Log formData entries in a more user-friendly way
+      const formDataLog: Record<string, any> = {};
       formData.forEach((value, key) => {
-        if (key === 'data') {
+        // Don't log file contents, just file names for files
+        if (value instanceof File) {
+          formDataLog[key] = `File: ${value.name} (${value.type}, ${value.size} bytes)`;
+        } else if (typeof value === 'string' && value.startsWith('{')) {
+          // Try to parse JSON strings for better logging
           try {
-            const parsedData = JSON.parse(value as string);
-            formDataEntries['data'] = {
-              id: parsedData.id,
-              type: parsedData.type,
-              name: parsedData.name
-            };
+            formDataLog[key] = JSON.parse(value);
           } catch (e) {
-            formDataEntries[key] = 'Error parsing JSON';
+            formDataLog[key] = value;
           }
-        } else if (value instanceof File) {
-          formDataEntries[key] = `File: ${value.name} (${value.size} bytes)`;
         } else {
-          formDataEntries[key] = value;
+          formDataLog[key] = value;
         }
       });
       
-      console.log('Draft FormData being submitted:', formDataEntries);
+      console.log('Draft FormData contents:', formDataLog);
       
-      // Fix: Use the direct endpoint path that matches NestJS controller
+      // Fix: Use correct endpoint to match the backend controller
       const response = await apiClient.post('/arbitration/draft', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -266,46 +211,35 @@ export const arbitrationApi = {
         timeout: 60000, // 60 seconds
       });
       
-      console.log('Draft saved successfully, response:', response.data);
-      
-      // Ensure we return a consistent object structure
-      const savedDraft = response.data;
-      
-      // Add fallback properties to match what dashboard expects
-      if (!savedDraft.name && savedDraft.claimantDetails?.name) {
-        savedDraft.name = savedDraft.claimantDetails.name;
-      }
-      
-      if (!savedDraft.type && savedDraft.disputeCategory) {
-        savedDraft.type = savedDraft.disputeCategory;
-      }
-      
-      if (!savedDraft.updatedAt && savedDraft.lastEditedAt) {
-        savedDraft.updatedAt = savedDraft.lastEditedAt;
-      }
-      
-      return savedDraft;
+      console.log('Draft saved successfully:', response.data);
+      return response.data;
     } catch (error: any) {
-      console.error('Error saving draft:', error);
+      console.error('Error saving draft:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        stackTrace: error.stack,
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          headers: error.config.headers,
+          baseURL: error.config.baseURL,
+          fullUrl: error.config.baseURL + error.config.url,
+        } : 'No config available'
+      });
       
-      if (error.response) {
-        console.error('Server response error:', {
-          status: error.response.status,
-          data: error.response.data,
-          statusText: error.response.statusText
-        });
+      if (error.response?.status === 404) {
+        console.error('404 Error: API endpoint not found. Check that the backend controller has the correct route defined.');
+      }
+      
+      if (error.response?.status === 401) {
+        // Handle token expiration or invalid token
+        console.error('Authentication failed. Token may be expired or invalid.');
+        localStorage.removeItem('auth_token');
         
-        if (error.response.status === 404) {
-          console.error('API endpoint not found. Check your API route configuration.');
-        } else if (error.response.status === 401) {
-          console.error('Authentication failed. Please login again.');
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('token_expiry');
-          localStorage.removeItem('user');
-          throw new Error('Session expired. Please log in again.');
-        } else if (error.response.status === 400) {
-          console.error('Bad request. Check your form data.');
-        }
+        // Inform the user they need to log in again
+        throw new Error('Your session has expired. Please log in again.');
       }
       
       throw error;
@@ -315,81 +249,38 @@ export const arbitrationApi = {
   // Enhanced methods for draft management
   getDrafts: async () => {
     try {
-      console.log('Fetching drafts...');
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        console.warn('No auth token found, returning empty drafts array');
-        return [];
-      }
-
-      try {
-        // First try the standard API path for drafts
-        const response = await apiClient.get('/arbitration/draft', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        // Log success and return data
-        console.log(`Successfully retrieved ${Array.isArray(response.data) ? response.data.length : 0} drafts`);
-        return Array.isArray(response.data) ? response.data : [];
-      } catch (firstError: any) {
-        console.warn(`Primary draft endpoint failed: ${firstError.message}`);
-        
-        // If the first attempt fails, try a fallback endpoint
-        if (firstError.response?.status === 404) {
-          try {
-            // Try an alternative endpoint format
-            console.log('Trying fallback draft endpoint...');
-            const fallbackResponse = await apiClient.get('/arbitration-drafts', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            console.log('Fallback endpoint successful');
-            return Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
-          } catch (fallbackError: any) {
-            console.warn(`Fallback endpoint also failed: ${fallbackError.message}`);
-            // Both endpoints failed - return empty array
-            return [];
-          }
-        }
-        
-        // For other error types, return empty array
-        console.warn('Returning empty array due to API error');
-        return [];
-      }
-    } catch (error: any) {
-      console.error('Unexpected error in getDrafts:', error?.message);
-      // Always return an empty array rather than throwing
-      return [];
+      const response = await apiClient.get('/arbitration/draft');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting drafts:', error);
+      throw error;
     }
   },
 
   submitDraft: async (draftId: string) => {
     try {
       console.log(`Attempting to submit draft with ID: ${draftId}`);
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('Authentication required. Please log in first.');
-      }
-      
-      const response = await apiClient.post(`/arbitration/draft/${draftId}/submit`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Use the correct endpoint path to match the backend controller
+      const response = await apiClient.post(`/arbitration/draft/${draftId}/submit`);
       console.log('Draft submission response:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('Error submitting draft:', error);
       
+      // More detailed error logging
       if (error.response) {
-        console.error('Server response error:', {
+        console.error('Server error details:', {
           status: error.response.status,
           data: error.response.data,
-          statusText: error.response.statusText
+          headers: error.response.headers
         });
+        
+        // Show specific error message based on status code
+        if (error.response.status === 404) {
+          throw new Error(`Draft with ID ${draftId} not found`);
+        } else if (error.response.status === 500) {
+          throw new Error(`Server error: ${error.response.data?.message || 'Unknown server error'}`);
+        }
       }
       
       throw error;
@@ -397,129 +288,38 @@ export const arbitrationApi = {
   },
 
   getAll: async () => {
-    try {
-      console.log('Fetching all cases...');
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        console.warn('No auth token found, returning empty cases array');
-        return [];
-      }
-      
-      try {
-        // First try the standard API path
-        console.log('Trying primary cases endpoint...');
-        const response = await apiClient.get('/arbitration/cases', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        console.log(`Successfully retrieved ${Array.isArray(response.data) ? response.data.length : 0} cases`);
-        return Array.isArray(response.data) ? response.data : [];
-      } catch (firstError: any) {
-        console.warn(`Primary cases endpoint failed: ${firstError.message}`);
-        
-        // If the first attempt fails with 404, try a fallback endpoint
-        if (firstError.response?.status === 404) {
-          try {
-            // Try an alternative endpoint format
-            console.log('Trying fallback cases endpoint...');
-            const fallbackResponse = await apiClient.get('/arbitration-cases', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            console.log('Fallback endpoint successful');
-            return Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
-          } catch (fallbackError: any) {
-            console.warn(`Fallback endpoint also failed: ${fallbackError.message}`);
-            // Both endpoints failed - return empty array
-            return [];
-          }
-        }
-        
-        // For other error types, return empty array
-        console.warn('Returning empty cases array due to API error');
-        return [];
-      }
-    } catch (error: any) {
-      console.error('Unexpected error in getAll:', error?.message);
-      // Always return an empty array rather than throwing
-      return [];
-    }
+    const response = await apiClient.get('/arbitration/cases');
+    return response.data;
   },
 
   getById: async (id: string) => {
     try {
-      console.log(`Fetching item with ID: ${id}`);
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        console.warn('No auth token found, cannot fetch item');
-        throw new Error('Authentication required. Please log in first.');
-      }
-      
+      console.log(`Fetching petition with ID: ${id}`);
       // First try to get it as a submitted case
       try {
-        console.log('Trying to fetch as a case...');
-        const response = await apiClient.get(`/arbitration/cases/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        console.log('Successfully fetched as case');
+        const response = await apiClient.get(`/arbitration/cases/${id}`);
         return response.data;
-      } catch (caseError: any) {
-        console.log(`Case fetch failed: ${caseError.message}, trying as a draft...`);
-        
-        if (caseError.response?.status === 404 || caseError.response?.status === 403) {
+      } catch (error: any) {
+        console.log(`Not found as a case, trying as a draft...`);
+        if (error.response?.status === 404) {
           // If not found as a case, try getting it as a draft
-          try {
-            console.log('Trying to fetch as a draft...');
-            const draftResponse = await apiClient.get(`/arbitration/draft/${id}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            console.log('Successfully fetched as draft');
-            return draftResponse.data;
-          } catch (draftError: any) {
-            console.error(`Draft fetch also failed: ${draftError.message}`);
-            
-            // Try alternative endpoint formats before giving up
-            try {
-              console.log('Trying alternative endpoint format...');
-              const altResponse = await apiClient.get(`/arbitration-items/${id}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
-              console.log('Alternative endpoint successful');
-              return altResponse.data;
-            } catch (altError: any) {
-              console.error(`All endpoints failed for ID ${id}`);
-              throw new Error(`Item with ID ${id} could not be found`);
-            }
-          }
-        } else {
-          // For other errors, re-throw with details
-          const errorMessage = caseError.response?.data?.message || caseError.message;
-          console.error(`Error fetching item: ${errorMessage}`);
-          throw new Error(`Error fetching item: ${errorMessage}`);
+          const draftResponse = await apiClient.get(`/arbitration/draft/${id}`);
+          return draftResponse.data;
         }
+        throw error;
       }
     } catch (error: any) {
-      console.error('Error fetching item by ID:', error);
+      console.error('Error fetching petition:', error);
       
-      // Add detailed error information
+      // Provide more detailed error information
       if (error.response) {
         console.error('Server response error:', {
           status: error.response.status,
-          data: error.response.data,
-          statusText: error.response.statusText
+          data: error.response.data
         });
       }
       
-      // Rethrow with a user-friendly message
-      throw new Error(error.message || 'Failed to load the requested item');
+      throw error;
     }
   },
 
@@ -569,8 +369,8 @@ export const auth = {
       const response = await apiClient.post('/auth/login', credentials);
       console.log('Login response:', response.data);
       
-      // Handle different response structures from NestJS
-      const token = response.data.access_token || response.data.token;
+      // The backend might return data in different formats, handle both possibilities
+      const token = response.data.token || response.data.access_token;
       const user = response.data.user;
       
       if (!token) {
@@ -593,22 +393,10 @@ export const auth = {
       return { user, token };
     } catch (error: any) {
       console.error('Login error details:', {
-        message: error?.message,
-        status: error?.response?.status,
-        data: error?.response?.data,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
       });
-      
-      // Provide more specific error messages
-      if (error?.response?.status === 401) {
-        throw new Error('Invalid email or password. Please try again.');
-      } else if (error?.response?.status === 404) {
-        throw new Error('Authentication service is currently unavailable. Please try again later.');
-      } else if (error?.response?.status === 400) {
-        throw new Error(error?.response?.data?.message || 'Invalid credentials format.');
-      } else if (error?.message === 'Network Error') {
-        throw new Error('Cannot connect to server. Please check your internet connection.');
-      }
-      
       throw error;
     }
   },
@@ -660,7 +448,7 @@ export const auth = {
     try {
       // Add debug logging for token existence
       const token = localStorage.getItem('auth_token');
-      console.log('Getting current user, token available:', !!token);
+      console.log('⚠️ getCurrentUser token status:', token ? 'EXISTS' : 'MISSING');
       
       if (!token) {
         throw new Error('No authentication token found');
@@ -678,45 +466,58 @@ export const auth = {
         }
       }
       
-      // If we already have user data in localStorage, use it as fallback
-      const storedUserStr = localStorage.getItem('user');
-      let storedUser = null;
-      
-      if (storedUserStr) {
-        try {
-          storedUser = JSON.parse(storedUserStr);
-        } catch (e) {
-          console.error('Error parsing stored user:', e);
-        }
+      // Check token format
+      if (!token.startsWith('ey')) {
+        // Most JWT tokens start with 'ey'
+        console.warn('Token does not appear to be in JWT format:', token.substring(0, 10) + '...');
       }
       
+      console.log('⚠️ Fetching current user with token length:', token.length);
+      
       try {
-        console.log('Making request to:', `${API_URL}/api/auth/me`);
-        const response = await apiClient.get('/auth/me');
-        console.log('User data received from API');
+        // Add detailed logging about the request
+        console.log('⚠️ Making request to:', `${API_URL}/api/auth/me`);
+        
+        const response = await apiClient.get('/auth/me', {
+          // Increase timeout for debugging
+          timeout: 10000,
+        });
+        
+        console.log('⚠️ User data received:', response.data ? 'SUCCESS' : 'EMPTY');
         return response.data;
       } catch (requestError: any) {
-        console.warn('Error fetching user from API:', requestError?.message);
+        // Add detailed error logging specifically for the request
+        console.error('⚠️ Request error details:', {
+          message: requestError.message,
+          name: requestError.name,
+          code: requestError.code,
+          status: requestError.response?.status,
+          statusText: requestError.response?.statusText,
+          data: requestError.response?.data,
+          url: requestError.config?.url,
+          method: requestError.config?.method,
+          baseURL: requestError.config?.baseURL,
+          headers: requestError.config?.headers,
+        });
         
-        // If we have stored user data, return it as fallback
-        if (storedUser) {
-          console.log('Using stored user data as fallback');
-          return storedUser;
-        }
-        
-        // Otherwise, propagate the error
+        // Re-throw with more specific message
         if (requestError.response?.status === 401) {
           throw new Error('Authentication failed: Invalid or expired token');
-        } else if (requestError.response?.status === 404) {
-          throw new Error('User profile endpoint not available');
+        } else if (requestError.response?.status === 403) {
+          throw new Error('Authentication failed: Insufficient permissions');
+        } else if (requestError.code === 'ECONNABORTED') {
+          throw new Error('Request timed out. Please check your network connection');
+        } else if (requestError.message === 'Network Error') {
+          throw new Error('Network error. Please check your connection to the server');
         }
         
         throw requestError;
       }
     } catch (error: any) {
       console.error('Error getting current user:', {
-        message: error?.message,
-        status: error?.response?.status,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
       });
       
       // Clear token if there's an authentication problem

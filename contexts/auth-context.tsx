@@ -104,44 +104,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      console.log('Attempting login with email:', email)
       const response = await auth.login({email, password})
-      
-      if (!response || !response.token) {
-        throw new Error('Login failed: No valid token received')
-      }
-      
-      // Log successful login
-      console.log('Login successful, token received')
       
       // Store token and user data
       localStorage.setItem('auth_token', response.token)
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user))
-        setUser(response.user)
-      } else {
-        // If no user object in response, try to get user info
-        try {
-          const userData = await auth.getCurrentUser()
-          if (userData) {
-            localStorage.setItem('user', JSON.stringify(userData))
-            setUser(userData)
-          }
-        } catch (userError) {
-          console.error('Error fetching user data after login:', userError)
-          // Continue anyway, we can try to get user data on next page load
-        }
-      }
+      localStorage.setItem('user', JSON.stringify(response.user))
       
+      setUser(response.user)
       router.push('/dashboard')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Login error:', error)
-      
-      // Extract meaningful error message
-      const errorMessage = error?.message || 'An unknown error occurred during login'
-      
-      // Re-throw with clear message for UI
-      throw new Error(errorMessage)
+      throw error
     } finally {
       setIsLoading(false)
     }

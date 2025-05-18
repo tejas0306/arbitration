@@ -169,6 +169,10 @@ export default function ArbitrationForm() {
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [formChanged, setFormChanged] = useState(false)
+  const [stateOptions, setStateOptions] = useState<string[]>([]);
+  const [districtOptions, setDistrictOptions] = useState<string[]>([]);
+  const [cityOptions, setCityOptions] = useState<string[]>([]);
+  const [countryOptions, setCountryOptions] = useState<string[]>([]);
 
   // Add new state for verification loading
   const [isVerifying, setIsVerifying] = useState<{
@@ -595,28 +599,19 @@ export default function ArbitrationForm() {
 
   const handleSubmit = async () => {
     try {
-      // Check if user is authenticated before submission
       if (!isAuthenticated) {
         toast.error('Please log in to submit your petition');
         router.push('/auth/login');
         return;
       }
-      
       setIsSubmitting(true);
-      
+
       if (currentDraftId) {
-        // If we have a draft ID, submit the draft
-        console.log(`Submitting draft with ID: ${currentDraftId}`);
-        
+        // If editing a draft, save and submit the draft
         try {
-          // First, save the latest changes to ensure everything is up-to-date
           await saveDraft();
-          
-          // Then submit the draft
           await arbitrationApi.submitDraft(currentDraftId);
           toast.success('Arbitration request submitted successfully!');
-          
-          // Update draft list and reset form
           const drafts = await arbitrationApi.getDrafts();
           setDraftList(drafts);
           setCurrentDraftId(null);
@@ -625,43 +620,25 @@ export default function ArbitrationForm() {
           console.error('Error in draft submission flow:', submitError);
           const errorMessage = submitError.message || 'Error submitting draft';
           toast.error(errorMessage);
-          // Don't rethrow to continue execution
-          return; // Exit function but don't throw
+          return;
         }
       } else {
-        // Otherwise, save as draft first, then submit
+        // Directly submit the form data (not via draft)
         try {
-          // Save as draft first
           const formData = createFormData();
-          const saveDraftResponse = await arbitrationApi.saveDraft(formData);
-          
-          if (saveDraftResponse && saveDraftResponse.id) {
-            // Now submit the saved draft
-            await arbitrationApi.submitDraft(saveDraftResponse.id);
-            toast.success('Arbitration request submitted successfully!');
-            
-            // Reset form and go back to first step on success
-            setCurrentDraftId(null);
-            resetForm();
-          } else {
-            throw new Error('Failed to save draft before submission');
-          }
+          await arbitrationApi.create(formData);
+          toast.success('Arbitration request submitted successfully!');
+          resetForm();
         } catch (directError: any) {
           console.error('Error in direct submission flow:', directError);
           const errorMessage = directError.message || 'Error submitting arbitration request';
           toast.error(errorMessage);
-          // Don't rethrow to continue execution
-          return; // Exit function but don't throw
+          return;
         }
       }
-      
-      // Reset form and go back to first step on success
       setActiveStep(0);
-      
     } catch (error: any) {
       console.error('Error submitting form:', error);
-      
-      // More detailed error information
       if (error.response) {
         console.error('Server responded with error:', {
           status: error.response.status,
@@ -675,8 +652,6 @@ export default function ArbitrationForm() {
         console.error('Error setting up request:', error.message);
         toast.error(`Error: ${error.message}`);
       }
-      
-      // Handle 401 specifically
       if (error.response?.status === 401) {
         toast.error('Your session has expired. Please log in again.');
         router.push('/auth/login');
@@ -1017,97 +992,14 @@ export default function ArbitrationForm() {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, files } = e.target as any
+    const { name, value } = e.target;
     
-    // Special handling for pincode field
     if (name === 'pincode') {
-      // Only allow digits and limit to 6 characters
-      const sanitizedValue = value.replace(/\D/g, '').substring(0, 6);
-      setClaimant((prev) => ({
-        ...prev,
-        [name]: sanitizedValue,
-      }))
-    } 
-    // Special handling for PAN number - convert to uppercase and validate format
-    else if (name === 'pan') {
-      const uppercasePAN = value.toUpperCase();
-      
-      // Store validation error if PAN is not empty and invalid
-      if (uppercasePAN && !validatePAN(uppercasePAN)) {
-        setErrors((prev: any) => ({
-          ...prev,
-          pan: 'Invalid PAN format. Should be like AAAPL1234C'
-        }));
-      } else {
-        // Clear error if PAN is valid or empty
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors.pan;
-          return newErrors;
-        });
-      }
-      
-      setClaimant((prev) => ({
-        ...prev,
-        [name]: uppercasePAN,
-      }))
+      handlePincodeChange(e as React.ChangeEvent<HTMLInputElement>);
+    } else {
+      setClaimant(prev => ({ ...prev, [name]: value }));
     }
-    // Special handling for CIN - convert to uppercase and validate format
-    else if (name === 'cin') {
-      const uppercaseCIN = value.toUpperCase();
-      
-      // Store validation error if CIN is not empty and invalid
-      if (uppercaseCIN && !validateCIN(uppercaseCIN)) {
-        setErrors((prev: any) => ({
-          ...prev,
-          cin: 'Invalid CIN format. Should be like U74140MH2014PTC123456'
-        }));
-      } else {
-        // Clear error if CIN is valid or empty
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors.cin;
-          return newErrors;
-        });
-      }
-      
-      setClaimant((prev) => ({
-        ...prev,
-        [name]: uppercaseCIN,
-      }))
-    }
-    // Special handling for GST - convert to uppercase and validate format
-    else if (name === 'gst') {
-      const uppercaseGST = value.toUpperCase();
-      
-      // Store validation error if GST is not empty and invalid
-      if (uppercaseGST && !validateGST(uppercaseGST)) {
-        setErrors((prev: any) => ({
-          ...prev,
-          gst: 'Invalid GST format. Should be like 22AAAAA0000A1Z5'
-        }));
-      } else {
-        // Clear error if GST is valid or empty
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors.gst;
-          return newErrors;
-        });
-      }
-      
-      setClaimant((prev) => ({
-        ...prev,
-        [name]: uppercaseGST,
-      }))
-    }
-    else {
-      setClaimant((prev) => ({
-        ...prev,
-        [name]: files ? files[0] : value,
-      }))
-    }
-    setFormChanged(true)
-  }
+  };
 
   const handleAdditionalClaimantChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -1627,6 +1519,43 @@ export default function ArbitrationForm() {
     setFormChanged(true)
   }
 
+  // Handle pincode change
+  const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pin = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setClaimant(prev => ({ ...prev, pincode: pin }));
+
+    if (pin.length === 6) {
+      const info = await fetchLocation(pin);
+      if (info) {
+        setCountryOptions([info.country]);
+        setStateOptions([info.state]);
+        setDistrictOptions([info.district]);
+        setCityOptions(info.cities);
+        setClaimant(prev => ({
+          ...prev,
+          country: info.country,
+          state: info.state,
+          district: info.district,
+          city: info.cities[0] || "",
+        }));
+      }
+    }
+  };
+
+  // Add fetchLocation function
+  async function fetchLocation(pin: string) {
+    const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+    const [body] = await res.json();
+    if (body.Status !== "Success" || !body.PostOffice?.length) return null;
+    const po = body.PostOffice[0];
+    return {
+      state:    po.State,
+      district: po.District,
+      country:  po.Country,
+      cities:   body.PostOffice.map((o: any) => o.Name),
+    };
+  }
+
   if (!isClient) {
     return null // or a loading spinner
   }
@@ -1713,42 +1642,62 @@ export default function ArbitrationForm() {
               </div>
               <div>
                 <label className="block text-sm mb-1">City*</label>
-                <input
+                <select
                   name="city"
                   value={claimant.city}
                   onChange={handleChange}
                   className="w-full border rounded px-2 py-1"
-                />
+                >
+                  <option value="">Select City</option>
+                  {cityOptions.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
                 {errors.city && <div className="text-red-500 text-xs mt-1">{errors.city}</div>}
               </div>
               <div>
                 <label className="block text-sm mb-1">District*</label>
-                <input
+                <select
                   name="district"
                   value={claimant.district}
                   onChange={handleChange}
                   className="w-full border rounded px-2 py-1"
-                />
+                >
+                  <option value="">Select District</option>
+                  {districtOptions.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
                 {errors.district && <div className="text-red-500 text-xs mt-1">{errors.district}</div>}
               </div>
               <div>
                 <label className="block text-sm mb-1">State*</label>
-                <input
+                <select
                   name="state"
                   value={claimant.state}
                   onChange={handleChange}
                   className="w-full border rounded px-2 py-1"
-                />
+                >
+                  <option value="">Select State</option>
+                  {stateOptions.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
                 {errors.state && <div className="text-red-500 text-xs mt-1">{errors.state}</div>}
               </div>
               <div>
                 <label className="block text-sm mb-1">Country*</label>
-                <input
+                <select
                   name="country"
                   value={claimant.country}
                   onChange={handleChange}
                   className="w-full border rounded px-2 py-1"
-                />
+                >
+                  <option value="">Select Country</option>
+                  {countryOptions.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
                 {errors.country && <div className="text-red-500 text-xs mt-1">{errors.country}</div>}
               </div>
               <div>

@@ -134,7 +134,7 @@ export const arbitrationApi = {
       
       console.log('FormData contents:', formDataLog);
       
-      const response = await apiClient.post('/arbitration/submit', formData, {
+      const response = await apiClient.post('/api/arbitration/submit', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,

@@ -22,6 +22,9 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// File counter to generate sequential filenames
+let fileCounter = 1;
+
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -38,7 +41,8 @@ const storage = diskStorage({
     cb(null, caseDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    // Use a sequential number instead of a random one
+    const uniqueSuffix = Date.now() + '-' + (fileCounter++);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   },
 });

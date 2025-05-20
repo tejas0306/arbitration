@@ -80,12 +80,12 @@ export default function Header() {
           ) : (
             <div className="flex items-center space-x-2">
               <Link href="/auth/login">
-                <Button variant="outline" size="sm" className="border-indigo-300 text-white hover:bg-indigo-600">
+                <Button className="bg-white text-purple-700 hover:bg-indigo-100">
                   Login
                 </Button>
               </Link>
               <Link href="/auth/register">
-                <Button variant="default" size="sm" className="bg-white text-indigo-700 hover:bg-indigo-100">
+                <Button className="bg-white text-purple-700 hover:bg-indigo-100">
                   Register
                 </Button>
               </Link>

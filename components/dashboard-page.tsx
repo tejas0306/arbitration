@@ -7,10 +7,10 @@ import ProtectedRoute from '@/components/protected-route';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import DashboardWorklist from '@/components/dashboard-worklist';
 
 export default function DashboardPage() {
   const [userData, setUserData] = useState(null);
-  const [cases, setCases] = useState([]);
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,30 +20,42 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear any previous errors
+      
+      console.log('Fetching dashboard data...');
+      
       // Fetch user data
-      const user = await api.auth.getCurrentUser();
-      setUserData(user);
-
-      // Fetch arbitration cases
       try {
-        const casesData = await api.arbitration.getAll();
-        setCases(casesData);
-      } catch (caseErr) {
-        console.error('Error fetching cases:', caseErr);
-        setCases([]);
+        const user = await api.auth.getCurrentUser();
+        setUserData(user);
+        console.log('User data fetched successfully');
+      } catch (userErr) {
+        console.error('Error fetching user data:', userErr);
+        toast.error('Unable to load your profile information');
+        // Continue execution to try loading other data
       }
 
       // Fetch drafts
       try {
+        console.log('Fetching draft submissions...');
         const draftsData = await api.arbitration.getDrafts();
-        setDrafts(draftsData);
+        setDrafts(draftsData || []);
+        console.log(`Fetched ${draftsData?.length || 0} drafts`);
       } catch (draftErr) {
         console.error('Error fetching drafts:', draftErr);
+        console.error('Drafts error details:', {
+          message: draftErr.message,
+          response: draftErr.response?.data,
+          status: draftErr.response?.status,
+          url: draftErr.config?.url,
+          baseURL: draftErr.config?.baseURL
+        });
+        
+        toast.error('Unable to load your saved drafts');
         setDrafts([]);
-        // Continue execution - we can still show the dashboard without drafts
       }
     } catch (err) {
-      console.error('Error fetching user data:', err);
+      console.error('Dashboard general error:', err);
       setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);
@@ -151,96 +163,7 @@ export default function DashboardPage() {
             {activeTab === 'cases' && (
               <div>
                 <h2 className="text-xl font-semibold mb-4 text-indigo-700">Your Arbitration Cases</h2>
-                {cases.length > 0 ? (
-                  <div className="bg-white shadow overflow-hidden rounded-md">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Case Number
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Filed Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {cases.map((case_) => (
-                          <tr key={case_.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {case_.caseNumber || 'Pending'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {case_.type}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  case_.status === 'pending'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : case_.status === 'approved'
-                                    ? 'bg-green-100 text-green-800'
-                                    : case_.status === 'rejected'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {case_.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(case_.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <Link 
-                                href={`/arbitration/case/${case_.id}`}
-                                className="text-indigo-600 hover:text-indigo-900 mr-3"
-                              >
-                                View Details
-                              </Link>
-                              <Link 
-                                href={`/arbitration/new?petitionId=${case_.id}`}
-                                className="text-green-600 hover:text-green-800"
-                              >
-                                Edit
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="bg-white shadow overflow-hidden rounded-md p-6 text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No arbitration cases</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      You haven't submitted any arbitration requests yet.
-                    </p>
-                    <div className="mt-6">
-                      <Link 
-                        href="/arbitration/new"
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-md text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                        </svg>
-                        Create New Request
-                      </Link>
-                    </div>
-                  </div>
-                )}
+                <DashboardWorklist />
               </div>
             )}
 

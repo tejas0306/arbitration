@@ -1,5 +1,43 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Store sequence in a JSON file to persist between restarts
+const SEQUENCE_FILE = path.join(process.cwd(), 'data', 'case-sequence.json');
+
+// Function to generate the next case ID with a sequential number
+async function generateCaseId(): Promise<string> {
+  try {
+    // Make sure the data directory exists
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Read the current sequence number, or initialize if it doesn't exist
+    let sequence = 1;
+    if (fs.existsSync(SEQUENCE_FILE)) {
+      const data = fs.readFileSync(SEQUENCE_FILE, 'utf8');
+      const json = JSON.parse(data);
+      sequence = json.sequence || 1;
+    }
+    
+    // Get the current year
+    const currentYear = new Date().getFullYear();
+    
+    // Format the case ID: ADDS/ARB/{Year}/{Seven Digit Running Number}
+    const caseId = `ADDS/ARB/${currentYear}/${String(sequence).padStart(7, '0')}`;
+    
+    // Update the sequence number for the next case
+    fs.writeFileSync(SEQUENCE_FILE, JSON.stringify({ sequence: sequence + 1 }));
+    
+    return caseId;
+  } catch (error) {
+    console.error('Error generating case ID:', error);
+    throw error;
+  }
+}
 
 @Injectable()
 export class ArbitrationService {
@@ -12,10 +50,8 @@ export class ArbitrationService {
         files: data.files ? 'Files included' : 'No files'
       });
       
-      // Generate case number
-      const timestamp = new Date().getTime();
-      const randomNum = Math.floor(Math.random() * 1000);
-      const caseNumber = `ARB-${timestamp}-${randomNum}`;
+      // Generate case number using the sequential function
+      const caseNumber = await generateCaseId();
       
       // Extract file references from data.files
       const fileReferences = data.files || {};
@@ -174,9 +210,7 @@ export class ArbitrationService {
         });
       } else {
         // Create a new draft
-        const timestamp = new Date().getTime();
-        const randomNum = Math.floor(Math.random() * 1000);
-        const caseNumber = `DRAFT-${timestamp}-${randomNum}`;
+        const caseNumber = await generateCaseId();
         
         const processedData = {
           type: data.type || '',
@@ -327,9 +361,7 @@ export class ArbitrationService {
       }
       
       // Generate a proper case number
-      const timestamp = new Date().getTime();
-      const randomNum = Math.floor(Math.random() * 1000);
-      const caseNumber = `ARB-${timestamp}-${randomNum}`;
+      const caseNumber = await generateCaseId();
       
       return await this.prisma.arbitration.update({
         where: { id },

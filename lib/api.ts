@@ -816,7 +816,7 @@ export const api = {
   feedback,
   analytics,
   helpdesk,
-  // Add verification methods
+  // Verification methods
   verification: {
     // Verify if a GST number actually exists
     verifyGST: async (gstNumber: string): Promise<{ valid: boolean; message?: string }> => {
@@ -831,6 +831,7 @@ export const api = {
         }
         
         // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
         const response = await apiClient.get(`/verification/gst?number=${formattedGST}`);
         return response.data;
       } catch (error: any) {
@@ -855,13 +856,14 @@ export const api = {
         }
         
         // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
         const response = await apiClient.get(`/verification/pan?number=${formattedPAN}`);
         return response.data;
       } catch (error: any) {
         console.error('PAN verification error:', error);
         return { 
           valid: false, 
-          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.'
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
         };
       }
     },
@@ -873,19 +875,20 @@ export const api = {
         const formattedCIN = cinNumber.toUpperCase();
         
         // First validate format
-        const cinRegex = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+        const cinRegex = /^[LU][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/;
         if (!cinRegex.test(formattedCIN)) {
           return { valid: false, message: 'Invalid CIN format' };
         }
         
         // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
         const response = await apiClient.get(`/verification/cin?number=${formattedCIN}`);
         return response.data;
       } catch (error: any) {
         console.error('CIN verification error:', error);
         return { 
           valid: false, 
-          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.'
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
         };
       }
     }

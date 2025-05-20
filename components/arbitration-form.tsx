@@ -169,7 +169,7 @@ export default function ArbitrationForm() {
   const [documents, setDocuments] = useState(initialDocuments)
   const [payment, setPayment] = useState(initialPayment)
   const [argumentsData, setArgumentsData] = useState(initialArguments)
-  const [errors, setErrors] = useState<any>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isClient, setIsClient] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
@@ -616,6 +616,56 @@ export default function ArbitrationForm() {
         router.push('/auth/login');
         return;
       }
+      
+      // Check if PAN, GST, and CIN numbers have been verified
+      const identifierErrors: Record<string, string> = {};
+      
+      // Validate claimant identifiers if provided
+      if (claimant.gst && (!verificationStatus.gst || !verificationStatus.gst.verified)) {
+        identifierErrors.gst = 'GST number must be verified before submission';
+      }
+      
+      if (claimant.pan && (!verificationStatus.pan || !verificationStatus.pan.verified)) {
+        identifierErrors.pan = 'PAN number must be verified before submission';
+      }
+      
+      if (claimant.cin && (!verificationStatus.cin || !verificationStatus.cin.verified)) {
+        identifierErrors.cin = 'CIN number must be verified before submission';
+      }
+      
+      // Validate respondent identifiers if provided
+      respondents.forEach((respondent, index) => {
+        if (respondent.gst && (!verificationStatus.respondentGst[index] || !verificationStatus.respondentGst[index]?.verified)) {
+          identifierErrors[`respondent${index}GST`] = 'Respondent GST number must be verified before submission';
+        }
+        
+        if (respondent.pan && (!verificationStatus.respondentPan[index] || !verificationStatus.respondentPan[index]?.verified)) {
+          identifierErrors[`respondent${index}PAN`] = 'Respondent PAN number must be verified before submission';
+        }
+        
+        if (respondent.cin && (!verificationStatus.respondentCin[index] || !verificationStatus.respondentCin[index]?.verified)) {
+          identifierErrors[`respondent${index}CIN`] = 'Respondent CIN number must be verified before submission';
+        }
+      });
+      
+      // If there are verification errors, display them and stop submission
+      if (Object.keys(identifierErrors).length > 0) {
+        setErrors((prev) => ({
+          ...prev,
+          ...identifierErrors
+        }));
+        
+        // Scroll to the first error
+        const firstError = Object.keys(identifierErrors)[0];
+        const errorElement = document.querySelector(`[name="${firstError}"]`);
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        toast.error('Please verify all business identifiers (GST, PAN, CIN) before submission');
+        return;
+      }
+      
       setIsSubmitting(true);
 
       if (currentDraftId) {
@@ -856,7 +906,7 @@ export default function ArbitrationForm() {
   const handleNext = () => {
     if (activeStep === 0) {
       // Validate claimant fields
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (!claimant.type) newErrors.type = "Type is required"
       if (!claimant.name) newErrors.name = "Name is required"
       if (claimant.name && claimant.name.length > MAX_NAME_LENGTH) newErrors.name = `Name cannot exceed ${MAX_NAME_LENGTH} characters`;
@@ -892,7 +942,7 @@ export default function ArbitrationForm() {
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 1) {
       // Validate manager details
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (managerDetails.name && !managerDetails.designation) {
         newErrors.managerDesignation = "Manager designation is required if name is provided"
       }
@@ -906,7 +956,7 @@ export default function ArbitrationForm() {
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 2) {
       // Validate respondent details
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       respondents.forEach((respondent, index) => {
         if (!respondent.type) newErrors[`respondent${index}Type`] = "Type is required"
         if (!respondent.name) newErrors[`respondent${index}Name`] = "Name is required"
@@ -917,7 +967,7 @@ export default function ArbitrationForm() {
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 3) {
       // Validate arbitration agreement
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (!arbitrationAgreement.agreementDate) newErrors.agreementDate = "Agreement date is required"
       else {
         const today = new Date();
@@ -938,7 +988,7 @@ export default function ArbitrationForm() {
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 4) {
       // Validate dispute details
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (!disputeDetails.disputeType) newErrors.disputeType = "Dispute type is required"
       if (!disputeDetails.disputeAmount) newErrors.disputeAmount = "Dispute amount is required"
       if (!disputeDetails.disputeDescription) newErrors.disputeDescription = "Dispute description is required"
@@ -961,13 +1011,13 @@ export default function ArbitrationForm() {
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 5) {
       // Validate prayers & reliefs
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (!prayers.prayers) newErrors.prayers = "Prayers & reliefs is required"
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 7) {
       // Validate payment details
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (!payment.paymentHead) newErrors.paymentHead = "Payment head is required"
       if (!payment.paymentAmount) newErrors.paymentAmount = "Payment amount is required"
       if (!payment.paymentDetails) newErrors.paymentDetails = "Payment details is required"
@@ -975,13 +1025,13 @@ export default function ArbitrationForm() {
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 8) {
       // Validate arguments
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (argumentsData.argumentsPerIssue.length === 0) newErrors.argumentsPerIssue = "At least one argument is required"
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     } else if (activeStep === 9) {
       // Validate review & submit
-      const newErrors: any = {}
+      const newErrors: Record<string, string> = {}
       if (!isAuthenticated) newErrors.authentication = "Please log in to submit your petition"
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
@@ -1001,89 +1051,149 @@ export default function ArbitrationForm() {
   // PAN Validation - Indian Permanent Account Number format: AAAPL1234C
   // First 5 characters are letters, next 4 are digits, and the last is a letter
   const validatePAN = (pan: string): boolean => {
+    if (!pan) return false;
+    // Convert to uppercase for validation
+    const uppercasePAN = pan.toUpperCase();
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    return panRegex.test(pan);
+    return panRegex.test(uppercasePAN);
   };
 
   // CIN Validation - Corporate Identification Number format: U74140MH2014PTC123456
-  // 21 characters: First character is alphabet for company type, next 5 are digits for ROC code,
-  // next 2 are state code, next 4 are year of incorporation, next 3 are company type (PLC, PTC, etc),
+  // 21 characters: First character is U (unlisted) or L (listed),
+  // next 5 are digits for industry code,
+  // next 2 are state code letters,
+  // next 4 are year of incorporation,
+  // next 3 are company type (PTC, PLC, etc),
   // and the last 6 are sequential registration number
   const validateCIN = (cin: string): boolean => {
-    const cinRegex = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
-    return cinRegex.test(cin);
+    if (!cin) return false;
+    // Convert to uppercase for validation
+    const uppercaseCIN = cin.toUpperCase();
+    const cinRegex = /^[LU][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/;
+    return cinRegex.test(uppercaseCIN);
   };
 
   // GST Validation - GST Number format: 22AAAAA0000A1Z5
   // 15 characters: First 2 are state code, next 10 are PAN number, 
   // next 1 is entity number, next 1 is Z by default, and the last 1 is checksum digit
   const validateGST = (gst: string): boolean => {
+    if (!gst) return false;
+    // Convert to uppercase for validation
+    const uppercaseGST = gst.toUpperCase();
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-    return gstRegex.test(gst);
+    
+    if (!gstRegex.test(uppercaseGST)) {
+      return false;
+    }
+    
+    // Additional validation: check if the PAN part is valid
+    const panPart = uppercaseGST.substring(2, 12);
+    return validatePAN(panPart);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value: rawValue } = e.target;
+    let value = rawValue;
     
-    if (name === 'pincode') {
+    // Truncate according to the field
+    if (name === "name") {
+      value = rawValue.slice(0, MAX_NAME_LENGTH);
+    } else if (name === "email") {
+      value = rawValue.slice(0, MAX_EMAIL_LENGTH);
+    } else if (name === "city") {
+      value = rawValue.slice(0, MAX_CITY_LENGTH);
+    } else if (name === "district") {
+      value = rawValue.slice(0, MAX_DISTRICT_LENGTH);
+    } else if (name === "state") {
+      value = rawValue.slice(0, MAX_STATE_LENGTH);
+    } else if (name === "country") {
+      value = rawValue.slice(0, MAX_COUNTRY_LENGTH);
+    } else if (name === "pincode") {
       handlePincodeChange(e as React.ChangeEvent<HTMLInputElement>);
-    } else {
-      setClaimant(prev => ({ ...prev, [name]: value }));
+      return;
     }
+    
+    setClaimant(prev => ({ ...prev, [name]: value }));
   };
 
   const handleAdditionalClaimantChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    const newClaimants = [...additionalClaimants]
-    newClaimants[index] = { ...newClaimants[index], [name]: value }
-    setAdditionalClaimants(newClaimants)
-    setFormChanged(true)
+    const { name, value: rawValue } = e.target;
+    let value = rawValue;
+    
+    // Truncate according to the field
+    if (name === "name") {
+      value = rawValue.slice(0, MAX_NAME_LENGTH);
+    } else if (name === "email") {
+      value = rawValue.slice(0, MAX_EMAIL_LENGTH);
+    } else if (name === "address") {
+      value = rawValue.slice(0, MAX_ADDRESS_LENGTH);
+    }
+    
+    const newClaimants = [...additionalClaimants];
+    newClaimants[index] = { ...newClaimants[index], [name]: value };
+    setAdditionalClaimants(newClaimants);
+    setFormChanged(true);
   }
 
   const handleRespondentChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
+    const { name, value: rawValue } = e.target;
+    let value = rawValue;
     
     // Special handling for PAN number validation
     if (name === 'pan') {
       const uppercasePAN = value.toUpperCase();
-      const newRespondents = [...respondents]
-      newRespondents[index] = { ...newRespondents[index], [name]: uppercasePAN }
-      setRespondents(newRespondents)
+      const newRespondents = [...respondents];
+      newRespondents[index] = { ...newRespondents[index], [name]: uppercasePAN };
+      setRespondents(newRespondents);
     } 
     // Special handling for CIN number validation
     else if (name === 'cin') {
       const uppercaseCIN = value.toUpperCase();
-      const newRespondents = [...respondents]
-      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseCIN }
-      setRespondents(newRespondents)
+      const newRespondents = [...respondents];
+      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseCIN };
+      setRespondents(newRespondents);
     } 
     // Special handling for GST number validation
     else if (name === 'gst') {
       const uppercaseGST = value.toUpperCase();
-      const newRespondents = [...respondents]
-      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseGST }
-      setRespondents(newRespondents)
+      const newRespondents = [...respondents];
+      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseGST };
+      setRespondents(newRespondents);
     } else {
-      const newRespondents = [...respondents]
-      newRespondents[index] = { ...newRespondents[index], [name]: value }
-      setRespondents(newRespondents)
+      // For other fields, apply max length constraints
+      if (name === "name") {
+        value = rawValue.slice(0, MAX_NAME_LENGTH);
+      } else if (name === "email") {
+        value = rawValue.slice(0, MAX_EMAIL_LENGTH);
+      } else if (name === "address") {
+        value = rawValue.slice(0, MAX_ADDRESS_LENGTH);
+      }
+      
+      const newRespondents = [...respondents];
+      newRespondents[index] = { ...newRespondents[index], [name]: value };
+      setRespondents(newRespondents);
     }
     
-    setFormChanged(true)
+    setFormChanged(true);
   }
 
   const handleArbitrationAgreementChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, files } = e.target as any
+    const { name, value } = e.target;
     
-    if (files && files.length > 0) {
-      console.log(`Handling file upload for ${name}: ${files[0].name} (${files[0].type}, ${files[0].size} bytes)`);
-      setArbitrationAgreement((prev) => {
-        const newState = {
-          ...prev,
-          [name]: files[0]
-        };
-        return newState;
-      });
+    // Handle file upload for the file input
+    if (e.target.type === 'file') {
+      const fileInput = e.target as HTMLInputElement;
+      if (fileInput.files && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        console.log(`Handling file upload for ${name}: ${file.name} (${file.type}, ${file.size} bytes)`);
+        setArbitrationAgreement((prev) => {
+          const newState = {
+            ...prev,
+            [name]: file
+          };
+          return newState;
+        });
+      }
     } else {
       console.log(`Setting ${name} value:`, value);
       setArbitrationAgreement((prev) => ({
@@ -1096,12 +1206,21 @@ export default function ArbitrationForm() {
   }
 
   const handleDisputeDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value: rawValue } = e.target;
+    let value = rawValue;
+    
+    // Truncate long text values
+    if (name === "disputeDescription" || name === "factsOfCase") {
+      value = rawValue.slice(0, 2000);
+    } else if (name === "clauseReferences") {
+      value = rawValue.slice(0, 500);
+    }
+    
     setDisputeDetails((prev) => ({
       ...prev,
       [name]: value,
-    }))
-    setFormChanged(true)
+    }));
+    setFormChanged(true);
   }
 
   const handleDocumentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1154,7 +1273,7 @@ export default function ArbitrationForm() {
     // Remove all non-digit characters
     const cleaned = value.replace(/\D/g, '')
     // Limit to 10 digits for Indian phone numbers
-    return cleaned.slice(0, 10)
+    return cleaned.slice(0, MAX_PHONE_LENGTH)
   }
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, setter: Function, field: string) => {
@@ -1488,31 +1607,42 @@ export default function ArbitrationForm() {
   };
 
   const handlePrayersChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value: rawValue } = e.target;
+    const value = rawValue.slice(0, 3000); // Limit prayers to 3000 characters
+    
     setPrayers((prev) => ({
       ...prev,
       [name]: value,
-    }))
-    setFormChanged(true)
+    }));
+    setFormChanged(true);
   }
 
   const handlePaymentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value: rawValue } = e.target;
+    let value = rawValue;
+    
+    // Truncate text values
+    if (name === "paymentDetails") {
+      value = rawValue.slice(0, 1000);
+    }
+    
     setPayment((prev) => ({
       ...prev,
       [name]: value,
-    }))
-    setFormChanged(true)
+    }));
+    setFormChanged(true);
   }
 
-  const handleArgumentChange = (index: number, value: string) => {
-    const newArguments = [...argumentsData.argumentsPerIssue]
-    newArguments[index] = value
+  const handleArgumentChange = (index: number, rawValue: string) => {
+    const value = rawValue.slice(0, 2000); // Limit each argument to 2000 characters
+    
+    const newArguments = [...argumentsData.argumentsPerIssue];
+    newArguments[index] = value;
     setArgumentsData((prev) => ({
       ...prev,
       argumentsPerIssue: newArguments,
-    }))
-    setFormChanged(true)
+    }));
+    setFormChanged(true);
   }
 
   const addArgument = () => {
@@ -1531,12 +1661,25 @@ export default function ArbitrationForm() {
   }
 
   const handleManagerDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
+    const { name, value: rawValue } = e.target;
+    let value = rawValue;
+    
+    // Truncate according to the field
+    if (name === "name") {
+      value = rawValue.slice(0, MAX_NAME_LENGTH);
+    } else if (name === "email") {
+      value = rawValue.slice(0, MAX_EMAIL_LENGTH);
+    } else if (name === "address") {
+      value = rawValue.slice(0, MAX_ADDRESS_LENGTH);
+    } else if (name === "designation" || name === "authority") {
+      value = rawValue.slice(0, MAX_NAME_LENGTH); // Use the same limit as name for these fields
+    }
+    
     setManagerDetails((prev) => ({
       ...prev,
       [name]: value,
-    }))
-    setFormChanged(true)
+    }));
+    setFormChanged(true);
   }
 
   const handleDocumentTypeChange = (docType: string, category: string, index: number) => {
@@ -1552,7 +1695,7 @@ export default function ArbitrationForm() {
 
   // Handle pincode change
   const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pin = e.target.value.replace(/\D/g, "").slice(0, 6);
+    const pin = e.target.value.replace(/\D/g, "").slice(0, MAX_PINCODE_LENGTH);
     setClaimant(prev => ({ ...prev, pincode: pin }));
 
     if (pin.length === 6) {
@@ -1588,9 +1731,11 @@ export default function ArbitrationForm() {
   }
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name, value: rawValue } = e.target;
     // Remove forbidden characters: $%!~`*^+
-    const sanitized = value.replace(/[$%!~`*^+]/g, '');
+    let sanitized = rawValue.replace(/[$%!~`*^+]/g, '');
+    // Truncate to maximum length
+    sanitized = sanitized.slice(0, MAX_ADDRESS_LENGTH);
     setClaimant(prev => ({ ...prev, [name]: sanitized }));
     setFormChanged(true);
   };
@@ -1646,6 +1791,7 @@ export default function ArbitrationForm() {
                   name="name"
                   value={claimant.name}
                   onChange={handleChange}
+                  maxLength={MAX_NAME_LENGTH}
                   className="w-full border rounded px-2 py-1"
                 />
                 {errors.name && <div className="text-red-500 text-xs mt-1">{errors.name}</div>}
@@ -1656,6 +1802,7 @@ export default function ArbitrationForm() {
                   name="pincode"
                   value={claimant.pincode}
                   onChange={handleChange}
+                  maxLength={MAX_PINCODE_LENGTH}
                   className="w-full border rounded px-2 py-1"
                 />
                 {errors.pincode && <div className="text-red-500 text-xs mt-1">{errors.pincode}</div>}
@@ -1666,6 +1813,7 @@ export default function ArbitrationForm() {
                   name="address1"
                   value={claimant.address1}
                   onChange={handleAddressChange}
+                  maxLength={MAX_ADDRESS_LENGTH}
                   className="w-full border rounded px-2 py-1"
                 />
                 {errors.address1 && <div className="text-red-500 text-xs mt-1">{errors.address1}</div>}
@@ -1676,6 +1824,7 @@ export default function ArbitrationForm() {
                   name="address2"
                   value={claimant.address2}
                   onChange={handleAddressChange}
+                  maxLength={MAX_ADDRESS_LENGTH}
                   className="w-full border rounded px-2 py-1"
                 />
               </div>
@@ -1745,6 +1894,7 @@ export default function ArbitrationForm() {
                   name="email"
                   value={claimant.email}
                   onChange={handleChange}
+                  maxLength={MAX_EMAIL_LENGTH}
                   className="w-full border rounded px-2 py-1"
                 />
                 {errors.email && <div className="text-red-500 text-xs mt-1">{errors.email}</div>}
@@ -1765,6 +1915,7 @@ export default function ArbitrationForm() {
                     value={claimant.phone}
                     onChange={(e) => handlePhoneChange(e, setClaimant, 'phone')}
                     placeholder="10-digit Indian mobile number"
+                    maxLength={MAX_PHONE_LENGTH}
                     className="flex-1 border rounded px-2 py-1"
                   />
                 </div>
@@ -1940,6 +2091,7 @@ export default function ArbitrationForm() {
                       name="name"
                       value={claimant.name}
                       onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      maxLength={MAX_NAME_LENGTH}
                       className="w-full border rounded px-2 py-1"
                     />
                   </div>
@@ -1950,6 +2102,7 @@ export default function ArbitrationForm() {
                       type="email"
                       value={claimant.email}
                       onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      maxLength={MAX_EMAIL_LENGTH}
                       className="w-full border rounded px-2 py-1"
                     />
                   </div>
@@ -1973,6 +2126,7 @@ export default function ArbitrationForm() {
                           setAdditionalClaimants(newClaimants)
                         }, 'phone')}
                         placeholder="10-digit Indian mobile number"
+                        maxLength={MAX_PHONE_LENGTH}
                         className="flex-1 border rounded px-2 py-1"
                       />
                     </div>
@@ -1984,6 +2138,7 @@ export default function ArbitrationForm() {
                       name="address"
                       value={claimant.address}
                       onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      maxLength={MAX_ADDRESS_LENGTH}
                       className="w-full border rounded px-2 py-1"
                     />
                   </div>
@@ -2003,6 +2158,7 @@ export default function ArbitrationForm() {
                     name="name"
                     value={managerDetails.name}
                     onChange={handleManagerDetailsChange}
+                    maxLength={MAX_NAME_LENGTH}
                     className="w-full border rounded px-2 py-1"
                   />
                 </div>
@@ -2012,6 +2168,7 @@ export default function ArbitrationForm() {
                     name="designation"
                     value={managerDetails.designation}
                     onChange={handleManagerDetailsChange}
+                    maxLength={MAX_NAME_LENGTH}
                     className="w-full border rounded px-2 py-1"
                   />
                   {errors.managerDesignation && (
@@ -2025,6 +2182,7 @@ export default function ArbitrationForm() {
                     type="email"
                     value={managerDetails.email}
                     onChange={handleManagerDetailsChange}
+                    maxLength={MAX_EMAIL_LENGTH}
                     className="w-full border rounded px-2 py-1"
                   />
                   {errors.managerEmail && (
@@ -2047,6 +2205,7 @@ export default function ArbitrationForm() {
                       value={managerDetails.phone}
                       onChange={(e) => handlePhoneChange(e, setManagerDetails, 'phone')}
                       placeholder="10-digit Indian mobile number"
+                      maxLength={MAX_PHONE_LENGTH}
                       className="flex-1 border rounded px-2 py-1"
                     />
                   </div>
@@ -2060,6 +2219,7 @@ export default function ArbitrationForm() {
                     name="address"
                     value={managerDetails.address}
                     onChange={handleManagerDetailsChange}
+                    maxLength={MAX_ADDRESS_LENGTH}
                     className="w-full border rounded px-2 py-1"
                   />
                 </div>
@@ -2069,6 +2229,7 @@ export default function ArbitrationForm() {
                     name="authority"
                     value={managerDetails.authority}
                     onChange={handleManagerDetailsChange}
+                    maxLength={MAX_NAME_LENGTH}
                     className="w-full border rounded px-2 py-1"
                     placeholder="Authority to represent claimants"
                   />
@@ -2120,6 +2281,7 @@ export default function ArbitrationForm() {
                       name="name"
                       value={respondent.name}
                       onChange={(e) => handleRespondentChange(index, e)}
+                      maxLength={MAX_NAME_LENGTH}
                       className="w-full border rounded px-2 py-1"
                     />
                     {errors[`respondent${index}Name`] && (
@@ -2133,6 +2295,7 @@ export default function ArbitrationForm() {
                       type="email"
                       value={respondent.email}
                       onChange={(e) => handleRespondentChange(index, e)}
+                      maxLength={MAX_EMAIL_LENGTH}
                       className="w-full border rounded px-2 py-1"
                     />
                     {errors[`respondent${index}Email`] && (
@@ -2159,6 +2322,7 @@ export default function ArbitrationForm() {
                           setRespondents(newRespondents)
                         }, 'phone')}
                         placeholder="10-digit Indian mobile number"
+                        maxLength={MAX_PHONE_LENGTH}
                         className="flex-1 border rounded px-2 py-1"
                       />
                     </div>
@@ -2170,6 +2334,7 @@ export default function ArbitrationForm() {
                       name="address"
                       value={respondent.address}
                       onChange={(e) => handleRespondentChange(index, e)}
+                      maxLength={MAX_ADDRESS_LENGTH}
                       className="w-full border rounded px-2 py-1"
                     />
                   </div>
@@ -2683,6 +2848,7 @@ export default function ArbitrationForm() {
                   onChange={handleDisputeDetailsChange}
                   className="w-full border rounded px-2 py-1"
                   rows={4}
+                  maxLength={2000}
                   placeholder="Provide a clear and concise statement of the facts related to the dispute"
                 />
                 {errors.factsOfCase && (
@@ -2697,7 +2863,8 @@ export default function ArbitrationForm() {
                   onChange={handleDisputeDetailsChange}
                   className="w-full border rounded px-2 py-1"
                   rows={4}
-                />
+                  maxLength={2000}
+                  />
                 {errors.disputeDescription && (
                   <div className="text-red-500 text-xs mt-1">{errors.disputeDescription}</div>
                 )}
@@ -2717,6 +2884,7 @@ export default function ArbitrationForm() {
                 onChange={handlePrayersChange}
                 className="w-full border rounded px-2 py-1"
                 rows={8}
+                maxLength={3000}
                 placeholder="Detail the specific remedies, compensation, or actions you are seeking from the arbitral tribunal"
               />
               {errors.prayers && (
@@ -2775,6 +2943,7 @@ export default function ArbitrationForm() {
                   onChange={handlePaymentChange}
                   className="w-full border rounded px-2 py-1"
                   rows={4}
+                  maxLength={1000}
                   placeholder="Provide detailed payment information"
                 />
                 {errors.paymentDetails && (
@@ -2816,6 +2985,7 @@ export default function ArbitrationForm() {
                       onChange={(e) => handleArgumentChange(index, e.target.value)}
                       className="w-full border rounded px-2 py-1"
                       rows={6}
+                      maxLength={2000}
                       placeholder={`Present your argument for issue ${index + 1} (limit: 1 page)`}
                     />
                   </div>

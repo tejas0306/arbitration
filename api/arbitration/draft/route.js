@@ -50,7 +50,7 @@ export async function POST(req) {
     
     // Create a draft object
     const draftData = { 
-      id: id || ('draft-' + Date.now() + '-' + Math.floor(Math.random() * 10000)),
+      id: id || (`draft-${Date.now()}`),
       data: jsonData ? JSON.parse(jsonData) : {},
     };
     
@@ -74,7 +74,7 @@ export async function POST(req) {
 const saveMockDraft = (draft) => {
   // Generate an ID if not present
   if (!draft.id) {
-    draft.id = 'draft-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+    draft.id = `draft-${Date.now()}`;
   }
   
   // Check if this draft already exists

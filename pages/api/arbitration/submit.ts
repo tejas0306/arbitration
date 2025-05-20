@@ -3,8 +3,8 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 
-// This file handles the /api/arbitration/draft/[id]/submit endpoint
-// It proxies requests to the real backend
+// This file handles the /api/arbitration/submit endpoint
+// It proxies requests to the real backend with case ID generation
 
 // Get the API URL from environment or use default
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
@@ -46,9 +46,7 @@ async function generateCaseId(): Promise<string> {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
-  
-  console.log(`🔄 API Proxy - Draft Submit endpoint called: ${id}, Method: ${req.method}`);
+  console.log('🔄 API Proxy - Submit endpoint called:', req.method);
   console.log('🔄 Backend URL:', API_URL);
   
   // Only allow POST method
@@ -57,31 +55,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   
   try {
+    // Set the target URL in the backend
+    const targetUrl = `${API_URL}/arbitration/submit`;
+    console.log('🔄 Proxying request to:', targetUrl);
+    
     // Generate a case ID for this submission
     const caseId = await generateCaseId();
     console.log('🔄 Generated case ID:', caseId);
-    
-    // Set the target URL in the backend
-    const targetUrl = `${API_URL}/arbitration/draft/${id}/submit`;
-    console.log('🔄 Proxying request to:', targetUrl);
     
     // Pass along all headers
     const headers = {
       ...req.headers,
       host: new URL(API_URL).host,
-      'x-case-id': caseId, // Add the generated case ID as a header
     };
     
     // Remove headers that might cause issues
     delete headers['content-length'];
     
-    // Send token if present in the incoming request
-    if (req.headers.authorization) {
-      console.log('🔄 Authorization header present, forwarding it');
+    // If the request is multipart/form-data, add the caseId to the form data
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      console.log('🔄 Found multipart form data - handling specially');
+      
+      // For multipart/form-data, we'll need to modify the boundary
+      // Instead, we'll add the case ID as a header and let the backend extract it
+      headers['x-case-id'] = caseId;
+      
+      // For multipart/form-data, we can't easily proxy it with the standard API routes
+      // Instead, return a 307 Temporary Redirect to the actual backend URL
+      res.setHeader('Location', targetUrl);
+      res.setHeader('X-Case-ID', caseId);
+      return res.status(307).end();
     }
     
-    // Add the case ID to the request body
-    let requestBody = req.body || {};
+    // For regular JSON body, add the case ID to the request body
+    let requestBody = req.body;
     if (typeof requestBody === 'object') {
       requestBody = { ...requestBody, caseId };
     }
@@ -89,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Forward the request to the backend
     const response = await axios.post(targetUrl, requestBody, { headers });
     
-    // Return the response from the backend with the case ID
+    // Return the response from the backend
     return res.status(response.status).json({
       ...response.data,
       caseId // Ensure the case ID is in the response

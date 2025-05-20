@@ -38,7 +38,7 @@ model User {
 
 model Arbitration {
   id                  String   @id @default(uuid())
-  caseNumber          String   @unique @default(uuid())
+  caseNumber          String   @unique
   type                String
   name                String
   pincode            String

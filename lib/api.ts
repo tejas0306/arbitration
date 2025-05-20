@@ -112,7 +112,7 @@ export const arbitrationApi = {
         throw new Error('Authentication required. Please log in first.');
       }
 
-      console.log('Sending request to:', `${API_URL}/arbitration/submit`);
+      console.log('Sending request to:', `/api/arbitration/submit`);
       
       // Log formData entries in a more user-friendly way
       const formDataLog: Record<string, any> = {};
@@ -142,6 +142,12 @@ export const arbitrationApi = {
         // Increase timeout for large file uploads
         timeout: 60000, // 60 seconds
       });
+      
+      console.log('Case created successfully:', response.data);
+      const caseId = response.data.caseId;
+      if (caseId) {
+        console.log('Generated case ID:', caseId);
+      }
       
       return response.data;
     } catch (error: any) {
@@ -273,8 +279,14 @@ export const arbitrationApi = {
   submitDraft: async (draftId: string) => {
     try {
       console.log(`Attempting to submit draft with ID: ${draftId}`);
-      const response = await apiClient.post(`/arbitration/draft/${draftId}/submit`);
+      const response = await apiClient.post(`/api/arbitration/draft/${draftId}/submit`);
       console.log('Draft submission response:', response.data);
+      
+      const caseId = response.data.caseId;
+      if (caseId) {
+        console.log('Generated case ID:', caseId);
+      }
+      
       return response.data;
     } catch (error: any) {
       console.error('Error submitting draft:', error);

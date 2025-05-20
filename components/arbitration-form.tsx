@@ -6,6 +6,18 @@ import { arbitrationApi, auth, api } from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
+// Add validation constants and regex at the top of the file
+const addressRegex = /^[^$%!~`*^+]*$/;
+const MAX_NAME_LENGTH = 100;
+const MAX_ADDRESS_LENGTH = 200;
+const MAX_EMAIL_LENGTH = 100;
+const MAX_CITY_LENGTH = 50;
+const MAX_DISTRICT_LENGTH = 50;
+const MAX_STATE_LENGTH = 50;
+const MAX_COUNTRY_LENGTH = 50;
+const MAX_PINCODE_LENGTH = 6;
+const MAX_PHONE_LENGTH = 10;
+
 const steps = [
   "Claimant Details",
   "Additional Claimants & Manager",
@@ -610,52 +622,42 @@ export default function ArbitrationForm() {
         // If editing a draft, save and submit the draft
         try {
           await saveDraft();
-          await arbitrationApi.submitDraft(currentDraftId);
-          toast.success('Arbitration request submitted successfully!');
+          const response = await arbitrationApi.submitDraft(currentDraftId);
+          const caseId = response.caseId;
+          if (caseId) {
+            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+          } else {
+            toast.success('Arbitration request submitted successfully!');
+          }
           const drafts = await arbitrationApi.getDrafts();
           setDraftList(drafts);
           setCurrentDraftId(null);
           resetForm();
         } catch (submitError: any) {
-          console.error('Error in draft submission flow:', submitError);
-          const errorMessage = submitError.message || 'Error submitting draft';
-          toast.error(errorMessage);
-          return;
+          console.error('Error submitting draft:', submitError);
+          toast.error(`Failed to submit: ${submitError.message}`);
         }
       } else {
-        // Directly submit the form data (not via draft)
+        // If new submission, submit directly
         try {
           const formData = createFormData();
-          await arbitrationApi.create(formData);
-          toast.success('Arbitration request submitted successfully!');
+          console.log('Submitting new case');
+          const response = await arbitrationApi.create(formData);
+          const caseId = response.caseId;
+          if (caseId) {
+            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+          } else {
+            toast.success('Arbitration request submitted successfully!');
+          }
           resetForm();
-        } catch (directError: any) {
-          console.error('Error in direct submission flow:', directError);
-          const errorMessage = directError.message || 'Error submitting arbitration request';
-          toast.error(errorMessage);
-          return;
+        } catch (submitError: any) {
+          console.error('Error submitting new case:', submitError);
+          toast.error(`Failed to submit: ${submitError.message}`);
         }
       }
-      setActiveStep(0);
     } catch (error: any) {
-      console.error('Error submitting form:', error);
-      if (error.response) {
-        console.error('Server responded with error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        toast.error(`Submission failed: ${error.response.data?.message || 'Server error'}`);
-      } else if (error.request) {
-        console.error('No response received from server');
-        toast.error('No response from server. Please check your connection.');
-      } else {
-        console.error('Error setting up request:', error.message);
-        toast.error(`Error: ${error.message}`);
-      }
-      if (error.response?.status === 401) {
-        toast.error('Your session has expired. Please log in again.');
-        router.push('/auth/login');
-      }
+      console.error('Submission error:', error);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -857,16 +859,30 @@ export default function ArbitrationForm() {
       const newErrors: any = {}
       if (!claimant.type) newErrors.type = "Type is required"
       if (!claimant.name) newErrors.name = "Name is required"
-      if (!claimant.pincode || claimant.pincode.length !== 6) newErrors.pincode = "Valid 6-digit pincode is required"
+      if (claimant.name && claimant.name.length > MAX_NAME_LENGTH) newErrors.name = `Name cannot exceed ${MAX_NAME_LENGTH} characters`;
+      if (!claimant.pincode || claimant.pincode.length !== 6 || !/^\d{6}$/.test(claimant.pincode)) newErrors.pincode = "Valid 6-digit pincode is required"
       if (!claimant.address1) newErrors.address1 = "Address Line 1 is required"
+      if (claimant.address1 && !addressRegex.test(claimant.address1)) newErrors.address1 = "Address Line 1 contains invalid characters ($%!~`*^+)";
+      if (claimant.address1 && claimant.address1.length > MAX_ADDRESS_LENGTH) newErrors.address1 = `Address Line 1 cannot exceed ${MAX_ADDRESS_LENGTH} characters`;
+      if (claimant.address2 && !addressRegex.test(claimant.address2)) newErrors.address2 = "Address Line 2 contains invalid characters ($%!~`*^+)";
+      if (claimant.address2 && claimant.address2.length > MAX_ADDRESS_LENGTH) newErrors.address2 = `Address Line 2 cannot exceed ${MAX_ADDRESS_LENGTH} characters`;
       if (!claimant.city) newErrors.city = "City is required"
+      if (claimant.city && claimant.city.length > MAX_CITY_LENGTH) newErrors.city = `City cannot exceed ${MAX_CITY_LENGTH} characters`;
       if (!claimant.district) newErrors.district = "District is required"
+      if (claimant.district && claimant.district.length > MAX_DISTRICT_LENGTH) newErrors.district = `District cannot exceed ${MAX_DISTRICT_LENGTH} characters`;
       if (!claimant.state) newErrors.state = "State is required"
+      if (claimant.state && claimant.state.length > MAX_STATE_LENGTH) newErrors.state = `State cannot exceed ${MAX_STATE_LENGTH} characters`;
       if (!claimant.country) newErrors.country = "Country is required"
+      if (claimant.country && claimant.country.length > MAX_COUNTRY_LENGTH) newErrors.country = `Country cannot exceed ${MAX_COUNTRY_LENGTH} characters`;
       if (!claimant.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(claimant.email)) newErrors.email = "Valid email is required"
-      if (!claimant.phone || claimant.phone.length !== 10 || !/^\d{10}$/.test(claimant.phone)) 
-        newErrors.phone = "Valid 10-digit Indian mobile number is required"
-      
+      if (claimant.email && claimant.email.length > MAX_EMAIL_LENGTH) newErrors.email = `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`;
+      if (!claimant.phone || claimant.phone.length !== 10 || !/^\d{10}$/.test(claimant.phone)) newErrors.phone = "Valid 10-digit Indian mobile number is required"
+      // Agreement date cannot be in the future
+      if (arbitrationAgreement.agreementDate) {
+        const today = new Date();
+        const selected = new Date(arbitrationAgreement.agreementDate);
+        if (selected > today) newErrors.agreementDate = "Agreement date cannot be in the future";
+      }
       // Validate PAN if provided (not required but must be valid if present)
       if (claimant.pan && !validatePAN(claimant.pan)) 
         newErrors.pan = "Invalid PAN format. Should be like AAAPL1234C"
@@ -903,6 +919,14 @@ export default function ArbitrationForm() {
       // Validate arbitration agreement
       const newErrors: any = {}
       if (!arbitrationAgreement.agreementDate) newErrors.agreementDate = "Agreement date is required"
+      else {
+        const today = new Date();
+        const selected = new Date(arbitrationAgreement.agreementDate);
+        // Remove time part for comparison
+        today.setHours(0,0,0,0);
+        selected.setHours(0,0,0,0);
+        if (selected > today) newErrors.agreementDate = "Agreement date cannot be in the future";
+      }
       if (!arbitrationAgreement.agreementType) newErrors.agreementType = "Agreement type is required"
       if (!arbitrationAgreement.agreementFile) newErrors.agreementFile = "Agreement file is required"
       if (!arbitrationAgreement.resolutionMode) newErrors.resolutionMode = "Resolution mode is required"
@@ -919,6 +943,13 @@ export default function ArbitrationForm() {
       if (!disputeDetails.disputeAmount) newErrors.disputeAmount = "Dispute amount is required"
       if (!disputeDetails.disputeDescription) newErrors.disputeDescription = "Dispute description is required"
       if (!disputeDetails.disputeDate) newErrors.disputeDate = "Dispute date is required"
+      else {
+        const today = new Date();
+        const selected = new Date(disputeDetails.disputeDate);
+        today.setHours(0,0,0,0);
+        selected.setHours(0,0,0,0);
+        if (selected > today) newErrors.disputeDate = "Dispute date cannot be in the future";
+      }
       if (!disputeDetails.serviceType) newErrors.serviceType = "Service type is required"
       if (!disputeDetails.disputeCategory) newErrors.disputeCategory = "Dispute category is required"
       if (!disputeDetails.disputeSubCategory) newErrors.disputeSubCategory = "Dispute sub-category is required"
@@ -1556,6 +1587,14 @@ export default function ArbitrationForm() {
     };
   }
 
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    // Remove forbidden characters: $%!~`*^+
+    const sanitized = value.replace(/[$%!~`*^+]/g, '');
+    setClaimant(prev => ({ ...prev, [name]: sanitized }));
+    setFormChanged(true);
+  };
+
   if (!isClient) {
     return null // or a loading spinner
   }
@@ -1626,7 +1665,7 @@ export default function ArbitrationForm() {
                 <input
                   name="address1"
                   value={claimant.address1}
-                  onChange={handleChange}
+                  onChange={handleAddressChange}
                   className="w-full border rounded px-2 py-1"
                 />
                 {errors.address1 && <div className="text-red-500 text-xs mt-1">{errors.address1}</div>}
@@ -1636,7 +1675,7 @@ export default function ArbitrationForm() {
                 <input
                   name="address2"
                   value={claimant.address2}
-                  onChange={handleChange}
+                  onChange={handleAddressChange}
                   className="w-full border rounded px-2 py-1"
                 />
               </div>
@@ -1717,7 +1756,7 @@ export default function ArbitrationForm() {
                     name="phoneCountryCode"
                     value="+91"
                     disabled={true}
-                    className="w-24 border rounded px-2 py-1 bg-gray-100"
+                    className="min-w-[110px] w-auto border rounded px-2 py-1 bg-gray-100"
                   >
                     <option value="+91">+91 (India)</option>
                   </select>
@@ -2290,6 +2329,7 @@ export default function ArbitrationForm() {
                   value={arbitrationAgreement.agreementDate}
                   onChange={handleArbitrationAgreementChange}
                   className="w-full border rounded px-2 py-1"
+                  max={new Date().toISOString().split('T')[0]}
                 />
                 {errors.agreementDate && (
                   <div className="text-red-500 text-xs mt-1">{errors.agreementDate}</div>
@@ -2506,6 +2546,7 @@ export default function ArbitrationForm() {
                   value={disputeDetails.disputeDate}
                   onChange={handleDisputeDetailsChange}
                   className="w-full border rounded px-2 py-1"
+                  max={new Date().toISOString().split('T')[0]}
                 />
                 {errors.disputeDate && (
                   <div className="text-red-500 text-xs mt-1">{errors.disputeDate}</div>

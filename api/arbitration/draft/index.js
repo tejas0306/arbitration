@@ -30,7 +30,7 @@ if (mockDrafts.length === 0) {
 const saveMockDraft = (draft) => {
   // Generate an ID if not present
   if (!draft.id) {
-    draft.id = Math.random().toString(36).substring(2, 15);
+    draft.id = `draft-${Date.now()}`;
   }
   
   // Check if this draft already exists

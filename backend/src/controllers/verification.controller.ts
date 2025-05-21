@@ -22,7 +22,7 @@ class VerifyCINDto {
   @IsString()
   @IsNotEmpty()
   @Length(21, 21)
-  @Matches(/^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/)
+  @Matches(/^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/)
   cinNumber: string;
 }
 
@@ -40,6 +40,13 @@ export class VerificationController {
     if (!gstNumber) {
       return { valid: false, message: 'GST number is required' };
     }
+    
+    // Basic format validation before passing to service
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    if (!gstRegex.test(gstNumber)) {
+      return { valid: false, message: 'Invalid GST format' };
+    }
+    
     return this.verificationService.verifyGST(gstNumber);
   }
 
@@ -53,6 +60,13 @@ export class VerificationController {
     if (!panNumber) {
       return { valid: false, message: 'PAN number is required' };
     }
+    
+    // Basic format validation before passing to service
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!panRegex.test(panNumber)) {
+      return { valid: false, message: 'Invalid PAN format' };
+    }
+    
     return this.verificationService.verifyPAN(panNumber);
   }
 
@@ -66,6 +80,13 @@ export class VerificationController {
     if (!cinNumber) {
       return { valid: false, message: 'CIN number is required' };
     }
+    
+    // Basic format validation before passing to service
+    const cinRegex = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+    if (!cinRegex.test(cinNumber)) {
+      return { valid: false, message: 'Invalid CIN format' };
+    }
+    
     return this.verificationService.verifyCIN(cinNumber);
   }
 } 

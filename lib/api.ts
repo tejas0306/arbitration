@@ -276,6 +276,92 @@ export const arbitrationApi = {
     }
   },
 
+  getDraft: async (id: string) => {
+    try {
+      console.log(`Fetching draft with ID: ${id}`);
+      
+      // First try the direct backend connection
+      try {
+        // Get the API URL from environment or use default
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+        const directUrl = `${API_URL}/api/arbitration/draft/${id}`;
+        
+        // Get the auth token
+        const token = localStorage.getItem('auth_token');
+        
+        console.log(`⚠️ Attempting direct backend connection to: ${directUrl}`);
+        console.log(`⚠️ Token available: ${token ? 'YES' : 'NO'}`);
+        
+        // Make direct request to backend
+        const directResponse = await fetch(directUrl, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include' // Include cookies for cross-origin requests
+        });
+        
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          console.log('⚠️ Direct backend connection success:', data ? 'SUCCESS' : 'EMPTY');
+          return data;
+        } else {
+          console.log(`⚠️ Direct backend connection failed with status: ${directResponse.status}`);
+          throw new Error(`Direct connection failed: ${directResponse.status}`);
+        }
+      } catch (directError) {
+        console.log('⚠️ Direct backend connection error:', directError.message);
+        
+        // If direct connection fails, try Next.js API routes
+        console.log('⚠️ Falling back to Next.js API routes');
+        
+        // Try multiple possible endpoints in sequence
+        const possibleEndpoints = [
+          `/api/arbitration/drafts/${id}`,
+          `/api/arbitration/draft/${id}`,
+          `/api/arbitration/draft?id=${id}`, 
+          `/api/arbitration/drafts?id=${id}`
+        ];
+        
+        let lastError = null;
+        
+        // Try each endpoint until one works
+        for (const endpoint of possibleEndpoints) {
+          try {
+            console.log(`⚠️ Trying endpoint: ${endpoint}`);
+            const response = await apiClient.get(endpoint);
+            console.log(`⚠️ Success with endpoint ${endpoint}:`, response.data ? 'SUCCESS' : 'EMPTY');
+            
+            // Log the full response data structure
+            console.log('⚠️ Response data structure:', JSON.stringify(response.data, null, 2));
+            
+            return response.data;
+          } catch (error: any) {
+            console.log(`⚠️ Failed with endpoint ${endpoint}:`, error.message);
+            lastError = error;
+            // Continue to next endpoint
+          }
+        }
+        
+        // If we get here, all endpoints failed
+        console.error('⚠️ All draft endpoints failed for ID:', id);
+        throw lastError;
+      }
+    } catch (error: any) {
+      console.error('Error getting draft:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullUrl: error.config?.baseURL + error.config?.url,
+      });
+      
+      throw error;
+    }
+  },
+
   submitDraft: async (draftId: string) => {
     try {
       console.log(`Attempting to submit draft with ID: ${draftId}`);
@@ -816,7 +902,7 @@ export const api = {
   feedback,
   analytics,
   helpdesk,
-  // Add verification methods
+  // Verification methods
   verification: {
     // Verify if a GST number actually exists
     verifyGST: async (gstNumber: string): Promise<{ valid: boolean; message?: string }> => {
@@ -831,6 +917,7 @@ export const api = {
         }
         
         // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
         const response = await apiClient.get(`/verification/gst?number=${formattedGST}`);
         return response.data;
       } catch (error: any) {
@@ -855,13 +942,14 @@ export const api = {
         }
         
         // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
         const response = await apiClient.get(`/verification/pan?number=${formattedPAN}`);
         return response.data;
       } catch (error: any) {
         console.error('PAN verification error:', error);
         return { 
           valid: false, 
-          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.'
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
         };
       }
     },
@@ -873,19 +961,20 @@ export const api = {
         const formattedCIN = cinNumber.toUpperCase();
         
         // First validate format
-        const cinRegex = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+        const cinRegex = /^[LU][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/;
         if (!cinRegex.test(formattedCIN)) {
           return { valid: false, message: 'Invalid CIN format' };
         }
         
         // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
         const response = await apiClient.get(`/verification/cin?number=${formattedCIN}`);
         return response.data;
       } catch (error: any) {
         console.error('CIN verification error:', error);
         return { 
           valid: false, 
-          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.'
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
         };
       }
     }

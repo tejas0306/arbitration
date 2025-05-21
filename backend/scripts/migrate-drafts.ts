@@ -86,7 +86,7 @@ async function migrateDrafts() {
     // Verify that endpoint URLs are set correctly
     console.log('Testing endpoint URLs:');
     console.log(`- GET drafts URL: ${process.env.API_URL}/api/arbitration/drafts`);
-    console.log(`- Submit draft URL: ${process.env.API_URL}/api/arbitration/drafts/{id}/submit`);
+    console.log(`- Submit draft URL: ${process.env.API_URL}/api/arbitration/draft/{id}/submit`);
     
     console.log('Migration script completed successfully');
   } catch (error) {

@@ -12,6 +12,13 @@ interface AxiosErrorResponse {
   stack?: string;
 }
 
+// Define response interfaces for verification APIs
+interface VerificationApiResponse {
+  valid: boolean;
+  message?: string;
+  [key: string]: any; // Allow for additional properties
+}
+
 // Load environment variables
 dotenv.config();
 
@@ -67,7 +74,7 @@ export class VerificationService {
       if (GST_API_KEY) {
         try {
           // Call the actual GST verification API
-          const response = await axios.post(GST_API_ENDPOINT, 
+          const response = await axios.post<VerificationApiResponse>(GST_API_ENDPOINT, 
             { gstNumber }, 
             { 
               headers: { 
@@ -160,7 +167,7 @@ export class VerificationService {
       if (PAN_API_KEY) {
         try {
           // Call the actual PAN verification API
-          const response = await axios.post(PAN_API_ENDPOINT,
+          const response = await axios.post<VerificationApiResponse>(PAN_API_ENDPOINT,
             { panNumber },
             {
               headers: {
@@ -256,7 +263,7 @@ export class VerificationService {
       if (CIN_API_KEY) {
         try {
           // Call the actual CIN verification API
-          const response = await axios.post(CIN_API_ENDPOINT,
+          const response = await axios.post<VerificationApiResponse>(CIN_API_ENDPOINT,
             { cinNumber },
             {
               headers: {

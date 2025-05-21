@@ -1,0 +1,210 @@
+import { z } from 'zod';
+
+// Validation constants
+const addressRegex = /^[^$%!~`*^+]*$/;
+export const MAX_NAME_LENGTH = 100;
+export const MAX_ADDRESS_LENGTH = 200;
+export const MAX_EMAIL_LENGTH = 100;
+export const MAX_CITY_LENGTH = 50;
+export const MAX_DISTRICT_LENGTH = 50;
+export const MAX_STATE_LENGTH = 50;
+export const MAX_COUNTRY_LENGTH = 50;
+export const MAX_PINCODE_LENGTH = 6;
+export const MAX_PHONE_LENGTH = 10;
+
+// PAN Validation - Indian Permanent Account Number format: AAAPL1234C
+const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+// CIN Validation - Corporate Identification Number format: U74140MH2014PTC123456
+const cinRegex = /^[LU][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/;
+
+// GST Validation - GST Number format: 22AAAAA0000A1Z5
+const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+// Base contact schema
+export const contactSchema = z.object({
+  name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH, `Name cannot exceed ${MAX_NAME_LENGTH} characters`),
+  email: z.string()
+    .min(1, "Email is required")
+    .email("Invalid email format")
+    .max(MAX_EMAIL_LENGTH, `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`),
+  phoneCountryCode: z.string().default("+91"),
+  phone: z.string()
+    .length(10, "Phone number must be exactly 10 digits")
+    .regex(/^\d{10}$/, "Phone number must contain only digits"),
+});
+
+// Claimant schema
+export const claimantSchema = z.object({
+  type: z.string().min(1, "Type is required"),
+  name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH, `Name cannot exceed ${MAX_NAME_LENGTH} characters`),
+  pincode: z.string()
+    .length(MAX_PINCODE_LENGTH, "Pincode must be exactly 6 digits")
+    .regex(/^\d{6}$/, "Pincode must contain only digits"),
+  address1: z.string()
+    .min(1, "Address Line 1 is required")
+    .max(MAX_ADDRESS_LENGTH, `Address Line 1 cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters"),
+  address2: z.string()
+    .max(MAX_ADDRESS_LENGTH, `Address Line 2 cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters")
+    .optional(),
+  city: z.string()
+    .min(1, "City is required")
+    .max(MAX_CITY_LENGTH, `City cannot exceed ${MAX_CITY_LENGTH} characters`),
+  district: z.string()
+    .min(1, "District is required")
+    .max(MAX_DISTRICT_LENGTH, `District cannot exceed ${MAX_DISTRICT_LENGTH} characters`),
+  state: z.string()
+    .min(1, "State is required")
+    .max(MAX_STATE_LENGTH, `State cannot exceed ${MAX_STATE_LENGTH} characters`),
+  country: z.string()
+    .min(1, "Country is required")
+    .max(MAX_COUNTRY_LENGTH, `Country cannot exceed ${MAX_COUNTRY_LENGTH} characters`),
+  email: z.string()
+    .min(1, "Email is required")
+    .email("Invalid email format")
+    .max(MAX_EMAIL_LENGTH, `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`),
+  phoneCountryCode: z.string().default("+91"),
+  phone: z.string()
+    .length(10, "Phone number must be exactly 10 digits")
+    .regex(/^\d{10}$/, "Phone number must contain only digits"),
+  gst: z.string()
+    .regex(gstRegex, "Invalid GST format. Should be like 22AAAAA0000A1Z5")
+    .optional()
+    .or(z.literal("")),
+  pan: z.string()
+    .regex(panRegex, "Invalid PAN format. Should be like AAAPL1234C")
+    .optional()
+    .or(z.literal("")),
+  cin: z.string()
+    .regex(cinRegex, "Invalid CIN format. Should be like U74140MH2014PTC123456")
+    .optional()
+    .or(z.literal("")),
+  coi: z.any().optional(),
+  panCard: z.any().optional(),
+  gstCert: z.any().optional(),
+});
+
+// Additional claimant schema
+export const additionalClaimantSchema = contactSchema.extend({
+  address: z.string()
+    .max(MAX_ADDRESS_LENGTH, `Address cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters"),
+});
+
+// Manager details schema
+export const managerSchema = contactSchema.extend({
+  address: z.string()
+    .max(MAX_ADDRESS_LENGTH, `Address cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters"),
+  designation: z.string().min(1, "Designation is required").max(MAX_NAME_LENGTH),
+  authority: z.string().min(1, "Authority is required").max(MAX_NAME_LENGTH),
+});
+
+// Respondent schema
+export const respondentSchema = z.object({
+  type: z.string().min(1, "Type is required"),
+  name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
+  address: z.string()
+    .max(MAX_ADDRESS_LENGTH, `Address cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters"),
+  email: z.string()
+    .min(1, "Email is required")
+    .email("Invalid email format")
+    .max(MAX_EMAIL_LENGTH),
+  phoneCountryCode: z.string().default("+91"),
+  phone: z.string()
+    .regex(/^\d{10}$/, "Phone number must contain only digits")
+    .optional(),
+  gst: z.string()
+    .regex(gstRegex, "Invalid GST format")
+    .optional()
+    .or(z.literal("")),
+  pan: z.string()
+    .regex(panRegex, "Invalid PAN format")
+    .optional()
+    .or(z.literal("")),
+  cin: z.string()
+    .regex(cinRegex, "Invalid CIN format")
+    .optional()
+    .or(z.literal("")),
+});
+
+// Arbitration agreement schema
+export const arbitrationAgreementSchema = z.object({
+  agreementDate: z.string().min(1, "Agreement date is required"),
+  agreementType: z.string().min(1, "Agreement type is required"),
+  resolutionMode: z.string().min(1, "Resolution mode is required"),
+  seatOfArbitration: z.string().min(1, "Seat of arbitration is required"),
+  signedOnPlace: z.string().min(1, "Signed-on place is required"),
+  agreementParties: z.string().min(1, "Agreement parties is required"),
+  arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
+  agreementFile: z.any().optional(),
+});
+
+// Dispute details schema
+export const disputeDetailsSchema = z.object({
+  disputeType: z.string().min(1, "Dispute type is required"),
+  disputeAmount: z.string().min(1, "Dispute amount is required"),
+  disputeDescription: z.string().min(1, "Dispute description is required").max(2000),
+  disputeDate: z.string().min(1, "Dispute date is required"),
+  serviceType: z.string().min(1, "Service type is required"),
+  applicableActs: z.array(z.string()).min(1, "At least one applicable act is required"),
+  disputeCategory: z.string().min(1, "Dispute category is required"),
+  disputeSubCategory: z.string().min(1, "Dispute sub-category is required"),
+  natureOfDispute: z.string().min(1, "Nature of dispute is required"),
+  factsOfCase: z.string().min(1, "Facts of case is required").max(2000),
+  clauseReferences: z.string().min(1, "Clause references is required").max(500),
+});
+
+// Prayers schema
+export const prayersSchema = z.object({
+  prayers: z.string().min(1, "Prayers is required").max(3000),
+});
+
+// Documents schema
+export const documentsSchema = z.object({
+  supportingDocuments: z.array(z.any()).optional(),
+  evidenceFiles: z.array(z.any()).optional(),
+  documentTypes: z.record(z.string()).optional(),
+});
+
+// Payment schema
+export const paymentSchema = z.object({
+  paymentHead: z.string().min(1, "Payment head is required"),
+  paymentAmount: z.string().min(1, "Payment amount is required"),
+  paymentDetails: z.string().min(1, "Payment details is required").max(1000),
+});
+
+// Arguments schema
+export const argumentsSchema = z.object({
+  argumentsPerIssue: z.array(z.string()).min(1, "At least one argument is required"),
+});
+
+// Complete form schema
+export const formSchema = z.object({
+  claimant: claimantSchema,
+  additionalClaimants: z.array(additionalClaimantSchema),
+  managerDetails: managerSchema,
+  respondents: z.array(respondentSchema).min(1, "At least one respondent is required"),
+  arbitrationAgreement: arbitrationAgreementSchema,
+  disputeDetails: disputeDetailsSchema,
+  prayers: prayersSchema,
+  documents: documentsSchema,
+  payment: paymentSchema,
+  arguments: argumentsSchema,
+});
+
+// Define form data type
+export type FormData = z.infer<typeof formSchema>;
+export type ClaimantData = z.infer<typeof claimantSchema>;
+export type AdditionalClaimantData = z.infer<typeof additionalClaimantSchema>;
+export type ManagerData = z.infer<typeof managerSchema>;
+export type RespondentData = z.infer<typeof respondentSchema>;
+export type ArbitrationAgreementData = z.infer<typeof arbitrationAgreementSchema>;
+export type DisputeDetailsData = z.infer<typeof disputeDetailsSchema>;
+export type PrayersData = z.infer<typeof prayersSchema>;
+export type DocumentsData = z.infer<typeof documentsSchema>;
+export type PaymentData = z.infer<typeof paymentSchema>;
+export type ArgumentsData = z.infer<typeof argumentsSchema>; 

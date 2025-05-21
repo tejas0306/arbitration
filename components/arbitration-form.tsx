@@ -1,10 +1,14 @@
 "use client"
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { arbitrationApi, auth, api } from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import dynamic from 'next/dynamic';
+import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -17,6 +21,26 @@ const MAX_STATE_LENGTH = 50;
 const MAX_COUNTRY_LENGTH = 50;
 const MAX_PINCODE_LENGTH = 6;
 const MAX_PHONE_LENGTH = 10;
+const MAX_GST_LENGTH = 15;
+const MIN_GST_LENGTH = 15;
+const MAX_PAN_LENGTH = 10;
+const MIN_PAN_LENGTH = 10;
+const MAX_CIN_LENGTH = 21;
+const MIN_CIN_LENGTH = 21;
+const MAX_ARBITRATION_FIELD_LENGTH = 200;
+const MAX_DISPUTE_AMOUNT = 1000000000; // 1 billion
+const MAX_DISPUTE_AMOUNT_LENGTH = 12;
+const MAX_APPLICABLE_ACTS_LENGTH = 500;
+const MAX_PAYMENT_AMOUNT = 1000000000; // 1 billion
+const MAX_PAYMENT_AMOUNT_LENGTH = 12;
+
+// Utility function to truncate text based on maximum length
+const truncate = (value: string, maxLength: number): string => {
+  return value.slice(0, maxLength);
+};
+
+// The useDebounce hook would be moved to a separate file (hooks/useDebounce.ts)
+// and imported like: import { useDebounce } from '@/hooks/useDebounce';
 
 const steps = [
   "Claimant Details",
@@ -125,7 +149,7 @@ const initialPayment = {
 
 const initialArguments = {
   argumentsPerIssue: [] as string[],
-}
+};
 
 const countryCodes = [
   { code: "+91", country: "India" },
@@ -154,557 +178,1103 @@ export interface ArbitrationDraft {
   version: number;
   lastEditedAt: string;
   createdAt: string;
+  data?: any; // The actual form data
+  files?: Record<string, File | null>; // Optional files
 }
 
-export default function ArbitrationForm() {
-  const router = useRouter();
-  const [activeStep, setActiveStep] = useState(0)
-  const [claimant, setClaimant] = useState(initialClaimant)
-  const [additionalClaimants, setAdditionalClaimants] = useState([initialAdditionalClaimant])
-  const [managerDetails, setManagerDetails] = useState(initialManagerDetails)
-  const [respondents, setRespondents] = useState([initialRespondent])
-  const [arbitrationAgreement, setArbitrationAgreement] = useState(initialArbitrationAgreement)
-  const [disputeDetails, setDisputeDetails] = useState(initialDisputeDetails)
-  const [prayers, setPrayers] = useState(initialPrayers)
-  const [documents, setDocuments] = useState(initialDocuments)
-  const [payment, setPayment] = useState(initialPayment)
-  const [argumentsData, setArgumentsData] = useState(initialArguments)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isClient, setIsClient] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSavingDraft, setIsSavingDraft] = useState(false)
-  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
-  const [draftList, setDraftList] = useState<ArbitrationDraft[]>([])
-  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [editMode, setEditMode] = useState(false)
-  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [formChanged, setFormChanged] = useState(false)
-  const [stateOptions, setStateOptions] = useState<string[]>([]);
-  const [districtOptions, setDistrictOptions] = useState<string[]>([]);
-  const [cityOptions, setCityOptions] = useState<string[]>([]);
-  const [countryOptions, setCountryOptions] = useState<string[]>([]);
+// components/FormField.tsx
+interface FormFieldProps {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  type?: string;
+  required?: boolean;
+  maxLength?: number;
+  max?: string; // Add max property for date inputs
+  error?: string;
+  placeholder?: string;
+  options?: Array<{ value: string, label: string }>;
+}
 
-  // Add new state for verification loading
-  const [isVerifying, setIsVerifying] = useState<{
-    gst: boolean;
-    pan: boolean;
-    cin: boolean;
-    respondentGst: Record<number, boolean>;
-    respondentPan: Record<number, boolean>;
-    respondentCin: Record<number, boolean>;
-  }>({
-    gst: false,
-    pan: false,
-    cin: false,
-    respondentGst: {},
-    respondentPan: {},
-    respondentCin: {},
-  });
+export const FormField: React.FC<FormFieldProps> = ({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  maxLength,
+  max,
+  error,
+  placeholder,
+  options
+}) => {
+  const id = `field-${name}`;
   
-  // Add new state for verification status
-  const [verificationStatus, setVerificationStatus] = useState<{
-    gst: { verified: boolean; message?: string } | null;
-    pan: { verified: boolean; message?: string } | null;
-    cin: { verified: boolean; message?: string } | null;
-    respondentGst: Record<number, { verified: boolean; message?: string } | null>;
-    respondentPan: Record<number, { verified: boolean; message?: string } | null>;
-    respondentCin: Record<number, { verified: boolean; message?: string } | null>;
-  }>({
-    gst: null,
-    pan: null,
-    cin: null,
-    respondentGst: {},
-    respondentPan: {},
-    respondentCin: {},
-  });
-
-  useEffect(() => {
-    setIsClient(true)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    let newValue = e.target.value;
     
-    // Check if user is authenticated
+    // Handle pincode - only allow numeric input and limit to 6 digits
+    if (name.includes('pincode') && type === 'text') {
+      newValue = newValue.replace(/\D/g, '').slice(0, 6);
+    } 
+    // Handle phone number - only allow numeric input
+    else if (name.includes('phone') && !name.includes('phoneCountryCode') && type === 'text') {
+      newValue = newValue.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+    }
+    // Handle PAN formatting (10 characters: AAAPL1234C)
+    else if (name.includes('pan') && type === 'text') {
+      // Convert to uppercase
+      newValue = newValue.toUpperCase();
+      
+      // Apply PAN format: 5 letters + 4 digits + 1 letter
+      if (newValue.length > 5) {
+        // Allow only digits for the middle 4 characters (position 5-8)
+        const firstPart = newValue.slice(0, 5);
+        let middlePart = '';
+        let lastPart = '';
+        
+        // Extract digits for middle part (positions 5-8)
+        if (newValue.length > 5) {
+          const remainingChars = newValue.slice(5);
+          const digitsOnly = remainingChars.replace(/[^0-9]/g, '').slice(0, 4);
+          middlePart = digitsOnly;
+          
+          // Extract last character (should be a letter)
+          if (remainingChars.length > 4) {
+            const lastChar = remainingChars.slice(4).replace(/[^A-Z]/g, '').slice(0, 1);
+            lastPart = lastChar;
+          }
+        }
+        
+        newValue = firstPart + middlePart + lastPart;
+      }
+    } 
+    // Handle GST formatting (15 characters, convert to uppercase)
+    else if (name.includes('gst') && type === 'text') {
+      newValue = newValue.toUpperCase();
+    } 
+    // Handle CIN formatting (21 characters, convert to uppercase)
+    else if (name.includes('cin') && type === 'text') {
+      newValue = newValue.toUpperCase();
+    }
+    
+    // Create a new event with the modified value
+    const newEvent = {
+      ...e,
+      target: {
+        ...e.target,
+        value: newValue
+      }
+    } as React.ChangeEvent<HTMLInputElement | HTMLSelectElement>;
+    
+    onChange(newEvent);
+  };
+  
+  // Determine if this is a business identifier field
+  const isBusinessId = name.includes('pan') || name.includes('gst') || name.includes('cin');
+  const isPhoneField = name.includes('phone') && !name.includes('phoneCountryCode');
+  
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm mb-1">
+        {label}{required && '*'}
+      </label>
+      
+      {type === "select" ? (
+        <select
+          id={id}
+          name={name}
+          value={value}
+          onChange={handleChange}
+          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+        >
+          <option value="">{placeholder || `Select ${label}`}</option>
+          {options?.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id={id}
+          type={type}
+          name={name}
+          value={value}
+          onChange={handleChange}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          inputMode={name.includes('pincode') ? 'numeric' : undefined}
+          pattern={name.includes('pincode') ? '[0-9]*' : undefined}
+          style={isBusinessId ? { textTransform: 'uppercase' } : undefined}
+          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+        />
+      )}
+      
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+    </div>
+  );
+};
+
+// TextAreaField component for multiline inputs
+interface TextAreaFieldProps {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  required?: boolean;
+  maxLength?: number;
+  error?: string;
+  placeholder?: string;
+  rows?: number;
+}
+
+export const TextAreaField: React.FC<TextAreaFieldProps> = ({
+  label,
+  name,
+  value,
+  onChange,
+  required = false,
+  maxLength,
+  error,
+  placeholder,
+  rows = 4
+}) => {
+  const id = `field-${name}`;
+  
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm mb-1">
+        {label}{required && '*'}
+      </label>
+      
+      <textarea
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        rows={rows}
+        className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+      />
+      
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+    </div>
+  );
+};
+
+// Controlled form field components
+interface ControlledFormFieldProps extends Omit<FormFieldProps, 'value' | 'onChange'> {
+  control: Control<any>;
+  name: string;
+  defaultValue?: string;
+}
+
+export const ControlledFormField: React.FC<ControlledFormFieldProps> = ({
+  control,
+  name,
+  label,
+  type = "text",
+  required = false,
+  maxLength,
+  max,
+  error,
+  placeholder,
+  options,
+  defaultValue = "",
+}) => {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      defaultValue={defaultValue}
+      render={({ field, fieldState }) => (
+        <FormField
+          label={label}
+          name={name}
+          value={field.value || ""}
+          onChange={field.onChange}
+          type={type}
+          required={required}
+          maxLength={maxLength}
+          max={max}
+          error={fieldState.error?.message || error}
+          placeholder={placeholder}
+          options={options}
+        />
+      )}
+    />
+  );
+};
+
+interface ControlledTextAreaFieldProps extends Omit<TextAreaFieldProps, 'value' | 'onChange'> {
+  control: Control<any>;
+  name: string;
+  defaultValue?: string;
+}
+
+export const ControlledTextAreaField: React.FC<ControlledTextAreaFieldProps> = ({
+  control,
+  name,
+  label,
+  required = false,
+  maxLength,
+  error,
+  placeholder,
+  rows = 4,
+  defaultValue = "",
+}) => {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      defaultValue={defaultValue}
+      render={({ field, fieldState }) => (
+        <TextAreaField
+          label={label}
+          name={name}
+          value={field.value || ""}
+          onChange={field.onChange}
+          required={required}
+          maxLength={maxLength}
+          error={fieldState.error?.message || error}
+          placeholder={placeholder}
+          rows={rows}
+        />
+      )}
+    />
+  );
+};
+
+// Add a FileField component for file uploads
+interface FileFieldProps {
+  label: string;
+  name: string;
+  onChange: (file: File | null | File[]) => void;
+  required?: boolean;
+  error?: string;
+  accept?: string;
+  multiple?: boolean;
+}
+
+export const FileField: React.FC<FileFieldProps> = ({
+  label,
+  name,
+  onChange,
+  required = false,
+  error,
+  accept,
+  multiple = false,
+}) => {
+  const id = `field-${name}`;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileNames, setFileNames] = useState<string[]>([]);
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (multiple) {
+      const files = e.target.files ? Array.from(e.target.files) : [];
+      onChange(files);
+      setFileNames(files.map(f => f.name));
+        } else {
+      const file = e.target.files && e.target.files[0];
+      onChange(file || null);
+      setFileNames(file ? [file.name] : []);
+    }
+  };
+  
+  const handleClear = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    onChange(multiple ? [] : null);
+    setFileNames([]);
+  };
+  
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm mb-1">
+        {label}{required && '*'}
+      </label>
+      
+      <div className="flex flex-col">
+        <input
+          id={id}
+          type="file"
+          name={name}
+          ref={fileInputRef}
+          onChange={handleChange}
+          multiple={multiple}
+          accept={accept}
+          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+        />
+        
+        {fileNames.length > 0 && (
+          <div className="mt-2">
+            {fileNames.map((name, index) => (
+              <div key={index} className="text-sm flex items-center">
+                <span className="mr-2">• {name}</span>
+              </div>
+            ))}
+            <button 
+              type="button"
+              onClick={handleClear}
+              className="text-xs text-red-500 mt-1"
+            >
+              Clear {multiple ? 'files' : 'file'}
+            </button>
+          </div>
+        )}
+      </div>
+      
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+    </div>
+  );
+};
+
+// Define your validation schema
+const formSchema = z.object({
+  // Claimant details
+  claimant: z.object({
+    type: z.string().min(1, "Type is required"),
+    name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
+    pincode: z.string()
+      .min(6, "Pincode must be 6 digits")
+      .max(6, "Pincode must be 6 digits")
+      .regex(/^\d{6}$/, "Must be a valid 6-digit pincode"),
+    address1: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters"),
+    address2: z.string().max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters").optional(),
+    city: z.string().min(1, "City is required").max(MAX_CITY_LENGTH),
+    district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
+    state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
+    country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
+    email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
+      .email("Must be a valid email address"),
+    phone: z.string().min(10, "Phone is required").max(MAX_PHONE_LENGTH)
+      .regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    phoneCountryCode: z.string().default("+91"),
+    gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
+    pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
+    cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
+    // File fields don't need validation here as they're handled separately
+  }),
+  
+  // Additional Claimants
+  additionalClaimants: z.array(z.object({
+    name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
+    email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH),
+    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    address: z.string().max(MAX_ADDRESS_LENGTH),
+    phoneCountryCode: z.string().default("+91"),
+  })).default([]),
+  
+  // Manager details
+  managerDetails: z.object({
+    name: z.string().max(MAX_NAME_LENGTH),
+    email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH).optional(),
+    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
+    address: z.string().max(MAX_ADDRESS_LENGTH).optional(),
+    designation: z.string().max(MAX_NAME_LENGTH).optional(),
+    authority: z.string().max(MAX_NAME_LENGTH).optional(),
+    phoneCountryCode: z.string().default("+91"),
+  }).optional(),
+  
+  // Respondent details
+  respondents: z.array(z.object({
+    type: z.string().min(1, "Type is required"),
+    name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
+    address: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH),
+    email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
+      .email("Must be a valid email address"),
+    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
+    gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
+    pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
+    cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
+    phoneCountryCode: z.string().default("+91"),
+  })).min(1, "At least one respondent is required"),
+  
+  // Arbitration Agreement
+  arbitrationAgreement: z.object({
+    agreementDate: z.string().min(1, "Agreement date is required")
+      .refine(val => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selected = new Date(val);
+        selected.setHours(0, 0, 0, 0);
+        return selected <= today;
+      }, "Agreement date cannot be in the future"),
+    agreementType: z.string().min(1, "Agreement type is required"),
+    resolutionMode: z.string().min(1, "Resolution mode is required"),
+    seatOfArbitration: z.string().min(1, "Seat of arbitration is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
+    signedOnPlace: z.string().min(1, "Signed-on place is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
+    agreementParties: z.string().min(1, "Agreement parties is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
+    arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
+    // agreementFile handled separately
+  }),
+  
+  // Dispute Details
+  disputeDetails: z.object({
+    disputeType: z.string().min(1, "Dispute type is required"),
+    disputeAmount: z.string().min(1, "Dispute amount is required")
+      .max(MAX_DISPUTE_AMOUNT_LENGTH, `Must be at most ${MAX_DISPUTE_AMOUNT_LENGTH} digits`)
+      .regex(/^\d+$/, "Must contain only digits")
+      .refine(val => parseInt(val) <= MAX_DISPUTE_AMOUNT, `Amount cannot exceed ${MAX_DISPUTE_AMOUNT.toLocaleString()}`),
+    disputeDescription: z.string().min(1, "Dispute description is required").max(2000),
+    disputeDate: z.string().min(1, "Dispute date is required")
+      .refine(val => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selected = new Date(val);
+        selected.setHours(0, 0, 0, 0);
+        return selected <= today;
+      }, "Dispute date cannot be in the future"),
+    serviceType: z.string().min(1, "Service type is required"),
+    applicableActs: z.array(z.string()).min(1, "At least one applicable act is required"),
+    disputeCategory: z.string().min(1, "Dispute category is required"),
+    disputeSubCategory: z.string().min(1, "Dispute sub-category is required"),
+    natureOfDispute: z.string().min(1, "Nature of dispute is required"),
+    factsOfCase: z.string().min(1, "Facts of the case is required").max(2000),
+    clauseReferences: z.string().min(1, "Clause references is required").max(500),
+  }),
+  
+  // Prayers & Reliefs
+  prayers: z.object({
+    prayers: z.string().min(1, "Prayers & reliefs is required").max(3000),
+  }),
+  
+  // Documents - Handled separately as they are File objects
+  
+  // Payment
+  payment: z.object({
+    paymentHead: z.string().min(1, "Payment head is required"),
+    paymentAmount: z.string().min(1, "Payment amount is required")
+      .max(MAX_PAYMENT_AMOUNT_LENGTH, `Must be at most ${MAX_PAYMENT_AMOUNT_LENGTH} digits`)
+      .regex(/^\d+$/, "Must contain only digits")
+      .refine(val => parseInt(val) <= MAX_PAYMENT_AMOUNT, `Amount cannot exceed ${MAX_PAYMENT_AMOUNT.toLocaleString()}`),
+    paymentDetails: z.string().min(1, "Payment details is required").max(1000),
+  }),
+  
+  // Arguments
+  arguments: z.object({
+    argumentsPerIssue: z.array(z.string().max(2000))
+      .min(1, "At least one argument is required"),
+  }),
+  
+  documents: z.object({
+    supportingDocuments: z
+      .array(z.instanceof(File))
+      .min(1, "Please upload at least one supporting document"),
+    evidenceFiles: z.array(z.instanceof(File)).optional(),
+    documentTypes: z.record(z.string(), z.string()).optional(),
+  }),
+});
+
+// Define the form schema type
+type FormData = z.infer<typeof formSchema>;
+
+// Type for arguments field array item
+type ArgumentItem = string;
+
+// Add an interface for location data response
+interface LocationResponse {
+  success: boolean;
+  country: string;
+  state: string;
+  district: string;
+  cities: string[];
+}
+
+// Update the location response interface to match the actual API response
+interface PostOffice {
+  Name: string;
+  Description: string;
+  BranchType: string;
+  DeliveryStatus: string;
+  Circle: string;
+  District: string;
+  Division: string;
+  Region: string;
+  State: string;
+  Country: string;
+}
+
+interface PincodeResponse {
+  Message: string;
+  Status: string;
+  PostOffice: PostOffice[] | null;
+}
+
+// Create a specialized PhoneField component with country code selector
+interface PhoneFieldProps {
+  control: Control<any>;
+  phoneFieldName: string;
+  countryCodeFieldName: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+}
+
+export const PhoneField: React.FC<PhoneFieldProps> = ({
+  control,
+  phoneFieldName,
+  countryCodeFieldName,
+  label,
+  required = false,
+  error,
+}) => {
+  return (
+    <div>
+      <label htmlFor={phoneFieldName} className="block text-sm mb-1">
+        {label}{required && '*'}
+      </label>
+      <div className="flex">
+        <div className="w-2/5 pr-2">
+          <Controller
+            control={control}
+            name={countryCodeFieldName}
+            defaultValue="+91"
+            render={({ field }) => (
+              <select
+                value={field.value}
+                onChange={field.onChange}
+                className="w-full border rounded px-2 py-1"
+              >
+                {countryCodes.map((cc) => (
+                  <option key={cc.code} value={cc.code}>
+                    {cc.code} ({cc.country})
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+        </div>
+        <div className="w-3/5">
+          <Controller
+            control={control}
+            name={phoneFieldName}
+            render={({ field, fieldState }) => (
+              <>
+                <input
+                  type="text"
+                  value={field.value || ""}
+                  onChange={(e) => {
+                    // Only allow numbers and limit to 10 digits
+                    const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                    field.onChange(value);
+                  }}
+                  placeholder="10-digit number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={MAX_PHONE_LENGTH}
+                  className={`w-full border rounded px-2 py-1 ${fieldState.error ? 'border-red-500' : ''}`}
+                />
+                {fieldState.error && (
+                  <div className="text-red-500 text-xs mt-1">{fieldState.error.message}</div>
+                )}
+              </>
+            )}
+          />
+        </div>
+      </div>
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+      <p className="text-xs text-gray-500 mt-1">Enter a valid phone number with country code</p>
+    </div>
+  );
+};
+
+function ArbitrationForm() {
+  const router = useRouter();
+  const [activeStep, setActiveStep] = useState(0);
+  
+  // State for UI and non-form data
+  const [isClient, setIsClient] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [draftList, setDraftList] = useState<ArbitrationDraft[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  // Replace state with ref for timer
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [formChanged, setFormChanged] = useState(false);
+  
+  // Location lookup state
+  const [stateOptions, setStateOptions] = useState<Array<{ value: string, label: string }>>([]);
+  const [districtOptions, setDistrictOptions] = useState<Array<{ value: string, label: string }>>([]);
+  const [cityOptions, setCityOptions] = useState<Array<{ value: string, label: string }>>([]);
+  const [countryOptions, setCountryOptions] = useState<Array<{ value: string, label: string }>>([]);
+  
+  // Check authentication status on component mount - using an empty dependency array to run only once
+  useEffect(() => {
+    let isMounted = true;
+    
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          toast.error('Please log in to access this feature');
-          router.push('/auth/login');
-          return;
-        }
+        // Use the correct auth methods that are available
+        const isLoggedIn = await auth.isAuthenticated();
         
-        // Verify token is valid by getting current user
-        const user = await auth.getCurrentUser();
-        setIsAuthenticated(true);
-        
-        // Check if we're in edit mode (URL contains draftId or petitionId query param)
-        const url = new URL(window.location.href);
-        const draftId = url.searchParams.get('draftId');
-        const petitionId = url.searchParams.get('petitionId');
-        
-        if (draftId) {
-          setEditMode(true);
-          await loadDraft(draftId);
-        } else if (petitionId) {
-          setEditMode(true);
-          await loadPetition(petitionId);
-        } else {
-          // Load user's drafts only if authenticated and not in edit mode
-          loadDrafts();
+        if (isMounted) {
+          setIsAuthenticated(isLoggedIn);
         }
       } catch (error) {
-        console.error('Authentication error:', error);
-        toast.error('Your session has expired. Please log in again.');
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        router.push('/auth/login');
+        console.error("Auth check error:", error);
+        if (isMounted) {
+          setIsAuthenticated(false);
+        }
       }
     };
     
     checkAuth();
     
-    // Set up auto-save when component unmounts
+    // Cleanup function to prevent state updates after unmount
     return () => {
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-      }
+      isMounted = false;
     };
-  }, [router]);
+  }, []); // Empty dependency array - run only once
   
-  // Effect for auto-saving when form changes
+  // Separate effect for fetching drafts when authenticated
   useEffect(() => {
-    if (formChanged && currentDraftId) {
-      // Clear any existing timer
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-      }
-      
-      // Set a new timer to auto-save after 3 seconds of inactivity
-      const timer = setTimeout(() => {
-        autoSaveDraft();
-      }, 3000);
-      
-      setAutoSaveTimer(timer);
-    }
-    
-    return () => {
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-      }
-    };
-  }, [claimant, additionalClaimants, managerDetails, respondents, arbitrationAgreement, 
-      disputeDetails, prayers, documents, payment, argumentsData, formChanged]);
-
-  // Auto-save draft function
-  const autoSaveDraft = async () => {
-    if (!currentDraftId || !formChanged) return;
-    
-    try {
-      setIsSavingDraft(true);
-      const formData = createFormData();
-      await arbitrationApi.saveDraft(formData);
-      setLastSaved(new Date());
-      setFormChanged(false);
-      // Don't show toast for auto-save to avoid too many notifications
-    } catch (error) {
-      console.error('Error auto-saving draft:', error);
-      // Don't show error toast for auto-save
-    } finally {
-      setIsSavingDraft(false);
-    }
-  };
-
-  // Load a petition for editing
-  const loadPetition = async (petitionId: string) => {
-    try {
-      setIsLoadingDrafts(true);
-      console.log(`Attempting to load petition with ID: ${petitionId}`);
-      
-      const petition = await arbitrationApi.getById(petitionId);
-      console.log('Petition data received:', petition ? 'SUCCESS' : 'EMPTY');
-      
-      if (petition) {
-        // Create a new draft from the petition
-        console.log('Creating new draft from petition data');
-        const formData = createFormDataFromPetition(petition);
-        const response = await arbitrationApi.saveDraft(formData);
-        
-        if (response && response.id) {
-          console.log(`New draft created with ID: ${response.id}`);
-          const newDraftId = response.id;
-          setCurrentDraftId(newDraftId);
-          
-          // Populate form with petition data
-          console.log('Populating form with petition data');
-          populateFormFromData(petition);
-          
-          toast.success('Petition loaded for editing. Changes will be saved as a draft.');
-        } else {
-          throw new Error('Failed to create draft from petition');
-        }
-      } else {
-        throw new Error('No petition data received');
-      }
-    } catch (error: any) {
-      console.error('Error loading petition for editing:', error);
-      
-      let errorMessage = 'Failed to load petition. Please try again.';
-      
-      // Provide more specific error messages based on the error
-      if (error.response) {
-        console.error('Server response error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        
-        if (error.response.status === 404) {
-          errorMessage = 'Petition not found. It may have been deleted or you may not have access.';
-        } else if (error.response.status === 401) {
-          errorMessage = 'Your session has expired. Please log in again.';
-          router.push('/auth/login');
-        } else if (error.response.status === 500) {
-          errorMessage = 'Server error while loading petition. Please try again later.';
-        }
-      }
-      
-      toast.error(errorMessage);
-    } finally {
-      setIsLoadingDrafts(false);
-    }
-  };
-  
-  // Helper to create form data from a petition
-  const createFormDataFromPetition = (petition: any) => {
-    const formData = new FormData();
-    
-    // Add petitionId as reference
-    formData.append('petitionId', petition.id);
-    
-    // Add all petition data to form
-    formData.append('data', JSON.stringify(petition));
-    
-    return formData;
-  };
-  
-  // Helper to populate form from either draft or petition data
-  const populateFormFromData = (data: any) => {
-    // Populate claimant data
-    setClaimant({
-      type: data.type || '',
-      name: data.name || '',
-      pincode: data.pincode || '',
-      address1: data.address1 || '',
-      address2: data.address2 || '',
-      city: data.city || '',
-      district: data.district || '',
-      state: data.state || '',
-      country: data.country || '',
-      email: data.email || '',
-      phoneCountryCode: data.phoneCountryCode || '+91',
-      phone: data.phone || '',
-      gst: data.gst || '',
-      pan: data.pan || '',
-      cin: data.cin || '',
-      coi: null,
-      panCard: null,
-      gstCert: null,
-    });
-    
-    // Load additional claimants
-    if (data.additionalClaimants && data.additionalClaimants.length > 0) {
-      setAdditionalClaimants(data.additionalClaimants);
-    }
-    
-    // Load manager details
-    if (data.managerDetails) {
-      setManagerDetails(data.managerDetails);
-    }
-    
-    // Load respondents
-    if (data.respondents && data.respondents.length > 0) {
-      setRespondents(data.respondents);
-    }
-    
-    // Load arbitration agreement
-    if (data.arbitrationAgreement) {
-      setArbitrationAgreement({
-        agreementDate: data.arbitrationAgreement.agreementDate || '',
-        agreementType: data.arbitrationAgreement.agreementType || '',
-        resolutionMode: data.arbitrationAgreement.resolutionMode || '',
-        seatOfArbitration: data.arbitrationAgreement.seatOfArbitration || '',
-        signedOnPlace: data.arbitrationAgreement.signedOnPlace || '',
-        agreementParties: data.arbitrationAgreement.agreementParties || '',
-        arbitratorSelection: data.arbitrationAgreement.arbitratorSelection || '',
-        agreementFile: null,
-      });
-    }
-    
-    // Load dispute details
-    if (data.disputeDetails) {
-      setDisputeDetails({
-        disputeType: data.disputeDetails.disputeType || '',
-        disputeAmount: data.disputeDetails.disputeAmount || '',
-        disputeDescription: data.disputeDetails.disputeDescription || '',
-        disputeDate: data.disputeDetails.disputeDate || '',
-        serviceType: data.disputeDetails.serviceType || '',
-        applicableActs: data.disputeDetails.applicableActs || [],
-        disputeCategory: data.disputeDetails.disputeCategory || '',
-        disputeSubCategory: data.disputeDetails.disputeSubCategory || '',
-        natureOfDispute: data.disputeDetails.natureOfDispute || '',
-        factsOfCase: data.disputeDetails.factsOfCase || '',
-        clauseReferences: data.disputeDetails.clauseReferences || '',
-      });
-      
-      // If prayers data is in the disputeDetails.reliefSought field, use that
-      if (data.disputeDetails.reliefSought) {
-        setPrayers({
-          prayers: data.disputeDetails.reliefSought
-        });
-      } else if (data.disputeDetails.prayerClauses) {
-        setPrayers({
-          prayers: data.disputeDetails.prayerClauses
-        });
-      }
-    }
-    
-    // Load prayers and reliefs from root object (for backward compatibility)
-    if (data.prayers) {
-      setPrayers(data.prayers);
-    }
-    
-    // Load payment information
-    if (data.payment) {
-      setPayment(data.payment);
-    }
-    
-    // Load arguments
-    if (data.arguments) {
-      setArgumentsData(data.arguments);
-    }
-    
-    // Load document types
-    if (data.documentTypes) {
-      setDocuments(prev => ({
-        ...prev,
-        documentTypes: data.documentTypes
-      }));
-    }
-  };
-
-  // Load user's drafts
-  const loadDrafts = async () => {
+    // Only fetch drafts when authenticated
+    if (isAuthenticated) {
+      const fetchDrafts = async () => {
     try {
       setIsLoadingDrafts(true);
       const drafts = await arbitrationApi.getDrafts();
       setDraftList(drafts);
     } catch (error) {
-      console.error('Error loading drafts:', error);
-      // Don't show error toast here as it might be due to auth issues which are handled elsewhere
+          console.error("Error fetching drafts:", error);
+          toast.error("Failed to load drafts");
     } finally {
       setIsLoadingDrafts(false);
     }
   };
 
-  // Helper function to create FormData from the current state
-  const createFormData = () => {
-    const formData = new FormData();
-
-    // Add the draft ID if we're editing an existing draft
-    if (currentDraftId) {
-      formData.append('id', currentDraftId);
+      fetchDrafts();
     }
-
-    // Create a structured data object first
-    const arbitrationData = {
-      type: claimant.type,
-      name: claimant.name,
-      pincode: claimant.pincode,
-      address1: claimant.address1,
-      address2: claimant.address2,
-      city: claimant.city,
-      district: claimant.district,
-      state: claimant.state,
-      country: claimant.country,
-      email: claimant.email,
-      phoneCountryCode: claimant.phoneCountryCode,
-      phone: claimant.phone,
-      gst: claimant.gst,
-      pan: claimant.pan,
-      cin: claimant.cin,
-      additionalClaimants: additionalClaimants,
-      managerDetails: managerDetails,
-      respondents: respondents,
-      arbitrationAgreement: {
-        agreementDate: arbitrationAgreement.agreementDate,
-        agreementType: arbitrationAgreement.agreementType,
-        resolutionMode: arbitrationAgreement.resolutionMode,
-        seatOfArbitration: arbitrationAgreement.seatOfArbitration,
-        signedOnPlace: arbitrationAgreement.signedOnPlace,
-        agreementParties: arbitrationAgreement.agreementParties,
-        arbitratorSelection: arbitrationAgreement.arbitratorSelection,
+  }, [isAuthenticated]); // Only depends on authentication state
+  
+  // File state for document uploads (not managed by react-hook-form)
+  const [files, setFiles] = useState<Record<string, File | null>>({
+    coi: null,
+    panCard: null,
+    gstCert: null,
+    agreementFile: null,
+  });
+  
+  const stepRefs = useRef<(HTMLElement | null)[]>(Array(steps.length).fill(null));
+  
+  // Setup React Hook Form
+  const { 
+    control,
+    handleSubmit, 
+    watch,
+    reset,
+    setValue,
+    trigger,
+    formState: { errors: formErrors, isValid, isDirty }
+  } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange",
+    defaultValues: {
+      claimant: initialClaimant,
+      additionalClaimants: [initialAdditionalClaimant],
+      managerDetails: initialManagerDetails,
+      respondents: [initialRespondent],
+      arbitrationAgreement: initialArbitrationAgreement,
+      disputeDetails: initialDisputeDetails,
+      prayers: initialPrayers,
+      payment: initialPayment,
+      arguments: initialArguments,
+      documents: {
+        supportingDocuments: [],
+        evidenceFiles: [],
+        documentTypes: {},
       },
-      disputeDetails: {
-        ...disputeDetails,
-        // Add prayers as reliefSought in the dispute details
-        reliefSought: prayers.prayers,
-        prayerClauses: prayers.prayers, // Adding to both fields to ensure compatibility
-      },
-      // Keep prayers in the root object for backward compatibility with frontend
-      prayers: prayers,
-      payment: payment,
-      arguments: argumentsData,
-      documentTypes: documents.documentTypes,
-      id: currentDraftId || undefined,
-      // Track which files are included
-      includedFiles: {
-        coi: claimant.coi ? true : false,
-        panCard: claimant.panCard ? true : false,
-        gstCert: claimant.gstCert ? true : false,
-        agreementFile: arbitrationAgreement.agreementFile ? true : false,
-        supportingDocuments: documents.supportingDocuments.length > 0,
-        evidenceFiles: documents.evidenceFiles.length > 0,
-      }
-    };
-
-    // Add the structured data as a JSON string
-    formData.append('data', JSON.stringify(arbitrationData));
-
-    // Add files separately
-    if (claimant.coi) {
-      console.log('Appending COI file:', claimant.coi);
-      formData.append('coi', claimant.coi);
     }
-    
-    if (claimant.panCard) {
-      console.log('Appending PAN card file:', claimant.panCard);
-      formData.append('panCard', claimant.panCard);
+  });
+  
+  // Setup field arrays for dynamic fields
+  const { 
+    fields: additionalClaimantFields, 
+    append: appendAdditionalClaimant,
+    remove: removeAdditionalClaimantField
+  } = useFieldArray({
+    control,
+    name: "additionalClaimants",
+  });
+  
+  const { 
+    fields: respondentFields, 
+    append: appendRespondent,
+    remove: removeRespondentField
+  } = useFieldArray({
+    control,
+    name: "respondents",
+  });
+  
+  const { 
+    fields: argumentFields, 
+    append: appendArgument,
+    remove: removeArgumentField
+  } = useFieldArray({
+    control,
+    name: "arguments.argumentsPerIssue" as any, // Type assertion to work around TypeScript error
+  });
+  
+  // Watch form values
+  const formValues = watch();
+  
+  // Watch for pincode changes and fetch location data
+  const pincode = watch('claimant.pincode');
+  
+  useEffect(() => {
+    if (pincode && pincode.length === 6) {
+      const fetchLocationData = async () => {
+        try {
+          // Use the actual Indian postal pincode API
+          const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+          const data = await response.json() as PincodeResponse[];
+          
+          if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
+            const postOffice = data[0].PostOffice[0];
+            
+            // Extract unique cities from all post offices
+            const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
+            
+            // Convert to option objects for dropdowns
+            setCountryOptions([{ value: postOffice.Country, label: postOffice.Country }]);
+            setStateOptions([{ value: postOffice.State, label: postOffice.State }]);
+            setDistrictOptions([{ value: postOffice.District, label: postOffice.District }]);
+            setCityOptions(cities.map(city => ({ value: city, label: city })));
+            
+            // Update form fields with new values
+            setValue('claimant.country', postOffice.Country);
+            setValue('claimant.state', postOffice.State);
+            setValue('claimant.district', postOffice.District);
+            setValue('claimant.city', cities[0] || "");
+            
+            toast.success(`Pincode ${pincode} found, location details loaded.`);
+          } else {
+            toast.error(`No data found for pincode ${pincode}`);
+          }
+        } catch (error) {
+          console.error("Error fetching location data:", error);
+          toast.error(`Error fetching location data for pincode ${pincode}`);
+        }
+      };
+      
+      fetchLocationData();
     }
-    
-    if (claimant.gstCert) {
-      console.log('Appending GST cert file:', claimant.gstCert);
-      formData.append('gstCert', claimant.gstCert);
-    }
-    
-    if (arbitrationAgreement.agreementFile) {
-      console.log('Appending agreement file:', arbitrationAgreement.agreementFile);
-      formData.append('agreementFile', arbitrationAgreement.agreementFile);
-    }
-
-    // Add supporting documents
-    if (documents.supportingDocuments.length > 0) {
-      console.log(`Appending ${documents.supportingDocuments.length} supporting documents`);
-      documents.supportingDocuments.forEach((file, index) => {
-        formData.append(`supportingDocuments_${index}`, file);
-      });
-    }
-    
-    // Add evidence files
-    if (documents.evidenceFiles.length > 0) {
-      console.log(`Appending ${documents.evidenceFiles.length} evidence files`);
-      documents.evidenceFiles.forEach((file, index) => {
-        formData.append(`evidenceFiles_${index}`, file);
-      });
-    }
-
-    return formData;
+  }, [pincode, setValue]);
+  
+  // Watch for identifier changes and validate them
+  const gstNumber = watch('claimant.gst');
+  const panNumber = watch('claimant.pan');
+  const cinNumber = watch('claimant.cin');
+  
+  // Helper functions for field arrays
+  const addAdditionalClaimant = () => {
+    appendAdditionalClaimant(initialAdditionalClaimant);
   };
-
-  const handleSubmit = async () => {
+  
+  const addRespondent = () => {
+    appendRespondent(initialRespondent);
+  };
+  
+  const addArgument = () => {
+    appendArgument("" as any); // Type assertion to work around TypeScript error
+  };
+  
+  // Validate current step
+  const validateCurrentStep = async () => {
+    let fieldsToValidate: Array<keyof FormData | string> = [];
+    
+    switch (activeStep) {
+      case 0: // Claimant Details
+        fieldsToValidate = [
+          'claimant.type', 'claimant.name', 'claimant.pincode', 
+          'claimant.address1', 'claimant.city', 'claimant.district', 
+          'claimant.state', 'claimant.country', 'claimant.email', 
+          'claimant.phone'
+        ];
+        break;
+      case 1: // Additional Claimants & Manager
+        // Only validate if manager details are provided
+        if (formValues.managerDetails?.name) {
+          fieldsToValidate = ['managerDetails.name', 'managerDetails.designation'];
+        }
+        // Validate additional claimants if any exist
+        additionalClaimantFields.forEach((_, index) => {
+          fieldsToValidate.push(
+            `additionalClaimants.${index}.name`,
+            `additionalClaimants.${index}.email`,
+            `additionalClaimants.${index}.phone`,
+            `additionalClaimants.${index}.address`
+          );
+        });
+        break;
+      case 2: // Respondent Details
+        respondentFields.forEach((_, index) => {
+          fieldsToValidate.push(
+            `respondents.${index}.type`,
+            `respondents.${index}.name`, 
+            `respondents.${index}.email`,
+            `respondents.${index}.address`
+          );
+        });
+        break;
+      case 3: // Arbitration Agreement
+        fieldsToValidate = [
+          'arbitrationAgreement.agreementDate', 'arbitrationAgreement.agreementType',
+          'arbitrationAgreement.resolutionMode', 'arbitrationAgreement.seatOfArbitration',
+          'arbitrationAgreement.signedOnPlace', 'arbitrationAgreement.agreementParties',
+          'arbitrationAgreement.arbitratorSelection'
+        ];
+        
+        // Check file
+        if (!files.agreementFile) {
+          toast.error('Agreement file is required');
+          return false;
+        }
+        break;
+      case 4: // Dispute Details
+        fieldsToValidate = [
+          'disputeDetails.disputeType', 'disputeDetails.disputeAmount',
+          'disputeDetails.disputeDescription', 'disputeDetails.disputeDate',
+          'disputeDetails.serviceType', 'disputeDetails.disputeCategory',
+          'disputeDetails.disputeSubCategory', 'disputeDetails.natureOfDispute',
+          'disputeDetails.factsOfCase', 'disputeDetails.clauseReferences',
+          'disputeDetails.applicableActs'
+        ];
+        break;
+      case 5: // Prayers & Reliefs
+        fieldsToValidate = ['prayers.prayers'];
+        break;
+      case 6: // Documents
+        await trigger('documents.supportingDocuments' as any);
+        if (!watch('documents.supportingDocuments')?.length) {
+          toast.error('Please upload at least one supporting document');
+          return false;
+        }
+        break;
+      case 7: // Payment
+        fieldsToValidate = [
+          'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
+        ];
+        break;
+      case 8: // Arguments
+        if (argumentFields.length > 0) {
+          argumentFields.forEach((_, index) => {
+            fieldsToValidate.push(`arguments.argumentsPerIssue.${index}`);
+          });
+        } else {
+          // If no argument fields yet, create an error
+          toast.error('Please add at least one argument');
+          return false;
+        }
+        break;
+      default:
+        return true;
+    }
+    
+    if (fieldsToValidate.length > 0) {
+      const result = await trigger(fieldsToValidate as any); // Type assertion to work around TypeScript error
+      return result;
+    }
+    
+    return true;
+  };
+  
+  // Handle next button click
+  const handleNext = async () => {
+    // Validate current step
+    const isStepValid = await validateCurrentStep();
+    
+    if (isStepValid) {
+    if (activeStep < steps.length - 1) {
+      setActiveStep(activeStep + 1);
+        
+        // Focus the first input in the next step
+        setTimeout(() => {
+          const nextStepEl = stepRefs.current[activeStep + 1];
+          const firstInput = nextStepEl?.querySelector('input, select, textarea');
+          if (firstInput instanceof HTMLElement) {
+            firstInput.focus();
+          }
+        }, 50);
+    } else {
+        // On the last step, submit the form
+        handleSubmit(onSubmit)();
+      }
+    }
+  };
+  
+  // Handle back button click
+  const handleBack = () => {
+    if (activeStep > 0) {
+      setActiveStep(activeStep - 1);
+    }
+  };
+  
+  // Handle file changes
+  const handleFileChange = (fieldName: string, file: File | null | File[]) => {
+    // Only handle single file uploads here, not arrays
+    if (!Array.isArray(file)) {
+      setFiles(prev => ({
+        ...prev,
+        [fieldName]: file
+      }));
+      setFormChanged(true);
+    }
+  };
+  
+  // Form submission handler
+  const onSubmit = async (data: FormData) => {
     try {
+      // Check authentication
       if (!isAuthenticated) {
         toast.error('Please log in to submit your petition');
         router.push('/auth/login');
         return;
       }
+    
+      // Check if files are uploaded when required
+      const fileErrors: Record<string, string> = {};
       
-      // Check if PAN, GST, and CIN numbers have been verified
-      const identifierErrors: Record<string, string> = {};
-      
-      // Validate claimant identifiers if provided
-      if (claimant.gst && (!verificationStatus.gst || !verificationStatus.gst.verified)) {
-        identifierErrors.gst = 'GST number must be verified before submission';
+      if (!files.agreementFile) {
+        fileErrors.agreementFile = "Agreement file is required";
       }
       
-      if (claimant.pan && (!verificationStatus.pan || !verificationStatus.pan.verified)) {
-        identifierErrors.pan = 'PAN number must be verified before submission';
-      }
-      
-      if (claimant.cin && (!verificationStatus.cin || !verificationStatus.cin.verified)) {
-        identifierErrors.cin = 'CIN number must be verified before submission';
-      }
-      
-      // Validate respondent identifiers if provided
-      respondents.forEach((respondent, index) => {
-        if (respondent.gst && (!verificationStatus.respondentGst[index] || !verificationStatus.respondentGst[index]?.verified)) {
-          identifierErrors[`respondent${index}GST`] = 'Respondent GST number must be verified before submission';
-        }
-        
-        if (respondent.pan && (!verificationStatus.respondentPan[index] || !verificationStatus.respondentPan[index]?.verified)) {
-          identifierErrors[`respondent${index}PAN`] = 'Respondent PAN number must be verified before submission';
-        }
-        
-        if (respondent.cin && (!verificationStatus.respondentCin[index] || !verificationStatus.respondentCin[index]?.verified)) {
-          identifierErrors[`respondent${index}CIN`] = 'Respondent CIN number must be verified before submission';
-        }
-      });
-      
-      // If there are verification errors, display them and stop submission
-      if (Object.keys(identifierErrors).length > 0) {
-        setErrors((prev) => ({
-          ...prev,
-          ...identifierErrors
-        }));
-        
-        // Scroll to the first error
-        const firstError = Object.keys(identifierErrors)[0];
-        const errorElement = document.querySelector(`[name="${firstError}"]`);
-        if (errorElement) {
-          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        
-        toast.error('Please verify all business identifiers (GST, PAN, CIN) before submission');
+      if (Object.keys(fileErrors).length > 0) {
+        // Show error for missing files
+        toast.error('Please upload all required files');
         return;
       }
       
       setIsSubmitting(true);
 
+      // Create FormData for submission
+      const formData = new FormData();
+      
+      // Add the draft ID if editing
       if (currentDraftId) {
-        // If editing a draft, save and submit the draft
-        try {
-          await saveDraft();
-          const response = await arbitrationApi.submitDraft(currentDraftId);
-          const caseId = response.caseId;
-          if (caseId) {
-            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-          } else {
-            toast.success('Arbitration request submitted successfully!');
-          }
-          const drafts = await arbitrationApi.getDrafts();
-          setDraftList(drafts);
-          setCurrentDraftId(null);
-          resetForm();
-        } catch (submitError: any) {
-          console.error('Error submitting draft:', submitError);
-          toast.error(`Failed to submit: ${submitError.message}`);
-        }
-      } else {
-        // If new submission, submit directly
-        try {
-          const formData = createFormData();
-          console.log('Submitting new case');
-          const response = await arbitrationApi.create(formData);
-          const caseId = response.caseId;
-          if (caseId) {
-            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-          } else {
-            toast.success('Arbitration request submitted successfully!');
-          }
-          resetForm();
-        } catch (submitError: any) {
-          console.error('Error submitting new case:', submitError);
-          toast.error(`Failed to submit: ${submitError.message}`);
-        }
+        formData.append('id', currentDraftId);
       }
+      
+      // Restructure data to match backend expectations
+      // Backend expects claimant fields at the top level, not nested under 'claimant'
+      const restructuredData = {
+        // Add claimant fields at the top level
+        type: data.claimant.type,
+        name: data.claimant.name,
+        pincode: data.claimant.pincode,
+        address1: data.claimant.address1,
+        address2: data.claimant.address2,
+        city: data.claimant.city,
+        district: data.claimant.district,
+        state: data.claimant.state,
+        country: data.claimant.country,
+        email: data.claimant.email,
+        phoneCountryCode: data.claimant.phoneCountryCode,
+        phone: data.claimant.phone,
+        gst: data.claimant.gst,
+        pan: data.claimant.pan,
+        cin: data.claimant.cin,
+        
+        // Include other data as is
+        additionalClaimants: data.additionalClaimants,
+        managerDetails: data.managerDetails,
+        respondents: data.respondents,
+        arbitrationAgreement: data.arbitrationAgreement,
+        disputeDetails: data.disputeDetails,
+        prayers: data.prayers,
+        payment: data.payment,
+        arguments: data.arguments
+      };
+      
+      // Add structured data as JSON
+      formData.append('data', JSON.stringify(restructuredData));
+      
+      // Add files
+      Object.entries(files).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+        }
+      });
+      
+      // Add document files from React Hook Form state
+      const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
+      
+      if (supportingDocuments.length > 0) {
+        supportingDocuments.forEach((file, index) => {
+          formData.append(`supportingDocuments_${index}`, file);
+        });
+      }
+      
+      if (evidenceFiles.length > 0) {
+        evidenceFiles.forEach((file, index) => {
+          formData.append(`evidenceFiles_${index}`, file);
+        });
+      }
+      
+      // Add document types
+      formData.append('documentTypes', JSON.stringify(documentTypes));
+      
+      // Submit the form
+      if (currentDraftId) {
+        // If editing a draft, submit it
+        const response = await arbitrationApi.submitDraft(currentDraftId);
+        const caseId = response.caseId;
+        if (caseId) {
+          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+        } else {
+          toast.success('Arbitration request submitted successfully!');
+        }
+      
+        // Reload drafts
+        const drafts = await arbitrationApi.getDrafts();
+        setDraftList(drafts);
+        setCurrentDraftId(null);
+        reset();
+        
+        // Redirect to dashboard after successful submission
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500); // Delay to allow toast to be seen
+      } else {
+        // New submission
+        const response = await arbitrationApi.create(formData);
+        const caseId = response.caseId;
+        if (caseId) {
+          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+        } else {
+          toast.success('Arbitration request submitted successfully!');
+        }
+        reset();
+        
+        // Redirect to dashboard after successful submission
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500); // Delay to allow toast to be seen
+      }
+      
+      // Reset form and files
+      setFiles({
+        coi: null,
+        panCard: null,
+        gstCert: null,
+        agreementFile: null,
+      });
+      
+      // Reset to first step
+      setActiveStep(0);
+      
     } catch (error: any) {
       console.error('Submission error:', error);
       toast.error(`Error: ${error.message}`);
@@ -712,8 +1282,9 @@ export default function ArbitrationForm() {
       setIsSubmitting(false);
     }
   };
-
-  const saveDraft = async () => {
+  
+  // Save draft handler
+  const saveDraft = useCallback(async () => {
     try {
       // Check if user is authenticated before saving draft
       if (!isAuthenticated) {
@@ -723,1516 +1294,446 @@ export default function ArbitrationForm() {
       }
       
       setIsSavingDraft(true);
-      // Use the helper function to create FormData
-      const formData = createFormData();
       
-      // Log the draft data being sent for debugging
-      console.log('Saving draft with data:', formData);
-
-      // Submit as draft
+      // Get form data
+      const data = formValues;
+      
+      // Create FormData
+      const formData = new FormData();
+      
+      // Add the draft ID if editing
+      if (currentDraftId) {
+        formData.append('id', currentDraftId);
+      }
+      
+      // Add structured data as JSON
+      formData.append('data', JSON.stringify(data));
+      
+      // Add files
+      Object.entries(files).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+        }
+      });
+      
+      // Add document files from React Hook Form state
+      const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
+      
+      if (supportingDocuments.length > 0) {
+        supportingDocuments.forEach((file, index) => {
+          formData.append(`supportingDocuments_${index}`, file);
+        });
+      }
+      
+      if (evidenceFiles.length > 0) {
+        evidenceFiles.forEach((file, index) => {
+          formData.append(`evidenceFiles_${index}`, file);
+        });
+      }
+      
+      // Add document types
+      formData.append('documentTypes', JSON.stringify(documentTypes));
+      
+      // Save the draft
       const response = await arbitrationApi.saveDraft(formData);
       
-      // Update the current draft ID for future saves
-      if (response && response.id) {
+      if (response.id) {
         setCurrentDraftId(response.id);
+        toast.success('Draft saved successfully');
         setLastSaved(new Date());
-        setFormChanged(false);
-        
-        // Update the drafts list
-        const drafts = await arbitrationApi.getDrafts();
-        setDraftList(drafts);
       }
-      
-      // Show success message
-      toast.success('Draft saved successfully!');
       
     } catch (error: any) {
-      console.error('Error saving draft:', error);
-      
-      // More detailed error information
-      if (error.response) {
-        if (error.response.status === 401) {
-          toast.error('Your session has expired. Please log in again.');
-          router.push('/auth/login');
-        } else {
-          toast.error(`Failed to save draft: ${error.response.data?.message || 'Server error'}`);
-        }
-      } else if (error.request) {
-        toast.error('No response from server. Please check your connection.');
-      } else {
-        toast.error(`Error: ${error.message}`);
-      }
+      console.error('Draft save error:', error);
+      toast.error(`Error saving draft: ${error.message}`);
     } finally {
       setIsSavingDraft(false);
     }
-  };
-
+  }, [isAuthenticated, currentDraftId, formValues, files, router]);
+  
+  // Load draft handler
   const loadDraft = async (draftId: string) => {
     try {
       setIsLoadingDrafts(true);
-      const draft = await arbitrationApi.getById(draftId);
       
-      if (draft) {
-        // Set current draft ID
-        setCurrentDraftId(draft.id);
-        
-        // Populate form fields
-        setClaimant({
-          type: draft.type || '',
-          name: draft.name || '',
-          pincode: draft.pincode || '',
-          address1: draft.address1 || '',
-          address2: draft.address2 || '',
-          city: draft.city || '',
-          district: draft.district || '',
-          state: draft.state || '',
-          country: draft.country || '',
-          email: draft.email || '',
-          phoneCountryCode: draft.phoneCountryCode || '+91',
-          phone: draft.phone || '',
-          gst: draft.gst || '',
-          pan: draft.pan || '',
-          cin: draft.cin || '',
-          coi: null,
-          panCard: null,
-          gstCert: null,
-        });
-        
-        // Load additional claimants
-        if (draft.additionalClaimants && draft.additionalClaimants.length > 0) {
-          setAdditionalClaimants(draft.additionalClaimants);
+      // Get the specific draft by ID
+      console.log(`Attempting to load draft with ID: ${draftId}`);
+      const draftResponse = await arbitrationApi.getDraft(draftId);
+      console.log("Draft API response:", draftResponse);
+      
+      // The response might be directly the draft or it might contain the draft in a property
+      // Try to find the actual draft data in common response formats
+      let draft = null;
+      if (draftResponse) {
+        // Try various common response formats
+        if (draftResponse.draft) {
+          draft = draftResponse.draft;
+        } else if (draftResponse.data) {
+          draft = draftResponse.data;
+        } else if (draftResponse.id) {
+          // Response itself might be the draft
+          draft = draftResponse;
+        } else if (Array.isArray(draftResponse) && draftResponse.length > 0) {
+          // Might be an array with a single draft
+          draft = draftResponse[0];
         }
-        
-        // Load manager details
-        if (draft.managerDetails) {
-          setManagerDetails(draft.managerDetails);
-        }
-        
-        // Load respondents
-        if (draft.respondents && draft.respondents.length > 0) {
-          setRespondents(draft.respondents);
-        }
-        
-        // Load arbitration agreement
-        if (draft.arbitrationAgreement) {
-          setArbitrationAgreement({
-            agreementDate: draft.arbitrationAgreement.agreementDate || '',
-            agreementType: draft.arbitrationAgreement.agreementType || '',
-            agreementFile: null,
-            resolutionMode: draft.arbitrationAgreement.resolutionMode || '',
-            seatOfArbitration: draft.arbitrationAgreement.seatOfArbitration || '',
-            signedOnPlace: draft.arbitrationAgreement.signedOnPlace || '',
-            agreementParties: draft.arbitrationAgreement.agreementParties || '',
-            arbitratorSelection: draft.arbitrationAgreement.arbitratorSelection || '',
-          });
-        }
-        
-        // Load dispute details
-        if (draft.disputeDetails) {
-          setDisputeDetails({
-            disputeType: draft.disputeDetails.disputeType || '',
-            disputeAmount: draft.disputeDetails.disputeAmount || '',
-            disputeDescription: draft.disputeDetails.disputeDescription || '',
-            disputeDate: draft.disputeDetails.disputeDate || '',
-            serviceType: draft.disputeDetails.serviceType || '',
-            applicableActs: draft.disputeDetails.applicableActs || [],
-            disputeCategory: draft.disputeDetails.disputeCategory || '',
-            disputeSubCategory: draft.disputeDetails.disputeSubCategory || '',
-            natureOfDispute: draft.disputeDetails.natureOfDispute || '',
-            factsOfCase: draft.disputeDetails.factsOfCase || '',
-            clauseReferences: draft.disputeDetails.clauseReferences || '',
-          });
-          
-          // If prayers data is in the disputeDetails.reliefSought field, use that
-          if (draft.disputeDetails.reliefSought) {
-            setPrayers({
-              prayers: draft.disputeDetails.reliefSought
-            });
-          } else if (draft.disputeDetails.prayerClauses) {
-            setPrayers({
-              prayers: draft.disputeDetails.prayerClauses
-            });
-          }
-        }
-        
-        // Load prayers and reliefs from root object (for backward compatibility)
-        if (draft.prayers) {
-          setPrayers(draft.prayers);
-        }
-        
-        // Load payment information
-        if (draft.payment) {
-          setPayment(draft.payment);
-        }
-        
-        // Load arguments
-        if (draft.arguments) {
-          setArgumentsData(draft.arguments);
-        }
-        
-        // Load document types
-        if (draft.documentTypes) {
-          setDocuments(prev => ({
-            ...prev,
-            documentTypes: draft.documentTypes
-          }));
-        }
-        
-        toast.success('Draft loaded successfully!');
       }
-    } catch (error) {
-      console.error('Error loading draft:', error);
-      toast.error('Failed to load draft. Please try again.');
+      
+      // Check if we found a draft
+      if (!draft) {
+        console.error("Could not find valid draft data in response:", draftResponse);
+        toast.error('Failed to load draft: Invalid draft format');
+        return;
+      }
+      
+      console.log("Found draft data:", draft);
+      
+      // Now extract the actual form data
+      // The data could be directly in the draft object or in a nested data property
+      let formData = null;
+      if (draft.data) {
+        formData = draft.data;
+      } else if (draft.formData) {
+        formData = draft.formData;
+      } else if (draft.claimant || draft.respondents) {
+        // The draft object itself might contain the form data
+        formData = draft;
+      }
+      
+      if (!formData) {
+        console.error("Could not find form data in draft:", draft);
+        toast.error('Failed to load draft data: Missing form content');
+        return;
+      }
+      
+      console.log("Found form data:", formData);
+      
+      // Ensure formData has all required sections to prevent errors
+      const completeFormData = {
+        claimant: formData.claimant || initialClaimant,
+        additionalClaimants: formData.additionalClaimants || [initialAdditionalClaimant],
+        managerDetails: formData.managerDetails || initialManagerDetails,
+        respondents: formData.respondents || [initialRespondent],
+        arbitrationAgreement: formData.arbitrationAgreement || initialArbitrationAgreement,
+        disputeDetails: formData.disputeDetails || initialDisputeDetails,
+        prayers: formData.prayers || initialPrayers,
+        documents: formData.documents || initialDocuments,
+        payment: formData.payment || initialPayment,
+        arguments: formData.arguments || initialArguments,
+        ...formData // Keep any additional fields
+      };
+      
+      console.log("Final form data structure:", completeFormData);
+      
+      // Reset the form with the form data
+      reset(completeFormData);
+      
+      // Set the current draft ID
+      setCurrentDraftId(draftId);
+      
+      // Set files if available
+      if (draft.files) {
+        setFiles(draft.files);
+      }
+      
+      // Set edit mode
+      setEditMode(true);
+      
+      // Refresh the form
+      const values = watch();
+      console.log("Form values after reset:", values);
+      
+      toast.success('Draft loaded successfully');
+    } catch (error: any) {
+      console.error('Draft load error:', error);
+      toast.error(`Error loading draft: ${error.message}`);
     } finally {
       setIsLoadingDrafts(false);
     }
   };
 
-  const resetForm = () => {
-    setClaimant(initialClaimant);
-    setAdditionalClaimants([initialAdditionalClaimant]);
-    setManagerDetails(initialManagerDetails);
-    setRespondents([initialRespondent]);
-    setArbitrationAgreement(initialArbitrationAgreement);
-    setDisputeDetails(initialDisputeDetails);
-    setPrayers(initialPrayers);
-    setDocuments(initialDocuments);
-    setPayment(initialPayment);
-    setArgumentsData(initialArguments);
-    setCurrentDraftId(null);
-    setActiveStep(0);
-  };
-
-  const handleNext = () => {
-    if (activeStep === 0) {
-      // Validate claimant fields
-      const newErrors: Record<string, string> = {}
-      if (!claimant.type) newErrors.type = "Type is required"
-      if (!claimant.name) newErrors.name = "Name is required"
-      if (claimant.name && claimant.name.length > MAX_NAME_LENGTH) newErrors.name = `Name cannot exceed ${MAX_NAME_LENGTH} characters`;
-      if (!claimant.pincode || claimant.pincode.length !== 6 || !/^\d{6}$/.test(claimant.pincode)) newErrors.pincode = "Valid 6-digit pincode is required"
-      if (!claimant.address1) newErrors.address1 = "Address Line 1 is required"
-      if (claimant.address1 && !addressRegex.test(claimant.address1)) newErrors.address1 = "Address Line 1 contains invalid characters ($%!~`*^+)";
-      if (claimant.address1 && claimant.address1.length > MAX_ADDRESS_LENGTH) newErrors.address1 = `Address Line 1 cannot exceed ${MAX_ADDRESS_LENGTH} characters`;
-      if (claimant.address2 && !addressRegex.test(claimant.address2)) newErrors.address2 = "Address Line 2 contains invalid characters ($%!~`*^+)";
-      if (claimant.address2 && claimant.address2.length > MAX_ADDRESS_LENGTH) newErrors.address2 = `Address Line 2 cannot exceed ${MAX_ADDRESS_LENGTH} characters`;
-      if (!claimant.city) newErrors.city = "City is required"
-      if (claimant.city && claimant.city.length > MAX_CITY_LENGTH) newErrors.city = `City cannot exceed ${MAX_CITY_LENGTH} characters`;
-      if (!claimant.district) newErrors.district = "District is required"
-      if (claimant.district && claimant.district.length > MAX_DISTRICT_LENGTH) newErrors.district = `District cannot exceed ${MAX_DISTRICT_LENGTH} characters`;
-      if (!claimant.state) newErrors.state = "State is required"
-      if (claimant.state && claimant.state.length > MAX_STATE_LENGTH) newErrors.state = `State cannot exceed ${MAX_STATE_LENGTH} characters`;
-      if (!claimant.country) newErrors.country = "Country is required"
-      if (claimant.country && claimant.country.length > MAX_COUNTRY_LENGTH) newErrors.country = `Country cannot exceed ${MAX_COUNTRY_LENGTH} characters`;
-      if (!claimant.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(claimant.email)) newErrors.email = "Valid email is required"
-      if (claimant.email && claimant.email.length > MAX_EMAIL_LENGTH) newErrors.email = `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`;
-      if (!claimant.phone || claimant.phone.length !== 10 || !/^\d{10}$/.test(claimant.phone)) newErrors.phone = "Valid 10-digit Indian mobile number is required"
-      // Agreement date cannot be in the future
-      if (arbitrationAgreement.agreementDate) {
-        const today = new Date();
-        const selected = new Date(arbitrationAgreement.agreementDate);
-        if (selected > today) newErrors.agreementDate = "Agreement date cannot be in the future";
-      }
-      // Validate PAN if provided (not required but must be valid if present)
-      if (claimant.pan && !validatePAN(claimant.pan)) 
-        newErrors.pan = "Invalid PAN format. Should be like AAAPL1234C"
-      
-      // Optional: GST, CIN, COI, PAN card, GST cert validation
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 1) {
-      // Validate manager details
-      const newErrors: Record<string, string> = {}
-      if (managerDetails.name && !managerDetails.designation) {
-        newErrors.managerDesignation = "Manager designation is required if name is provided"
-      }
-      if (managerDetails.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(managerDetails.email)) {
-        newErrors.managerEmail = "Valid email is required"
-      }
-      if (managerDetails.phone && (managerDetails.phone.length !== 10 || !/^\d{10}$/.test(managerDetails.phone))) {
-        newErrors.managerPhone = "Valid 10-digit Indian mobile number is required"
-      }
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 2) {
-      // Validate respondent details
-      const newErrors: Record<string, string> = {}
-      respondents.forEach((respondent, index) => {
-        if (!respondent.type) newErrors[`respondent${index}Type`] = "Type is required"
-        if (!respondent.name) newErrors[`respondent${index}Name`] = "Name is required"
-        if (!respondent.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(respondent.email)) 
-          newErrors[`respondent${index}Email`] = "Valid email is required"
-      })
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 3) {
-      // Validate arbitration agreement
-      const newErrors: Record<string, string> = {}
-      if (!arbitrationAgreement.agreementDate) newErrors.agreementDate = "Agreement date is required"
-      else {
-        const today = new Date();
-        const selected = new Date(arbitrationAgreement.agreementDate);
-        // Remove time part for comparison
-        today.setHours(0,0,0,0);
-        selected.setHours(0,0,0,0);
-        if (selected > today) newErrors.agreementDate = "Agreement date cannot be in the future";
-      }
-      if (!arbitrationAgreement.agreementType) newErrors.agreementType = "Agreement type is required"
-      if (!arbitrationAgreement.agreementFile) newErrors.agreementFile = "Agreement file is required"
-      if (!arbitrationAgreement.resolutionMode) newErrors.resolutionMode = "Resolution mode is required"
-      if (!arbitrationAgreement.seatOfArbitration) newErrors.seatOfArbitration = "Seat of arbitration is required"
-      if (!arbitrationAgreement.signedOnPlace) newErrors.signedOnPlace = "Signed-on place is required"
-      if (!arbitrationAgreement.agreementParties) newErrors.agreementParties = "Agreement parties is required"
-      if (!arbitrationAgreement.arbitratorSelection) newErrors.arbitratorSelection = "Arbitrator selection is required"
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 4) {
-      // Validate dispute details
-      const newErrors: Record<string, string> = {}
-      if (!disputeDetails.disputeType) newErrors.disputeType = "Dispute type is required"
-      if (!disputeDetails.disputeAmount) newErrors.disputeAmount = "Dispute amount is required"
-      if (!disputeDetails.disputeDescription) newErrors.disputeDescription = "Dispute description is required"
-      if (!disputeDetails.disputeDate) newErrors.disputeDate = "Dispute date is required"
-      else {
-        const today = new Date();
-        const selected = new Date(disputeDetails.disputeDate);
-        today.setHours(0,0,0,0);
-        selected.setHours(0,0,0,0);
-        if (selected > today) newErrors.disputeDate = "Dispute date cannot be in the future";
-      }
-      if (!disputeDetails.serviceType) newErrors.serviceType = "Service type is required"
-      if (!disputeDetails.disputeCategory) newErrors.disputeCategory = "Dispute category is required"
-      if (!disputeDetails.disputeSubCategory) newErrors.disputeSubCategory = "Dispute sub-category is required"
-      if (!disputeDetails.natureOfDispute) newErrors.natureOfDispute = "Nature of dispute is required"
-      if (!disputeDetails.factsOfCase) newErrors.factsOfCase = "Facts of the case is required"
-      if (!disputeDetails.clauseReferences) newErrors.clauseReferences = "Clause references is required"
-      if (disputeDetails.applicableActs.length === 0) newErrors.applicableActs = "At least one applicable act is required"
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 5) {
-      // Validate prayers & reliefs
-      const newErrors: Record<string, string> = {}
-      if (!prayers.prayers) newErrors.prayers = "Prayers & reliefs is required"
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 7) {
-      // Validate payment details
-      const newErrors: Record<string, string> = {}
-      if (!payment.paymentHead) newErrors.paymentHead = "Payment head is required"
-      if (!payment.paymentAmount) newErrors.paymentAmount = "Payment amount is required"
-      if (!payment.paymentDetails) newErrors.paymentDetails = "Payment details is required"
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 8) {
-      // Validate arguments
-      const newErrors: Record<string, string> = {}
-      if (argumentsData.argumentsPerIssue.length === 0) newErrors.argumentsPerIssue = "At least one argument is required"
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    } else if (activeStep === 9) {
-      // Validate review & submit
-      const newErrors: Record<string, string> = {}
-      if (!isAuthenticated) newErrors.authentication = "Please log in to submit your petition"
-      setErrors(newErrors)
-      if (Object.keys(newErrors).length > 0) return
-    }
-    
-    if (activeStep < steps.length - 1) {
-      setActiveStep(activeStep + 1);
-    } else {
-      // If we're on the last step, submit the form
-      handleSubmit();
-    }
-  };
-  const handleBack = () => {
-    if (activeStep > 0) setActiveStep(activeStep - 1)
-  }
-
-  // PAN Validation - Indian Permanent Account Number format: AAAPL1234C
-  // First 5 characters are letters, next 4 are digits, and the last is a letter
-  const validatePAN = (pan: string): boolean => {
-    if (!pan) return false;
-    // Convert to uppercase for validation
-    const uppercasePAN = pan.toUpperCase();
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    return panRegex.test(uppercasePAN);
-  };
-
-  // CIN Validation - Corporate Identification Number format: U74140MH2014PTC123456
-  // 21 characters: First character is U (unlisted) or L (listed),
-  // next 5 are digits for industry code,
-  // next 2 are state code letters,
-  // next 4 are year of incorporation,
-  // next 3 are company type (PTC, PLC, etc),
-  // and the last 6 are sequential registration number
-  const validateCIN = (cin: string): boolean => {
-    if (!cin) return false;
-    // Convert to uppercase for validation
-    const uppercaseCIN = cin.toUpperCase();
-    const cinRegex = /^[LU][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/;
-    return cinRegex.test(uppercaseCIN);
-  };
-
-  // GST Validation - GST Number format: 22AAAAA0000A1Z5
-  // 15 characters: First 2 are state code, next 10 are PAN number, 
-  // next 1 is entity number, next 1 is Z by default, and the last 1 is checksum digit
-  const validateGST = (gst: string): boolean => {
-    if (!gst) return false;
-    // Convert to uppercase for validation
-    const uppercaseGST = gst.toUpperCase();
-    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-    
-    if (!gstRegex.test(uppercaseGST)) {
-      return false;
-    }
-    
-    // Additional validation: check if the PAN part is valid
-    const panPart = uppercaseGST.substring(2, 12);
-    return validatePAN(panPart);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value: rawValue } = e.target;
-    let value = rawValue;
-    
-    // Truncate according to the field
-    if (name === "name") {
-      value = rawValue.slice(0, MAX_NAME_LENGTH);
-    } else if (name === "email") {
-      value = rawValue.slice(0, MAX_EMAIL_LENGTH);
-    } else if (name === "city") {
-      value = rawValue.slice(0, MAX_CITY_LENGTH);
-    } else if (name === "district") {
-      value = rawValue.slice(0, MAX_DISTRICT_LENGTH);
-    } else if (name === "state") {
-      value = rawValue.slice(0, MAX_STATE_LENGTH);
-    } else if (name === "country") {
-      value = rawValue.slice(0, MAX_COUNTRY_LENGTH);
-    } else if (name === "pincode") {
-      handlePincodeChange(e as React.ChangeEvent<HTMLInputElement>);
-      return;
-    }
-    
-    setClaimant(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleAdditionalClaimantChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value: rawValue } = e.target;
-    let value = rawValue;
-    
-    // Truncate according to the field
-    if (name === "name") {
-      value = rawValue.slice(0, MAX_NAME_LENGTH);
-    } else if (name === "email") {
-      value = rawValue.slice(0, MAX_EMAIL_LENGTH);
-    } else if (name === "address") {
-      value = rawValue.slice(0, MAX_ADDRESS_LENGTH);
-    }
-    
-    const newClaimants = [...additionalClaimants];
-    newClaimants[index] = { ...newClaimants[index], [name]: value };
-    setAdditionalClaimants(newClaimants);
-    setFormChanged(true);
-  }
-
-  const handleRespondentChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value: rawValue } = e.target;
-    let value = rawValue;
-    
-    // Special handling for PAN number validation
-    if (name === 'pan') {
-      const uppercasePAN = value.toUpperCase();
-      const newRespondents = [...respondents];
-      newRespondents[index] = { ...newRespondents[index], [name]: uppercasePAN };
-      setRespondents(newRespondents);
-    } 
-    // Special handling for CIN number validation
-    else if (name === 'cin') {
-      const uppercaseCIN = value.toUpperCase();
-      const newRespondents = [...respondents];
-      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseCIN };
-      setRespondents(newRespondents);
-    } 
-    // Special handling for GST number validation
-    else if (name === 'gst') {
-      const uppercaseGST = value.toUpperCase();
-      const newRespondents = [...respondents];
-      newRespondents[index] = { ...newRespondents[index], [name]: uppercaseGST };
-      setRespondents(newRespondents);
-    } else {
-      // For other fields, apply max length constraints
-      if (name === "name") {
-        value = rawValue.slice(0, MAX_NAME_LENGTH);
-      } else if (name === "email") {
-        value = rawValue.slice(0, MAX_EMAIL_LENGTH);
-      } else if (name === "address") {
-        value = rawValue.slice(0, MAX_ADDRESS_LENGTH);
-      }
-      
-      const newRespondents = [...respondents];
-      newRespondents[index] = { ...newRespondents[index], [name]: value };
-      setRespondents(newRespondents);
-    }
-    
-    setFormChanged(true);
-  }
-
-  const handleArbitrationAgreementChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    // Handle file upload for the file input
-    if (e.target.type === 'file') {
-      const fileInput = e.target as HTMLInputElement;
-      if (fileInput.files && fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        console.log(`Handling file upload for ${name}: ${file.name} (${file.type}, ${file.size} bytes)`);
-        setArbitrationAgreement((prev) => {
-          const newState = {
-            ...prev,
-            [name]: file
-          };
-          return newState;
-        });
-      }
-    } else {
-      console.log(`Setting ${name} value:`, value);
-      setArbitrationAgreement((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-    
-    setFormChanged(true);
-  }
-
-  const handleDisputeDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value: rawValue } = e.target;
-    let value = rawValue;
-    
-    // Truncate long text values
-    if (name === "disputeDescription" || name === "factsOfCase") {
-      value = rawValue.slice(0, 2000);
-    } else if (name === "clauseReferences") {
-      value = rawValue.slice(0, 500);
-    }
-    
-    setDisputeDetails((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setFormChanged(true);
-  }
-
-  const handleDocumentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, files } = e.target
-    if (files && files.length > 0) {
-      console.log(`Handling ${files.length} files for ${name}`);
-      // Log file info for debugging
-      Array.from(files).forEach((file, index) => {
-        console.log(`File ${index + 1}: ${file.name} (${file.type}, ${file.size} bytes)`);
-      });
-      
-      // Only update if the name is a valid property of our documents state
-      if (name === 'supportingDocuments' || name === 'evidenceFiles') {
-        setDocuments((prev) => {
-          const newState = {
-            ...prev,
-            [name]: Array.from(files),
-          };
-          console.log(`Updated ${name} array, now has ${newState[name as keyof typeof newState].length} files`);
-          return newState;
-        });
-        setFormChanged(true);
-      } else {
-        console.error(`Invalid document field name: ${name}`);
-      }
-    } else {
-      console.log(`No files selected for ${name}`);
-    }
-  }
-
-  const addAdditionalClaimant = () => {
-    setAdditionalClaimants([...additionalClaimants, initialAdditionalClaimant])
-  }
-
-  const addRespondent = () => {
-    setRespondents([...respondents, initialRespondent])
-  }
-
-  const removeAdditionalClaimant = (index: number) => {
-    const newClaimants = additionalClaimants.filter((_, i) => i !== index)
-    setAdditionalClaimants(newClaimants)
-  }
-
-  const removeRespondent = (index: number) => {
-    const newRespondents = respondents.filter((_, i) => i !== index)
-    setRespondents(newRespondents)
-  }
-
-  const formatPhoneNumber = (value: string) => {
-    // Remove all non-digit characters
-    const cleaned = value.replace(/\D/g, '')
-    // Limit to 10 digits for Indian phone numbers
-    return cleaned.slice(0, MAX_PHONE_LENGTH)
-  }
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, setter: Function, field: string) => {
-    const { value } = e.target
-    const formattedValue = formatPhoneNumber(value)
-    setter((prev: any) => ({
-      ...prev,
-      [field]: formattedValue
-    }))
-    setFormChanged(true)
-  }
-
-  const handleCountryCodeChange = (e: React.ChangeEvent<HTMLSelectElement>, setter: Function, field: string) => {
-    // For this implementation, we're restricting to Indian phone numbers only,
-    // so we'll always force it to +91 regardless of selection
-    setter((prev: any) => ({
-      ...prev,
-      [field]: '+91'
-    }))
-    setFormChanged(true)
-  }
-
-  // Add verification handlers
-  const handleVerifyGST = async (gstNumber: string) => {
-    if (!gstNumber || gstNumber.length !== 15) return;
-    
-    setIsVerifying(prev => ({ ...prev, gst: true }));
-    try {
-      const result = await api.verification.verifyGST(gstNumber);
-      setVerificationStatus(prev => ({
-        ...prev,
-        gst: {
-          verified: result.valid,
-          message: result.message,
-        },
-      }));
-      
-      // If not valid, also set error state
-      if (!result.valid) {
-        setErrors((prev: any) => ({
-          ...prev,
-          gst: result.message || 'Invalid GST number',
-        }));
-      } else {
-        // Clear any existing error
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors.gst;
-          return newErrors;
-        });
-      }
-    } catch (error: any) {
-      console.error('GST verification error:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        gst: {
-          verified: false,
-          message: 'Verification service unavailable. Please try again later.',
-        },
-      }));
-    } finally {
-      setIsVerifying(prev => ({ ...prev, gst: false }));
-    }
-  };
-  
-  const handleVerifyPAN = async (panNumber: string) => {
-    if (!panNumber || panNumber.length !== 10) return;
-    
-    setIsVerifying(prev => ({ ...prev, pan: true }));
-    try {
-      const result = await api.verification.verifyPAN(panNumber);
-      setVerificationStatus(prev => ({
-        ...prev,
-        pan: {
-          verified: result.valid,
-          message: result.message,
-        },
-      }));
-      
-      // If not valid, also set error state
-      if (!result.valid) {
-        setErrors((prev: any) => ({
-          ...prev,
-          pan: result.message || 'Invalid PAN number',
-        }));
-      } else {
-        // Clear any existing error
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors.pan;
-          return newErrors;
-        });
-      }
-    } catch (error: any) {
-      console.error('PAN verification error:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        pan: {
-          verified: false,
-          message: 'Verification service unavailable. Please try again later.',
-        },
-      }));
-    } finally {
-      setIsVerifying(prev => ({ ...prev, pan: false }));
-    }
-  };
-  
-  const handleVerifyCIN = async (cinNumber: string) => {
-    if (!cinNumber || cinNumber.length !== 21) return;
-    
-    setIsVerifying(prev => ({ ...prev, cin: true }));
-    try {
-      const result = await api.verification.verifyCIN(cinNumber);
-      setVerificationStatus(prev => ({
-        ...prev,
-        cin: {
-          verified: result.valid,
-          message: result.message,
-        },
-      }));
-      
-      // If not valid, also set error state
-      if (!result.valid) {
-        setErrors((prev: any) => ({
-          ...prev,
-          cin: result.message || 'Invalid CIN number',
-        }));
-      } else {
-        // Clear any existing error
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors.cin;
-          return newErrors;
-        });
-      }
-    } catch (error: any) {
-      console.error('CIN verification error:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        cin: {
-          verified: false,
-          message: 'Verification service unavailable. Please try again later.',
-        },
-      }));
-    } finally {
-      setIsVerifying(prev => ({ ...prev, cin: false }));
-    }
-  };
-  
-  const handleVerifyRespondentGST = async (index: number, gstNumber: string) => {
-    if (!gstNumber || gstNumber.length !== 15) return;
-    
-    setIsVerifying(prev => ({
-      ...prev,
-      respondentGst: {
-        ...prev.respondentGst,
-        [index]: true,
-      },
-    }));
-    
-    try {
-      const result = await api.verification.verifyGST(gstNumber);
-      setVerificationStatus(prev => ({
-        ...prev,
-        respondentGst: {
-          ...prev.respondentGst,
-          [index]: {
-            verified: result.valid,
-            message: result.message,
-          },
-        },
-      }));
-      
-      // If not valid, also set error state
-      if (!result.valid) {
-        setErrors((prev: any) => ({
-          ...prev,
-          [`respondent${index}GST`]: result.message || 'Invalid GST number',
-        }));
-      } else {
-        // Clear any existing error
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors[`respondent${index}GST`];
-          return newErrors;
-        });
-      }
-    } catch (error: any) {
-      console.error('Respondent GST verification error:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        respondentGst: {
-          ...prev.respondentGst,
-          [index]: {
-            verified: false,
-            message: 'Verification service unavailable. Please try again later.',
-          },
-        },
-      }));
-    } finally {
-      setIsVerifying(prev => ({
-        ...prev,
-        respondentGst: {
-          ...prev.respondentGst,
-          [index]: false,
-        },
-      }));
-    }
-  };
-  
-  const handleVerifyRespondentPAN = async (index: number, panNumber: string) => {
-    if (!panNumber || panNumber.length !== 10) return;
-    
-    setIsVerifying(prev => ({
-      ...prev,
-      respondentPan: {
-        ...prev.respondentPan,
-        [index]: true,
-      },
-    }));
-    
-    try {
-      const result = await api.verification.verifyPAN(panNumber);
-      setVerificationStatus(prev => ({
-        ...prev,
-        respondentPan: {
-          ...prev.respondentPan,
-          [index]: {
-            verified: result.valid,
-            message: result.message,
-          },
-        },
-      }));
-      
-      // If not valid, also set error state
-      if (!result.valid) {
-        setErrors((prev: any) => ({
-          ...prev,
-          [`respondent${index}PAN`]: result.message || 'Invalid PAN number',
-        }));
-      } else {
-        // Clear any existing error
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors[`respondent${index}PAN`];
-          return newErrors;
-        });
-      }
-    } catch (error: any) {
-      console.error('Respondent PAN verification error:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        respondentPan: {
-          ...prev.respondentPan,
-          [index]: {
-            verified: false,
-            message: 'Verification service unavailable. Please try again later.',
-          },
-        },
-      }));
-    } finally {
-      setIsVerifying(prev => ({
-        ...prev,
-        respondentPan: {
-          ...prev.respondentPan,
-          [index]: false,
-        },
-      }));
-    }
-  };
-  
-  const handleVerifyRespondentCIN = async (index: number, cinNumber: string) => {
-    if (!cinNumber || cinNumber.length !== 21) return;
-    
-    setIsVerifying(prev => ({
-      ...prev,
-      respondentCin: {
-        ...prev.respondentCin,
-        [index]: true,
-      },
-    }));
-    
-    try {
-      const result = await api.verification.verifyCIN(cinNumber);
-      setVerificationStatus(prev => ({
-        ...prev,
-        respondentCin: {
-          ...prev.respondentCin,
-          [index]: {
-            verified: result.valid,
-            message: result.message,
-          },
-        },
-      }));
-      
-      // If not valid, also set error state
-      if (!result.valid) {
-        setErrors((prev: any) => ({
-          ...prev,
-          [`respondent${index}CIN`]: result.message || 'Invalid CIN number',
-        }));
-      } else {
-        // Clear any existing error
-        setErrors((prev: any) => {
-          const newErrors = {...prev};
-          delete newErrors[`respondent${index}CIN`];
-          return newErrors;
-        });
-      }
-    } catch (error: any) {
-      console.error('Respondent CIN verification error:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        respondentCin: {
-          ...prev.respondentCin,
-          [index]: {
-            verified: false,
-            message: 'Verification service unavailable. Please try again later.',
-          },
-        },
-      }));
-    } finally {
-      setIsVerifying(prev => ({
-        ...prev,
-        respondentCin: {
-          ...prev.respondentCin,
-          [index]: false,
-        },
-      }));
-    }
-  };
-
-  const handlePrayersChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const { name, value: rawValue } = e.target;
-    const value = rawValue.slice(0, 3000); // Limit prayers to 3000 characters
-    
-    setPrayers((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setFormChanged(true);
-  }
-
-  const handlePaymentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value: rawValue } = e.target;
-    let value = rawValue;
-    
-    // Truncate text values
-    if (name === "paymentDetails") {
-      value = rawValue.slice(0, 1000);
-    }
-    
-    setPayment((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setFormChanged(true);
-  }
-
-  const handleArgumentChange = (index: number, rawValue: string) => {
-    const value = rawValue.slice(0, 2000); // Limit each argument to 2000 characters
-    
-    const newArguments = [...argumentsData.argumentsPerIssue];
-    newArguments[index] = value;
-    setArgumentsData((prev) => ({
-      ...prev,
-      argumentsPerIssue: newArguments,
-    }));
-    setFormChanged(true);
-  }
-
-  const addArgument = () => {
-    setArgumentsData((prev) => ({
-      ...prev,
-      argumentsPerIssue: [...prev.argumentsPerIssue, ""],
-    }))
-  }
-
-  const removeArgument = (index: number) => {
-    const newArguments = argumentsData.argumentsPerIssue.filter((_, i) => i !== index)
-    setArgumentsData((prev) => ({
-      ...prev,
-      argumentsPerIssue: newArguments,
-    }))
-  }
-
-  const handleManagerDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value: rawValue } = e.target;
-    let value = rawValue;
-    
-    // Truncate according to the field
-    if (name === "name") {
-      value = rawValue.slice(0, MAX_NAME_LENGTH);
-    } else if (name === "email") {
-      value = rawValue.slice(0, MAX_EMAIL_LENGTH);
-    } else if (name === "address") {
-      value = rawValue.slice(0, MAX_ADDRESS_LENGTH);
-    } else if (name === "designation" || name === "authority") {
-      value = rawValue.slice(0, MAX_NAME_LENGTH); // Use the same limit as name for these fields
-    }
-    
-    setManagerDetails((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setFormChanged(true);
-  }
-
-  const handleDocumentTypeChange = (docType: string, category: string, index: number) => {
-    setDocuments((prev) => ({
-      ...prev,
-      documentTypes: {
-        ...prev.documentTypes,
-        [`${category}_${index}`]: docType
-      }
-    }))
-    setFormChanged(true)
-  }
-
-  // Handle pincode change
-  const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pin = e.target.value.replace(/\D/g, "").slice(0, MAX_PINCODE_LENGTH);
-    setClaimant(prev => ({ ...prev, pincode: pin }));
-
-    if (pin.length === 6) {
-      const info = await fetchLocation(pin);
-      if (info) {
-        setCountryOptions([info.country]);
-        setStateOptions([info.state]);
-        setDistrictOptions([info.district]);
-        setCityOptions(info.cities);
-        setClaimant(prev => ({
-          ...prev,
-          country: info.country,
-          state: info.state,
-          district: info.district,
-          city: info.cities[0] || "",
-        }));
-      }
-    }
-  };
-
-  // Add fetchLocation function
-  async function fetchLocation(pin: string) {
-    const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
-    const [body] = await res.json();
-    if (body.Status !== "Success" || !body.PostOffice?.length) return null;
-    const po = body.PostOffice[0];
-    return {
-      state:    po.State,
-      district: po.District,
-      country:  po.Country,
-      cities:   body.PostOffice.map((o: any) => o.Name),
-    };
-  }
-
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value: rawValue } = e.target;
-    // Remove forbidden characters: $%!~`*^+
-    let sanitized = rawValue.replace(/[$%!~`*^+]/g, '');
-    // Truncate to maximum length
-    sanitized = sanitized.slice(0, MAX_ADDRESS_LENGTH);
-    setClaimant(prev => ({ ...prev, [name]: sanitized }));
-    setFormChanged(true);
-  };
-
-  if (!isClient) {
-    return null // or a loading spinner
-  }
-
-  // If not authenticated, show message
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-3xl mx-auto py-8">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <h2 className="text-xl font-bold mb-4">Authentication Required</h2>
-            <p className="mb-4">Please log in to access the petition form</p>
-            <Button onClick={() => router.push('/auth/login')}>
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Render form steps
   const renderFormContent = () => {
+    // Get current form values for review page
+    const { 
+      claimant, 
+      additionalClaimants, 
+      managerDetails, 
+      respondents, 
+      arbitrationAgreement, 
+      disputeDetails, 
+      prayers, 
+      payment, 
+      arguments: { argumentsPerIssue }, 
+      documents 
+    } = watch();
+    
     switch (activeStep) {
       case 0: // Claimant Details
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[0] = el; }}>
             <h3 className="font-medium text-lg mb-4">Claimant Details</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm mb-1">Type*</label>
-                <select
-                  name="type"
-                  value={claimant.type}
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select type</option>
-                  <option value="individual">Individual</option>
-                  <option value="company">Company</option>
-                  <option value="partnership">Partnership</option>
-                  <option value="llp">LLP</option>
-                </select>
-                {errors.type && <div className="text-red-500 text-xs mt-1">{errors.type}</div>}
+                <ControlledFormField
+                  control={control}
+                  label="Type"
+                  name="claimant.type"
+                  required
+                  type="select"
+                  options={[
+                    { value: "individual", label: "Individual" },
+                    { value: "company", label: "Company" },
+                    { value: "partnership", label: "Partnership" },
+                    { value: "llp", label: "LLP" },
+                  ]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">Name*</label>
-                <input
-                  name="name"
-                  value={claimant.name}
-                  onChange={handleChange}
+                <ControlledFormField
+                  control={control}
+                  label="Name"
+                  name="claimant.name"
+                  required
                   maxLength={MAX_NAME_LENGTH}
-                  className="w-full border rounded px-2 py-1"
                 />
-                {errors.name && <div className="text-red-500 text-xs mt-1">{errors.name}</div>}
               </div>
               <div>
-                <label className="block text-sm mb-1">Pincode*</label>
-                <input
-                  name="pincode"
-                  value={claimant.pincode}
-                  onChange={handleChange}
-                  maxLength={MAX_PINCODE_LENGTH}
-                  className="w-full border rounded px-2 py-1"
+                <ControlledFormField
+                  control={control}
+                  label="Pincode"
+                  name="claimant.pincode"
+                  required
+                  maxLength={6}
                 />
-                {errors.pincode && <div className="text-red-500 text-xs mt-1">{errors.pincode}</div>}
+                <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
               </div>
               <div>
-                <label className="block text-sm mb-1">Address Line 1*</label>
-                <input
-                  name="address1"
-                  value={claimant.address1}
-                  onChange={handleAddressChange}
+                <ControlledFormField
+                  control={control}
+                  label="Address Line 1"
+                  name="claimant.address1"
+                  required
                   maxLength={MAX_ADDRESS_LENGTH}
-                  className="w-full border rounded px-2 py-1"
                 />
-                {errors.address1 && <div className="text-red-500 text-xs mt-1">{errors.address1}</div>}
               </div>
               <div>
-                <label className="block text-sm mb-1">Address Line 2</label>
-                <input
-                  name="address2"
-                  value={claimant.address2}
-                  onChange={handleAddressChange}
+                <ControlledFormField
+                  control={control}
+                  label="Address Line 2"
+                  name="claimant.address2"
                   maxLength={MAX_ADDRESS_LENGTH}
-                  className="w-full border rounded px-2 py-1"
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1">City*</label>
-                <select
-                  name="city"
-                  value={claimant.city}
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select City</option>
-                  {cityOptions.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                {errors.city && <div className="text-red-500 text-xs mt-1">{errors.city}</div>}
+                <ControlledFormField
+                  control={control}
+                  label="City"
+                  name="claimant.city"
+                  required
+                  type="select"
+                  options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Enter pincode to load cities" }]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">District*</label>
-                <select
-                  name="district"
-                  value={claimant.district}
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select District</option>
-                  {districtOptions.map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-                {errors.district && <div className="text-red-500 text-xs mt-1">{errors.district}</div>}
+                <ControlledFormField
+                  control={control}
+                  label="District"
+                  name="claimant.district"
+                  required
+                  type="select"
+                  options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Enter pincode to load districts" }]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">State*</label>
-                <select
-                  name="state"
-                  value={claimant.state}
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select State</option>
-                  {stateOptions.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                {errors.state && <div className="text-red-500 text-xs mt-1">{errors.state}</div>}
+                <ControlledFormField
+                  control={control}
+                  label="State"
+                  name="claimant.state"
+                  required
+                  type="select"
+                  options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Enter pincode to load states" }]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">Country*</label>
-                <select
-                  name="country"
-                  value={claimant.country}
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select Country</option>
-                  {countryOptions.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                {errors.country && <div className="text-red-500 text-xs mt-1">{errors.country}</div>}
+                <ControlledFormField
+                  control={control}
+                  label="Country"
+                  name="claimant.country"
+                  required
+                  type="select"
+                  options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Enter pincode to load countries" }]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">Email*</label>
-                <input
-                  name="email"
-                  value={claimant.email}
-                  onChange={handleChange}
+                <ControlledFormField
+                  control={control}
+                  label="Email"
+                  name="claimant.email"
+                  required
                   maxLength={MAX_EMAIL_LENGTH}
-                  className="w-full border rounded px-2 py-1"
                 />
-                {errors.email && <div className="text-red-500 text-xs mt-1">{errors.email}</div>}
               </div>
               <div>
-                <label className="block text-sm mb-1">Phone*</label>
-                <div className="flex gap-2">
-                  <select
-                    name="phoneCountryCode"
-                    value="+91"
-                    disabled={true}
-                    className="min-w-[110px] w-auto border rounded px-2 py-1 bg-gray-100"
-                  >
-                    <option value="+91">+91 (India)</option>
-                  </select>
-                  <input
-                    name="phone"
-                    value={claimant.phone}
-                    onChange={(e) => handlePhoneChange(e, setClaimant, 'phone')}
-                    placeholder="10-digit Indian mobile number"
-                    maxLength={MAX_PHONE_LENGTH}
-                    className="flex-1 border rounded px-2 py-1"
+                <PhoneField
+                  control={control}
+                  phoneFieldName="claimant.phone"
+                  countryCodeFieldName="claimant.phoneCountryCode"
+                  label="Phone"
+                  required
+                  error={!formValues.claimant.phone ? "Phone is required" : ""}
                   />
-                </div>
-                {errors.phone && <div className="text-red-500 text-xs mt-1">{errors.phone}</div>}
-                <p className="text-xs text-gray-500 mt-1">Only 10-digit Indian mobile numbers are accepted</p>
               </div>
               <div>
-                <label className="block text-sm mb-1">GST Number</label>
-                <div className="flex">
-                  <input
-                    name="gst"
-                    value={claimant.gst}
-                    onChange={handleChange}
-                    onBlur={(e) => handleVerifyGST(e.target.value)}
+                <ControlledFormField
+                  control={control}
+                  label="GST Number"
+                  name="claimant.gst"
                     placeholder="22AAAAA0000A1Z5"
-                    className={`w-full border rounded px-2 py-1 ${errors.gst ? 'border-red-500' : verificationStatus.gst?.verified ? 'border-green-500' : ''}`}
-                  />
-                  {isVerifying.gst && (
-                    <div className="ml-2 flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    </div>
-                  )}
-                  {!isVerifying.gst && verificationStatus.gst && (
-                    <div className="ml-2 flex items-center">
-                      {verificationStatus.gst.verified ? (
-                        <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.gst && <div className="text-red-500 text-xs mt-1">{errors.gst}</div>}
-                {!errors.gst && verificationStatus.gst?.message && (
-                  <div className={`text-xs mt-1 ${verificationStatus.gst.verified ? 'text-green-600' : 'text-red-500'}`}>
-                    {verificationStatus.gst.message}
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mt-1">15-digit GST identification number</p>
+                  maxLength={MAX_GST_LENGTH}
+                />
+                <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
               </div>
               <div>
-                <label className="block text-sm mb-1">PAN Number</label>
-                <div className="flex">
-                  <input
-                    name="pan"
-                    value={claimant.pan}
-                    onChange={handleChange}
-                    onBlur={(e) => handleVerifyPAN(e.target.value)}
+                <ControlledFormField
+                  control={control}
+                  label="PAN Number"
+                  name="claimant.pan"
                     placeholder="AAAPL1234C"
-                    className={`w-full border rounded px-2 py-1 ${errors.pan ? 'border-red-500' : verificationStatus.pan?.verified ? 'border-green-500' : ''}`}
-                  />
-                  {isVerifying.pan && (
-                    <div className="ml-2 flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    </div>
-                  )}
-                  {!isVerifying.pan && verificationStatus.pan && (
-                    <div className="ml-2 flex items-center">
-                      {verificationStatus.pan.verified ? (
-                        <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.pan && <div className="text-red-500 text-xs mt-1">{errors.pan}</div>}
-                {!errors.pan && verificationStatus.pan?.message && (
-                  <div className={`text-xs mt-1 ${verificationStatus.pan.verified ? 'text-green-600' : 'text-red-500'}`}>
-                    {verificationStatus.pan.message}
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mt-1">Format: 5 letters, 4 digits, 1 letter</p>
+                  maxLength={MAX_PAN_LENGTH}
+                />
+                <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
               </div>
               <div>
-                <label className="block text-sm mb-1">CIN</label>
-                <div className="flex">
-                  <input
-                    name="cin"
-                    value={claimant.cin}
-                    onChange={handleChange}
-                    onBlur={(e) => handleVerifyCIN(e.target.value)}
+                <ControlledFormField
+                  control={control}
+                  label="CIN"
+                  name="claimant.cin"
                     placeholder="U74140MH2014PTC123456"
-                    className={`w-full border rounded px-2 py-1 ${errors.cin ? 'border-red-500' : verificationStatus.cin?.verified ? 'border-green-500' : ''}`}
+                  maxLength={MAX_CIN_LENGTH}
                   />
-                  {isVerifying.cin && (
-                    <div className="ml-2 flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
                     </div>
-                  )}
-                  {!isVerifying.cin && verificationStatus.cin && (
-                    <div className="ml-2 flex items-center">
-                      {verificationStatus.cin.verified ? (
-                        <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.cin && <div className="text-red-500 text-xs mt-1">{errors.cin}</div>}
-                {!errors.cin && verificationStatus.cin?.message && (
-                  <div className={`text-xs mt-1 ${verificationStatus.cin.verified ? 'text-green-600' : 'text-red-500'}`}>
-                    {verificationStatus.cin.message}
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mt-1">Corporate Identification Number (21 characters)</p>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Certificate of Incorporation (COI)</label>
-                <input
-                  name="coi"
-                  type="file"
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">PAN Card</label>
-                <input
-                  name="panCard"
-                  type="file"
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">GST Registration Certificate</label>
-                <input
-                  name="gstCert"
-                  type="file"
-                  onChange={handleChange}
-                  className="w-full border rounded px-2 py-1"
-                />
-              </div>
             </div>
           </div>
         )
       case 1: // Additional Claimants & Manager
         return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Additional Claimants & Manager</h3>
-            {additionalClaimants.map((claimant, index) => (
-              <div key={index} className="border p-4 rounded-lg space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[1] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Additional Claimants</h3>
+            <div className="space-y-6">
+              {additionalClaimantFields.map((field, index) => (
+                <div key={field.id} className="border p-4 rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
                   <h4 className="font-medium">Additional Claimant {index + 1}</h4>
-                  {index > 0 && (
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => removeAdditionalClaimant(index)}
+                      onClick={() => removeAdditionalClaimantField(index)}
                     >
                       Remove
                     </Button>
-                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm mb-1">Name</label>
-                    <input
-                      name="name"
-                      value={claimant.name}
-                      onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      <ControlledFormField
+                        control={control}
+                      label="Name"
+                        name={`additionalClaimants.${index}.name`}
+                      required
                       maxLength={MAX_NAME_LENGTH}
-                      className="w-full border rounded px-2 py-1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Email</label>
-                    <input
-                      name="email"
-                      type="email"
-                      value={claimant.email}
-                      onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      <ControlledFormField
+                        control={control}
+                      label="Email"
+                        name={`additionalClaimants.${index}.email`}
+                      required
                       maxLength={MAX_EMAIL_LENGTH}
-                      className="w-full border rounded px-2 py-1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Phone</label>
-                    <div className="flex gap-2">
-                      <select
-                        name="phoneCountryCode"
-                        value="+91"
-                        disabled={true}
-                        className="w-24 border rounded px-2 py-1 bg-gray-100"
-                      >
-                        <option value="+91">+91 (India)</option>
-                      </select>
-                      <input
-                        name="phone"
-                        value={additionalClaimants[index].phone}
-                        onChange={(e) => handlePhoneChange(e, (unused: any) => {
-                          const newClaimants = [...additionalClaimants]
-                          newClaimants[index] = { ...newClaimants[index], phone: formatPhoneNumber(e.target.value) }
-                          setAdditionalClaimants(newClaimants)
-                        }, 'phone')}
-                        placeholder="10-digit Indian mobile number"
-                        maxLength={MAX_PHONE_LENGTH}
-                        className="flex-1 border rounded px-2 py-1"
+                      <PhoneField
+                        control={control}
+                        phoneFieldName={`additionalClaimants.${index}.phone`}
+                        countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
+                      label="Phone"
+                      required
                       />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Only 10-digit Indian mobile numbers are accepted</p>
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Address</label>
-                    <input
-                      name="address"
-                      value={claimant.address}
-                      onChange={(e) => handleAdditionalClaimantChange(index, e)}
+                      <ControlledFormField
+                        control={control}
+                      label="Address"
+                        name={`additionalClaimants.${index}.address`}
+                      required
                       maxLength={MAX_ADDRESS_LENGTH}
-                      className="w-full border rounded px-2 py-1"
                     />
                   </div>
                 </div>
               </div>
             ))}
+              
+              <div className="flex justify-end">
             <Button onClick={addAdditionalClaimant} variant="outline">
-              Add Additional Claimant
+                  Add Another Claimant
             </Button>
+              </div>
+            </div>
             
-            <div className="mt-8 border-t pt-6">
-              <h4 className="font-medium mb-4">Manager Details</h4>
+            <div className="mt-8">
+              <h3 className="font-medium text-lg mb-4">Manager Details</h3>
+              <div className="border p-4 rounded-lg">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm mb-1">Manager Name</label>
-                  <input
-                    name="name"
-                    value={managerDetails.name}
-                    onChange={handleManagerDetailsChange}
+                    <ControlledFormField
+                      control={control}
+                      label="Name"
+                      name="managerDetails.name"
                     maxLength={MAX_NAME_LENGTH}
-                    className="w-full border rounded px-2 py-1"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">Designation</label>
-                  <input
-                    name="designation"
-                    value={managerDetails.designation}
-                    onChange={handleManagerDetailsChange}
+                    <ControlledFormField
+                      control={control}
+                    label="Designation"
+                      name="managerDetails.designation"
                     maxLength={MAX_NAME_LENGTH}
-                    className="w-full border rounded px-2 py-1"
                   />
-                  {errors.managerDesignation && (
-                    <div className="text-red-500 text-xs mt-1">{errors.managerDesignation}</div>
-                  )}
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    value={managerDetails.email}
-                    onChange={handleManagerDetailsChange}
+                    <ControlledFormField
+                      control={control}
+                    label="Email"
+                      name="managerDetails.email"
                     maxLength={MAX_EMAIL_LENGTH}
-                    className="w-full border rounded px-2 py-1"
                   />
-                  {errors.managerEmail && (
-                    <div className="text-red-500 text-xs mt-1">{errors.managerEmail}</div>
-                  )}
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">Phone</label>
-                  <div className="flex gap-2">
-                    <select
-                      name="phoneCountryCode"
-                      value="+91"
-                      disabled={true}
-                      className="w-24 border rounded px-2 py-1 bg-gray-100"
-                    >
-                      <option value="+91">+91 (India)</option>
-                    </select>
-                    <input
-                      name="phone"
-                      value={managerDetails.phone}
-                      onChange={(e) => handlePhoneChange(e, setManagerDetails, 'phone')}
-                      placeholder="10-digit Indian mobile number"
-                      maxLength={MAX_PHONE_LENGTH}
-                      className="flex-1 border rounded px-2 py-1"
+                    <PhoneField
+                      control={control}
+                      phoneFieldName="managerDetails.phone"
+                      countryCodeFieldName="managerDetails.phoneCountryCode"
+                    label="Phone"
                     />
-                  </div>
-                  {errors.managerPhone && (
-                    <div className="text-red-500 text-xs mt-1">{errors.managerPhone}</div>
-                  )}
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">Address</label>
-                  <input
-                    name="address"
-                    value={managerDetails.address}
-                    onChange={handleManagerDetailsChange}
+                    <ControlledFormField
+                      control={control}
+                    label="Address"
+                      name="managerDetails.address"
                     maxLength={MAX_ADDRESS_LENGTH}
-                    className="w-full border rounded px-2 py-1"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">Authority</label>
-                  <input
-                    name="authority"
-                    value={managerDetails.authority}
-                    onChange={handleManagerDetailsChange}
+                    <ControlledFormField
+                      control={control}
+                    label="Authority"
+                      name="managerDetails.authority"
                     maxLength={MAX_NAME_LENGTH}
-                    className="w-full border rounded px-2 py-1"
-                    placeholder="Authority to represent claimants"
                   />
+                  </div>
                 </div>
               </div>
             </div>
@@ -2240,17 +1741,18 @@ export default function ArbitrationForm() {
         )
       case 2: // Respondent Details
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[2] = el; }}>
             <h3 className="font-medium text-lg mb-4">Respondent Details</h3>
-            {respondents.map((respondent, index) => (
-              <div key={index} className="border p-4 rounded-lg space-y-4">
+            <div className="space-y-6">
+              {respondentFields.map((field, index) => (
+                <div key={field.id} className="border p-4 rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
                   <h4 className="font-medium">Respondent {index + 1}</h4>
-                  {index > 0 && (
+                    {respondentFields.length > 1 && (
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => removeRespondent(index)}
+                        onClick={() => removeRespondentField(index)}
                     >
                       Remove
                     </Button>
@@ -2258,350 +1760,205 @@ export default function ArbitrationForm() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm mb-1">Type*</label>
-                    <select
-                      name="type"
-                      value={respondent.type}
-                      onChange={(e) => handleRespondentChange(index, e)}
-                      className="w-full border rounded px-2 py-1"
-                    >
-                      <option value="">Select type</option>
-                      <option value="individual">Individual</option>
-                      <option value="company">Company</option>
-                      <option value="partnership">Partnership</option>
-                      <option value="llp">LLP</option>
-                    </select>
-                    {errors[`respondent${index}Type`] && (
-                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}Type`]}</div>
-                    )}
+                      <ControlledFormField
+                        control={control}
+                      label="Type"
+                        name={`respondents.${index}.type`}
+                      required
+                        type="select"
+                      options={[
+                        { value: "individual", label: "Individual" },
+                        { value: "company", label: "Company" },
+                        { value: "partnership", label: "Partnership" },
+                        { value: "llp", label: "LLP" },
+                      ]}
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Name*</label>
-                    <input
-                      name="name"
-                      value={respondent.name}
-                      onChange={(e) => handleRespondentChange(index, e)}
+                      <ControlledFormField
+                        control={control}
+                      label="Name"
+                        name={`respondents.${index}.name`}
+                      required
                       maxLength={MAX_NAME_LENGTH}
-                      className="w-full border rounded px-2 py-1"
                     />
-                    {errors[`respondent${index}Name`] && (
-                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}Name`]}</div>
-                    )}
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Email*</label>
-                    <input
-                      name="email"
-                      type="email"
-                      value={respondent.email}
-                      onChange={(e) => handleRespondentChange(index, e)}
+                      <ControlledFormField
+                        control={control}
+                      label="Email"
+                        name={`respondents.${index}.email`}
+                      required
                       maxLength={MAX_EMAIL_LENGTH}
-                      className="w-full border rounded px-2 py-1"
                     />
-                    {errors[`respondent${index}Email`] && (
-                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}Email`]}</div>
-                    )}
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Phone</label>
-                    <div className="flex gap-2">
-                      <select
-                        name="phoneCountryCode"
-                        value="+91"
-                        disabled={true}
-                        className="w-24 border rounded px-2 py-1 bg-gray-100"
-                      >
-                        <option value="+91">+91 (India)</option>
-                      </select>
-                      <input
-                        name="phone"
-                        value={respondent.phone}
-                        onChange={(e) => handlePhoneChange(e, (index: number) => {
-                          const newRespondents = [...respondents]
-                          newRespondents[index] = { ...newRespondents[index], phone: formatPhoneNumber(e.target.value) }
-                          setRespondents(newRespondents)
-                        }, 'phone')}
-                        placeholder="10-digit Indian mobile number"
-                        maxLength={MAX_PHONE_LENGTH}
-                        className="flex-1 border rounded px-2 py-1"
+                      <PhoneField
+                        control={control}
+                        phoneFieldName={`respondents.${index}.phone`}
+                        countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
+                      label="Phone"
                       />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Only 10-digit Indian mobile numbers are accepted</p>
                   </div>
-                  <div>
-                    <label className="block text-sm mb-1">Address</label>
-                    <input
-                      name="address"
-                      value={respondent.address}
-                      onChange={(e) => handleRespondentChange(index, e)}
+                    <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address"
+                        name={`respondents.${index}.address`}
+                      required
                       maxLength={MAX_ADDRESS_LENGTH}
-                      className="w-full border rounded px-2 py-1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">GST Number</label>
-                    <div className="flex">
-                      <input
-                        name="gst"
-                        value={respondent.gst}
-                        onChange={(e) => handleRespondentChange(index, e)}
-                        onBlur={(e) => handleVerifyRespondentGST(index, e.target.value)}
+                      <ControlledFormField
+                        control={control}
+                      label="GST Number"
+                        name={`respondents.${index}.gst`}
                         placeholder="22AAAAA0000A1Z5"
-                        className={`w-full border rounded px-2 py-1 ${
-                          errors[`respondent${index}GST`] ? 'border-red-500' : 
-                          verificationStatus.respondentGst[index]?.verified ? 'border-green-500' : ''
-                        }`}
+                        maxLength={MAX_GST_LENGTH}
                       />
-                      {isVerifying.respondentGst[index] && (
-                        <div className="ml-2 flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        </div>
-                      )}
-                      {!isVerifying.respondentGst[index] && verificationStatus.respondentGst[index] && (
-                        <div className="ml-2 flex items-center">
-                          {verificationStatus.respondentGst[index]?.verified ? (
-                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {errors[`respondent${index}GST`] && (
-                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}GST`]}</div>
-                    )}
-                    {!errors[`respondent${index}GST`] && verificationStatus.respondentGst[index]?.message && (
-                      <div className={`text-xs mt-1 ${
-                        verificationStatus.respondentGst[index]?.verified ? 'text-green-600' : 'text-red-500'
-                      }`}>
-                        {verificationStatus.respondentGst[index]?.message}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">15-digit GST identification number</p>
+                      <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">PAN Number</label>
-                    <div className="flex">
-                      <input
-                        name="pan"
-                        value={respondent.pan}
-                        onChange={(e) => handleRespondentChange(index, e)}
-                        onBlur={(e) => handleVerifyRespondentPAN(index, e.target.value)}
+                      <ControlledFormField
+                        control={control}
+                      label="PAN Number"
+                        name={`respondents.${index}.pan`}
                         placeholder="AAAPL1234C"
-                        className={`w-full border rounded px-2 py-1 ${
-                          errors[`respondent${index}PAN`] ? 'border-red-500' : 
-                          verificationStatus.respondentPan[index]?.verified ? 'border-green-500' : ''
-                        }`}
+                        maxLength={MAX_PAN_LENGTH}
                       />
-                      {isVerifying.respondentPan[index] && (
-                        <div className="ml-2 flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        </div>
-                      )}
-                      {!isVerifying.respondentPan[index] && verificationStatus.respondentPan[index] && (
-                        <div className="ml-2 flex items-center">
-                          {verificationStatus.respondentPan[index]?.verified ? (
-                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {errors[`respondent${index}PAN`] && (
-                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}PAN`]}</div>
-                    )}
-                    {!errors[`respondent${index}PAN`] && verificationStatus.respondentPan[index]?.message && (
-                      <div className={`text-xs mt-1 ${
-                        verificationStatus.respondentPan[index]?.verified ? 'text-green-600' : 'text-red-500'
-                      }`}>
-                        {verificationStatus.respondentPan[index]?.message}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">Format: 5 letters, 4 digits, 1 letter</p>
+                      <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">CIN</label>
-                    <div className="flex">
-                      <input
-                        name="cin"
-                        value={respondent.cin}
-                        onChange={(e) => handleRespondentChange(index, e)}
-                        onBlur={(e) => handleVerifyRespondentCIN(index, e.target.value)}
+                      <ControlledFormField
+                        control={control}
+                      label="CIN"
+                        name={`respondents.${index}.cin`}
                         placeholder="U74140MH2014PTC123456"
-                        className={`w-full border rounded px-2 py-1 ${
-                          errors[`respondent${index}CIN`] ? 'border-red-500' : 
-                          verificationStatus.respondentCin[index]?.verified ? 'border-green-500' : ''
-                        }`}
+                        maxLength={MAX_CIN_LENGTH}
                       />
-                      {isVerifying.respondentCin[index] && (
-                        <div className="ml-2 flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
                         </div>
-                      )}
-                      {!isVerifying.respondentCin[index] && verificationStatus.respondentCin[index] && (
-                        <div className="ml-2 flex items-center">
-                          {verificationStatus.respondentCin[index]?.verified ? (
-                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {errors[`respondent${index}CIN`] && (
-                      <div className="text-red-500 text-xs mt-1">{errors[`respondent${index}CIN`]}</div>
-                    )}
-                    {!errors[`respondent${index}CIN`] && verificationStatus.respondentCin[index]?.message && (
-                      <div className={`text-xs mt-1 ${
-                        verificationStatus.respondentCin[index]?.verified ? 'text-green-600' : 'text-red-500'
-                      }`}>
-                        {verificationStatus.respondentCin[index]?.message}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">Corporate Identification Number (21 characters)</p>
-                  </div>
                 </div>
               </div>
             ))}
+              
+              <div className="flex justify-end">
             <Button onClick={addRespondent} variant="outline">
-              Add Respondent
+                  Add Another Respondent
             </Button>
+              </div>
+            </div>
           </div>
         )
       case 3: // Arbitration Agreement
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[3] = el; }}>
             <h3 className="font-medium text-lg mb-4">Arbitration Agreement</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm mb-1">Agreement Date*</label>
-                <input
+                <Controller
+                  control={control}
+                  name="arbitrationAgreement.agreementDate"
+                  render={({ field, fieldState }) => (
+                <FormField
+                  label="Agreement Date"
                   name="agreementDate"
                   type="date"
-                  value={arbitrationAgreement.agreementDate}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                  required
                   max={new Date().toISOString().split('T')[0]}
+                      error={fieldState.error?.message}
                 />
-                {errors.agreementDate && (
-                  <div className="text-red-500 text-xs mt-1">{errors.agreementDate}</div>
                 )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Agreement Type*</label>
-                <select
-                  name="agreementType"
-                  value={arbitrationAgreement.agreementType}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select type</option>
-                  <option value="contract">Contract</option>
-                  <option value="agreement">Agreement</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.agreementType && (
-                  <div className="text-red-500 text-xs mt-1">{errors.agreementType}</div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Resolution Mode*</label>
-                <select
-                  name="resolutionMode"
-                  value={arbitrationAgreement.resolutionMode}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select mode</option>
-                  <option value="physical">Physical</option>
-                  <option value="virtual">Virtual</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-                {errors.resolutionMode && (
-                  <div className="text-red-500 text-xs mt-1">{errors.resolutionMode}</div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Seat of Arbitration*</label>
-                <input
-                  name="seatOfArbitration"
-                  value={arbitrationAgreement.seatOfArbitration}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
-                  placeholder="e.g., Mumbai, Delhi"
                 />
-                {errors.seatOfArbitration && (
-                  <div className="text-red-500 text-xs mt-1">{errors.seatOfArbitration}</div>
-                )}
               </div>
               <div>
-                <label className="block text-sm mb-1">Signed-on Place*</label>
-                <input
-                  name="signedOnPlace"
-                  value={arbitrationAgreement.signedOnPlace}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
-                  placeholder="Location where agreement was signed"
+                <ControlledFormField
+                  control={control}
+                  label="Agreement Type"
+                  name="arbitrationAgreement.agreementType"
+                  required
+                  type="select"
+                  options={[
+                    { value: "contract", label: "Contract" },
+                    { value: "clause", label: "Arbitration Clause" },
+                    { value: "separate", label: "Separate Agreement" },
+                    { value: "submission", label: "Submission Agreement" },
+                  ]}
                 />
-                {errors.signedOnPlace && (
-                  <div className="text-red-500 text-xs mt-1">{errors.signedOnPlace}</div>
-                )}
               </div>
               <div>
-                <label className="block text-sm mb-1">Agreement Between Parties*</label>
-                <input
-                  name="agreementParties"
-                  value={arbitrationAgreement.agreementParties}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
-                  placeholder="Names of parties to the agreement"
+                <ControlledFormField
+                  control={control}
+                  label="Resolution Mode"
+                  name="arbitrationAgreement.resolutionMode"
+                  required
+                  type="select"
+                  options={[
+                    { value: "sole", label: "Sole Arbitrator" },
+                    { value: "tribunal", label: "Arbitral Tribunal" },
+                    { value: "institutional", label: "Institutional Arbitration" },
+                    { value: "fast_track", label: "Fast Track Procedure" },
+                  ]}
                 />
-                {errors.agreementParties && (
-                  <div className="text-red-500 text-xs mt-1">{errors.agreementParties}</div>
-                )}
               </div>
               <div>
-                <label className="block text-sm mb-1">Arbitrator Selection*</label>
-                <select
-                  name="arbitratorSelection"
-                  value={arbitrationAgreement.arbitratorSelection}
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select option</option>
-                  <option value="sole">Sole Arbitrator</option>
-                  <option value="panel">Panel of Arbitrators</option>
-                  <option value="institution">Institutional Appointment</option>
-                  <option value="court">Court Appointment</option>
-                </select>
-                {errors.arbitratorSelection && (
-                  <div className="text-red-500 text-xs mt-1">{errors.arbitratorSelection}</div>
-                )}
+                <ControlledFormField
+                  control={control}
+                  label="Seat of Arbitration"
+                  name="arbitrationAgreement.seatOfArbitration"
+                  required
+                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Signed-on Place"
+                  name="arbitrationAgreement.signedOnPlace"
+                  required
+                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Arbitrator Selection"
+                  name="arbitrationAgreement.arbitratorSelection"
+                  required
+                  type="select"
+                  options={[
+                    { value: "parties", label: "Selected by Parties" },
+                    { value: "court", label: "Appointed by Court" },
+                    { value: "institution", label: "Selected by Institution" },
+                    { value: "default", label: "Default Procedure" },
+                  ]}
+                />
               </div>
               <div className="col-span-2">
-                <label className="block text-sm mb-1">Agreement File*</label>
-                <input
-                  name="agreementFile"
-                  type="file"
-                  onChange={handleArbitrationAgreementChange}
-                  className="w-full border rounded px-2 py-1"
+                <ControlledFormField
+                  control={control}
+                  label="Agreement Parties"
+                  name="arbitrationAgreement.agreementParties"
+                  required
+                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
                 />
-                {errors.agreementFile && (
-                  <div className="text-red-500 text-xs mt-1">{errors.agreementFile}</div>
-                )}
+              </div>
+              <div className="col-span-2">
+                <FileField
+                  label="Agreement File"
+                  name="agreementFile"
+                  onChange={(file) => {
+                    if (!Array.isArray(file)) {
+                      handleFileChange('agreementFile', file);
+                    }
+                  }}
+                  required
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  error={!files.agreementFile ? "Agreement file is required" : ""}
+                />
               </div>
             </div>
           </div>
@@ -2612,262 +1969,173 @@ export default function ArbitrationForm() {
             <h3 className="font-medium text-lg mb-4">Dispute Details & Classification</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm mb-1">Dispute Type*</label>
-                <select
-                  name="disputeType"
-                  value={disputeDetails.disputeType}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select type</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="construction">Construction</option>
-                  <option value="employment">Employment</option>
-                  <option value="intellectual_property">Intellectual Property</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.disputeType && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeType}</div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Service Type*</label>
-                <select
-                  name="serviceType"
-                  value={disputeDetails.serviceType}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select service type</option>
-                  <option value="fast_track">Fast Track</option>
-                  <option value="regular">Regular</option>
-                  <option value="emergency">Emergency</option>
-                  <option value="institutional">Institutional</option>
-                </select>
-                {errors.serviceType && (
-                  <div className="text-red-500 text-xs mt-1">{errors.serviceType}</div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Dispute Category*</label>
-                <select
-                  name="disputeCategory"
-                  value={disputeDetails.disputeCategory}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select category</option>
-                  <option value="contractual">Contractual</option>
-                  <option value="corporate">Corporate</option>
-                  <option value="real_estate">Real Estate</option>
-                  <option value="banking">Banking & Finance</option>
-                  <option value="international">International</option>
-                  <option value="employment">Employment</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.disputeCategory && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeCategory}</div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Dispute Sub-Category*</label>
-                <select
-                  name="disputeSubCategory"
-                  value={disputeDetails.disputeSubCategory}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select sub-category</option>
-                  <option value="breach">Breach of Contract</option>
-                  <option value="payment">Payment Dispute</option>
-                  <option value="quality">Quality/Performance Issue</option>
-                  <option value="delivery">Delivery Delay</option>
-                  <option value="warranty">Warranty Claim</option>
-                  <option value="termination">Contract Termination</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.disputeSubCategory && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeSubCategory}</div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Dispute Amount (INR)*</label>
-                <input
-                  name="disputeAmount"
-                  type="number"
-                  value={disputeDetails.disputeAmount}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
+                <ControlledFormField
+                  control={control}
+                  label="Dispute Type"
+                  name="disputeDetails.disputeType"
+                  required
+                  type="select"
+                  options={[
+                    { value: "commercial", label: "Commercial" },
+                    { value: "construction", label: "Construction" },
+                    { value: "employment", label: "Employment" },
+                    { value: "intellectual_property", label: "Intellectual Property" },
+                    { value: "other", label: "Other" },
+                  ]}
                 />
-                {errors.disputeAmount && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeAmount}</div>
-                )}
               </div>
               <div>
-                <label className="block text-sm mb-1">Dispute Date*</label>
-                <input
+                <ControlledFormField
+                  control={control}
+                  label="Service Type"
+                  name="disputeDetails.serviceType"
+                  required
+                  type="select"
+                  options={[
+                    { value: "fast_track", label: "Fast Track" },
+                    { value: "regular", label: "Regular" },
+                    { value: "emergency", label: "Emergency" },
+                    { value: "institutional", label: "Institutional" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Dispute Category"
+                  name="disputeDetails.disputeCategory"
+                  required
+                  type="select"
+                  options={[
+                    { value: "contractual", label: "Contractual" },
+                    { value: "corporate", label: "Corporate" },
+                    { value: "real_estate", label: "Real Estate" },
+                    { value: "banking", label: "Banking & Finance" },
+                    { value: "international", label: "International" },
+                    { value: "employment", label: "Employment" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Dispute Sub-Category"
+                  name="disputeDetails.disputeSubCategory"
+                  required
+                  type="select"
+                  options={[
+                    { value: "breach", label: "Breach of Contract" },
+                    { value: "payment", label: "Payment Dispute" },
+                    { value: "quality", label: "Quality/Performance Issue" },
+                    { value: "delivery", label: "Delivery Delay" },
+                    { value: "warranty", label: "Warranty Claim" },
+                    { value: "termination", label: "Contract Termination" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Dispute Amount (INR)"
+                  name="disputeDetails.disputeAmount"
+                  type="number"
+                  required
+                  maxLength={MAX_DISPUTE_AMOUNT_LENGTH}
+                />
+                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_DISPUTE_AMOUNT.toLocaleString()} INR</p>
+              </div>
+              <div>
+                <Controller
+                  control={control}
+                  name="disputeDetails.disputeDate"
+                  render={({ field, fieldState }) => (
+                <FormField
+                  label="Dispute Date"
                   name="disputeDate"
                   type="date"
-                  value={disputeDetails.disputeDate}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                  required
                   max={new Date().toISOString().split('T')[0]}
+                      error={fieldState.error?.message}
                 />
-                {errors.disputeDate && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeDate}</div>
                 )}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">Nature of Dispute*</label>
-                <select
-                  name="natureOfDispute"
-                  value={disputeDetails.natureOfDispute}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select nature</option>
-                  <option value="civil">Civil</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="constitutional">Constitutional</option>
-                  <option value="family">Family</option>
-                  <option value="property">Property</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.natureOfDispute && (
-                  <div className="text-red-500 text-xs mt-1">{errors.natureOfDispute}</div>
-                )}
+                <ControlledFormField
+                  control={control}
+                  label="Nature of Dispute"
+                  name="disputeDetails.natureOfDispute"
+                  required
+                  type="select"
+                  options={[
+                    { value: "civil", label: "Civil" },
+                    { value: "commercial", label: "Commercial" },
+                    { value: "constitutional", label: "Constitutional" },
+                    { value: "family", label: "Family" },
+                    { value: "property", label: "Property" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">Applicable Acts*</label>
-                <div className="border rounded p-2 h-28 overflow-y-auto">
-                  <div className="space-y-1">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="arbitration_act"
-                        checked={disputeDetails.applicableActs.includes('arbitration_act')}
+                <Controller
+                  control={control}
+                  name="disputeDetails.applicableActs"
+                  render={({ field, fieldState }) => (
+                    <>
+                <FormField
+                  label="Applicable Acts"
+                  name="applicableActs"
+                        value={field.value?.join(', ') || ""}
                         onChange={(e) => {
-                          const newActs = e.target.checked 
-                            ? [...disputeDetails.applicableActs, 'arbitration_act'] 
-                            : disputeDetails.applicableActs.filter(act => act !== 'arbitration_act');
-                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
+                    const newActs = e.target.value.split(',').map(act => act.trim());
+                          field.onChange(newActs);
                           setFormChanged(true);
                         }}
-                        className="mr-2"
-                      />
-                      <label htmlFor="arbitration_act" className="text-sm">Arbitration and Conciliation Act, 1996</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="contract_act"
-                        checked={disputeDetails.applicableActs.includes('contract_act')}
-                        onChange={(e) => {
-                          const newActs = e.target.checked 
-                            ? [...disputeDetails.applicableActs, 'contract_act'] 
-                            : disputeDetails.applicableActs.filter(act => act !== 'contract_act');
-                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
-                          setFormChanged(true);
-                        }}
-                        className="mr-2"
-                      />
-                      <label htmlFor="contract_act" className="text-sm">Indian Contract Act, 1872</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="specific_relief_act"
-                        checked={disputeDetails.applicableActs.includes('specific_relief_act')}
-                        onChange={(e) => {
-                          const newActs = e.target.checked 
-                            ? [...disputeDetails.applicableActs, 'specific_relief_act'] 
-                            : disputeDetails.applicableActs.filter(act => act !== 'specific_relief_act');
-                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
-                          setFormChanged(true);
-                        }}
-                        className="mr-2"
-                      />
-                      <label htmlFor="specific_relief_act" className="text-sm">Specific Relief Act, 1963</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="companies_act"
-                        checked={disputeDetails.applicableActs.includes('companies_act')}
-                        onChange={(e) => {
-                          const newActs = e.target.checked 
-                            ? [...disputeDetails.applicableActs, 'companies_act'] 
-                            : disputeDetails.applicableActs.filter(act => act !== 'companies_act');
-                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
-                          setFormChanged(true);
-                        }}
-                        className="mr-2"
-                      />
-                      <label htmlFor="companies_act" className="text-sm">Companies Act, 2013</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="other_act"
-                        checked={disputeDetails.applicableActs.includes('other_act')}
-                        onChange={(e) => {
-                          const newActs = e.target.checked 
-                            ? [...disputeDetails.applicableActs, 'other_act'] 
-                            : disputeDetails.applicableActs.filter(act => act !== 'other_act');
-                          setDisputeDetails(prev => ({ ...prev, applicableActs: newActs }));
-                          setFormChanged(true);
-                        }}
-                        className="mr-2"
-                      />
-                      <label htmlFor="other_act" className="text-sm">Other Acts</label>
-                    </div>
-                  </div>
-                </div>
-                {errors.applicableActs && (
-                  <div className="text-red-500 text-xs mt-1">{errors.applicableActs}</div>
+                  required
+                  placeholder="Enter applicable acts separated by commas"
+                        error={fieldState.error?.message}
+                        maxLength={MAX_APPLICABLE_ACTS_LENGTH}
+                />
+                      <p className="text-xs text-gray-500 mt-1">Maximum {MAX_APPLICABLE_ACTS_LENGTH} characters</p>
+                    </>
                 )}
+                />
               </div>
               <div className="col-span-2">
-                <label className="block text-sm mb-1">Contract Clause References*</label>
-                <input
-                  name="clauseReferences"
-                  value={disputeDetails.clauseReferences}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
+                <ControlledFormField
+                  control={control}
+                  label="Contract Clause References"
+                  name="disputeDetails.clauseReferences"
+                  required
+                  maxLength={500}
                   placeholder="e.g., Clause 12.3, 15.2, etc."
                 />
-                {errors.clauseReferences && (
-                  <div className="text-red-500 text-xs mt-1">{errors.clauseReferences}</div>
-                )}
               </div>
               <div className="col-span-2">
-                <label className="block text-sm mb-1">Facts of the Case*</label>
-                <textarea
-                  name="factsOfCase"
-                  value={disputeDetails.factsOfCase}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                  rows={4}
+                <ControlledTextAreaField
+                  control={control}
+                  label="Facts of the Case"
+                  name="disputeDetails.factsOfCase"
+                  required
                   maxLength={2000}
                   placeholder="Provide a clear and concise statement of the facts related to the dispute"
+                  rows={6}
                 />
-                {errors.factsOfCase && (
-                  <div className="text-red-500 text-xs mt-1">{errors.factsOfCase}</div>
-                )}
               </div>
               <div className="col-span-2">
-                <label className="block text-sm mb-1">Dispute Description*</label>
-                <textarea
-                  name="disputeDescription"
-                  value={disputeDetails.disputeDescription}
-                  onChange={handleDisputeDetailsChange}
-                  className="w-full border rounded px-2 py-1"
-                  rows={4}
+                <ControlledTextAreaField
+                  control={control}
+                  label="Dispute Description"
+                  name="disputeDetails.disputeDescription"
+                  required
                   maxLength={2000}
-                  />
-                {errors.disputeDescription && (
-                  <div className="text-red-500 text-xs mt-1">{errors.disputeDescription}</div>
-                )}
+                  rows={4}
+                />
               </div>
             </div>
           </div>
@@ -2877,23 +2145,131 @@ export default function ArbitrationForm() {
           <div className="space-y-4">
             <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
             <div>
-              <label className="block text-sm mb-1">Prayers & Reliefs Sought*</label>
-              <textarea
-                name="prayers"
-                value={prayers.prayers}
-                onChange={handlePrayersChange}
-                className="w-full border rounded px-2 py-1"
-                rows={8}
+              <ControlledTextAreaField
+                control={control}
+                label="Prayers & Reliefs Sought"
+                name="prayers.prayers"
+                required
                 maxLength={3000}
                 placeholder="Detail the specific remedies, compensation, or actions you are seeking from the arbitral tribunal"
+                rows={6}
               />
-              {errors.prayers && (
-                <div className="text-red-500 text-xs mt-1">{errors.prayers}</div>
-              )}
               <p className="text-xs text-gray-500 mt-2">
                 Clearly state each prayer point separately, including monetary claims, specific performance requests, 
                 declaratory reliefs, costs, and any interim measures sought.
               </p>
+            </div>
+          </div>
+        )
+      case 6: // Documents
+        return (
+          <div className="space-y-4">
+            <h3 className="font-medium text-lg mb-4">Documents</h3>
+
+            {/* Supporting Documents */}
+            <Controller
+              control={control}
+              name="documents.supportingDocuments"
+              render={({ field, fieldState }) => (
+                <div>
+                  <FileField
+                    label="Supporting Documents"
+                    name="supportingDocuments"
+                    multiple={true}
+                    onChange={(files) => {
+                      if (Array.isArray(files)) {
+                        field.onChange(files);
+                        setFormChanged(true);
+                      }
+                    }}
+                    error={fieldState.error?.message}
+                    required
+                  />
+                  {Array.isArray(field.value) && field.value.map((file: File, idx: number) => (
+                    <div key={idx} className="flex items-center space-x-2 mt-2">
+                      <span>{file.name}</span>
+                      <Controller
+                        control={control}
+                        name={`documents.documentTypes.supporting_${idx}`}
+                        defaultValue=""
+                        render={({ field: typeField }) => (
+                          <select
+                            className="border rounded px-1 py-1"
+                            value={typeField.value || ""}
+                            onChange={typeField.onChange}
+                          >
+                            <option value="">Select type</option>
+                            <option value="contract">Contract</option>
+                            <option value="invoice">Invoice</option>
+                            <option value="correspondence">Correspondence</option>
+                            <option value="legal">Legal Document</option>
+                            <option value="other">Other</option>
+                          </select>
+                        )}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            />
+
+            {/* Evidence Files */}
+            <Controller
+              control={control}
+              name="documents.evidenceFiles"
+              render={({ field, fieldState }) => (
+                <div>
+                  <FileField
+                    label="Evidence Files"
+                    name="evidenceFiles"
+                    multiple={true}
+                    onChange={(files) => {
+                      if (Array.isArray(files)) {
+                        field.onChange(files);
+                        setFormChanged(true);
+                      }
+                    }}
+                    error={fieldState.error?.message}
+                  />
+                  {Array.isArray(field.value) && field.value.map((file: File, idx: number) => (
+                    <div key={idx} className="flex items-center space-x-2 mt-2">
+                      <span>{file.name}</span>
+                      <Controller
+                        control={control}
+                        name={`documents.documentTypes.evidence_${idx}`}
+                        defaultValue=""
+                        render={({ field: typeField }) => (
+                          <select
+                            className="border rounded px-1 py-1"
+                            value={typeField.value || ""}
+                            onChange={typeField.onChange}
+                          >
+                            <option value="">Select type</option>
+                            <option value="photo">Photo</option>
+                            <option value="video">Video</option>
+                            <option value="audio">Audio</option>
+                            <option value="statement">Statement</option>
+                            <option value="expert">Expert Opinion</option>
+                            <option value="other">Other</option>
+                          </select>
+                        )}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            />
+
+            <div>
+              <div className="text-xs text-gray-500 mt-4">
+                <p>Tips for document uploads:</p>
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                  <li>Ensure all documents are clear and legible</li>
+                  <li>Supported formats: PDF, DOCX, JPG, PNG (max 10MB per file)</li>
+                  <li>For large documents, consider splitting them into smaller files</li>
+                  <li>Always categorize your documents accurately for easier reference</li>
+                </ul>
+              </div>
             </div>
           </div>
         )
@@ -2903,52 +2279,43 @@ export default function ArbitrationForm() {
             <h3 className="font-medium text-lg mb-4">Payment</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm mb-1">Payment Head*</label>
-                <select
-                  name="paymentHead"
-                  value={payment.paymentHead}
-                  onChange={handlePaymentChange}
-                  className="w-full border rounded px-2 py-1"
-                >
-                  <option value="">Select payment head</option>
-                  <option value="filing_fee">Filing Fee</option>
-                  <option value="arbitrator_fee">Arbitrator Fee</option>
-                  <option value="administrative_fee">Administrative Fee</option>
-                  <option value="emergency_fee">Emergency Arbitration Fee</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.paymentHead && (
-                  <div className="text-red-500 text-xs mt-1">{errors.paymentHead}</div>
-                )}
+                <ControlledFormField
+                  control={control}
+                  label="Payment Head"
+                  name="payment.paymentHead"
+                  type="select"
+                  required
+                  options={[
+                    { value: "filing_fee", label: "Filing Fee" },
+                    { value: "arbitrator_fee", label: "Arbitrator Fee" },
+                    { value: "administrative_fee", label: "Administrative Fee" },
+                    { value: "emergency_fee", label: "Emergency Arbitration Fee" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
               </div>
               <div>
-                <label className="block text-sm mb-1">Payment Amount (INR)*</label>
-                <input
-                  name="paymentAmount"
+                <ControlledFormField
+                  control={control}
+                  label="Payment Amount (INR)"
+                  name="payment.paymentAmount"
                   type="number"
-                  value={payment.paymentAmount}
-                  onChange={handlePaymentChange}
-                  className="w-full border rounded px-2 py-1"
+                  required
+                  maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
                   placeholder="Enter amount in INR"
                 />
-                {errors.paymentAmount && (
-                  <div className="text-red-500 text-xs mt-1">{errors.paymentAmount}</div>
-                )}
+                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_PAYMENT_AMOUNT.toLocaleString()} INR</p>
               </div>
               <div>
-                <label className="block text-sm mb-1">Payment Details*</label>
-                <textarea
-                  name="paymentDetails"
-                  value={payment.paymentDetails}
-                  onChange={handlePaymentChange}
-                  className="w-full border rounded px-2 py-1"
+                <ControlledTextAreaField
+                  control={control}
+                  label="Payment Details"
+                  name="payment.paymentDetails"
+                  required
                   rows={4}
                   maxLength={1000}
                   placeholder="Provide detailed payment information"
                 />
-                {errors.paymentDetails && (
-                  <div className="text-red-500 text-xs mt-1">{errors.paymentDetails}</div>
-                )}
               </div>
             </div>
           </div>
@@ -2967,23 +2334,24 @@ export default function ArbitrationForm() {
                 </Button>
               </div>
               
-              {argumentsData.argumentsPerIssue.length > 0 ? (
-                argumentsData.argumentsPerIssue.map((arg, index) => (
-                  <div key={index} className="border p-4 rounded-lg space-y-2 mb-4">
+              {argumentFields.length > 0 ? (
+                argumentFields.map((field, index) => (
+                  <div key={field.id} className="border p-4 rounded-lg space-y-2 mb-4">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">Issue/Argument {index + 1}</h4>
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => removeArgument(index)}
+                        onClick={() => removeArgumentField(index)}
                       >
                         Remove
                       </Button>
                     </div>
-                    <textarea
-                      value={arg}
-                      onChange={(e) => handleArgumentChange(index, e.target.value)}
-                      className="w-full border rounded px-2 py-1"
+                    <ControlledTextAreaField
+                      control={control}
+                      label={`Argument ${index + 1}`}
+                      name={`arguments.argumentsPerIssue.${index}`}
+                      required
                       rows={6}
                       maxLength={2000}
                       placeholder={`Present your argument for issue ${index + 1} (limit: 1 page)`}
@@ -2999,10 +2367,6 @@ export default function ArbitrationForm() {
                 </div>
               )}
               
-              {errors.argumentsPerIssue && (
-                <div className="text-red-500 text-xs mt-1">{errors.argumentsPerIssue}</div>
-              )}
-              
               <div className="text-xs text-gray-500 mt-4">
                 Tips:
                 <ul className="list-disc pl-5 mt-1 space-y-1">
@@ -3011,130 +2375,6 @@ export default function ArbitrationForm() {
                   <li>Limit each argument to approximately one page</li>
                   <li>Present your strongest arguments first</li>
                 </ul>
-              </div>
-            </div>
-          </div>
-        )
-      case 6: // Documents
-        return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Documents</h3>
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <h4 className="font-medium mb-2">Supporting Documents</h4>
-                <div className="space-y-4">
-                  {documents.supportingDocuments.length > 0 ? (
-                    documents.supportingDocuments.map((file, index) => (
-                      <div key={index} className="border p-3 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="text-sm font-medium">{file.name}</div>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              const newDocs = [...documents.supportingDocuments];
-                              newDocs.splice(index, 1);
-                              setDocuments(prev => ({
-                                ...prev,
-                                supportingDocuments: newDocs
-                              }));
-                              setFormChanged(true);
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                        <div>
-                          <label className="block text-sm mb-1">Document Type*</label>
-                          <select
-                            value={documents.documentTypes[`supportingDocuments_${index}`] || ""}
-                            onChange={(e) => handleDocumentTypeChange(e.target.value, "supportingDocuments", index)}
-                            className="w-full border rounded px-2 py-1"
-                          >
-                            <option value="">Select document type</option>
-                            <option value="contract">Contract</option>
-                            <option value="invoice">Invoice</option>
-                            <option value="correspondence">Correspondence</option>
-                            <option value="legal_notice">Legal Notice</option>
-                            <option value="expert_report">Expert Report</option>
-                            <option value="witness_statement">Witness Statement</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No supporting documents uploaded yet</div>
-                  )}
-                  <input
-                    name="supportingDocuments"
-                    type="file"
-                    multiple
-                    onChange={handleDocumentsChange}
-                    className="w-full border rounded px-2 py-1"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Upload contracts, correspondence, invoices, and any other documents relevant to your case
-                  </p>
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-2">Evidence Files</h4>
-                <div className="space-y-4">
-                  {documents.evidenceFiles.length > 0 ? (
-                    documents.evidenceFiles.map((file, index) => (
-                      <div key={index} className="border p-3 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="text-sm font-medium">{file.name}</div>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              const newDocs = [...documents.evidenceFiles];
-                              newDocs.splice(index, 1);
-                              setDocuments(prev => ({
-                                ...prev,
-                                evidenceFiles: newDocs
-                              }));
-                              setFormChanged(true);
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                        <div>
-                          <label className="block text-sm mb-1">Document Type*</label>
-                          <select
-                            value={documents.documentTypes[`evidenceFiles_${index}`] || ""}
-                            onChange={(e) => handleDocumentTypeChange(e.target.value, "evidenceFiles", index)}
-                            className="w-full border rounded px-2 py-1"
-                          >
-                            <option value="">Select document type</option>
-                            <option value="photo">Photographs</option>
-                            <option value="video">Video Evidence</option>
-                            <option value="audio">Audio Recording</option>
-                            <option value="report">Technical Report</option>
-                            <option value="test_results">Test Results</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No evidence files uploaded yet</div>
-                  )}
-                  <input
-                    name="evidenceFiles"
-                    type="file"
-                    multiple
-                    onChange={handleDocumentsChange}
-                    className="w-full border rounded px-2 py-1"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Upload evidence such as photographs, videos, audio recordings, or other proof
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -3204,7 +2444,13 @@ export default function ArbitrationForm() {
                           <span className="font-medium">Email:</span> {claimant.email}
                         </div>
                         <div>
-                          <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                          <PhoneField
+                            control={control}
+                            phoneFieldName={`additionalClaimants.${index}.phone`}
+                            countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
+                            label="Phone"
+                            required
+                          />
                         </div>
                       </div>
                     ))
@@ -3215,19 +2461,19 @@ export default function ArbitrationForm() {
                 
                 <div>
                   <h4 className="font-medium mb-2">Manager Details</h4>
-                  {managerDetails.name ? (
+                  {managerDetails?.name ? (
                     <div className="text-sm">
                       <div>
-                        <span className="font-medium">Name:</span> {managerDetails.name}
+                        <span className="font-medium">Name:</span> {managerDetails?.name}
                       </div>
                       <div>
-                        <span className="font-medium">Designation:</span> {managerDetails.designation}
+                        <span className="font-medium">Designation:</span> {managerDetails?.designation}
                       </div>
                       <div>
-                        <span className="font-medium">Email:</span> {managerDetails.email}
+                        <span className="font-medium">Email:</span> {managerDetails?.email}
                       </div>
                       <div>
-                        <span className="font-medium">Authority:</span> {managerDetails.authority}
+                        <span className="font-medium">Authority:</span> {managerDetails?.authority}
                       </div>
                     </div>
                   ) : (
@@ -3249,7 +2495,13 @@ export default function ArbitrationForm() {
                         <span className="font-medium">Email:</span> {respondent.email}
                       </div>
                       <div>
-                        <span className="font-medium">Phone:</span> {respondent.phoneCountryCode} {respondent.phone}
+                        <PhoneField
+                          control={control}
+                          phoneFieldName={`respondents.${index}.phone`}
+                          countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
+                          label="Phone"
+                          required
+                        />
                       </div>
                     </div>
                   ))}
@@ -3337,7 +2589,7 @@ export default function ArbitrationForm() {
                       <span className="font-medium">Supporting Documents:</span> {documents.supportingDocuments.length} files
                     </div>
                     <div>
-                      <span className="font-medium">Evidence Files:</span> {documents.evidenceFiles.length} files
+                      <span className="font-medium">Evidence Files:</span> {documents.evidenceFiles?.length || 0} files
                     </div>
                   </div>
                 </div>
@@ -3360,9 +2612,9 @@ export default function ArbitrationForm() {
                 <div>
                   <h4 className="font-medium mb-2">Arguments</h4>
                   <div className="text-sm">
-                    {argumentsData.argumentsPerIssue.length > 0 ? (
+                    {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
                       <div>
-                        <span className="font-medium">{argumentsData.argumentsPerIssue.length} argument(s) provided</span>
+                        <span className="font-medium">{argumentsPerIssue.length} argument(s) provided</span>
                       </div>
                     ) : (
                       <div className="text-gray-500">No arguments provided</div>
@@ -3377,6 +2629,53 @@ export default function ArbitrationForm() {
         return null;
     }
   }
+
+  // Update the auto-save effect
+  useEffect(() => {
+    // only run when the "dirty & changed" flags become true
+    if (!formChanged || !isAuthenticated || !isDirty) return;
+
+    // clear any existing debounce
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // schedule a new save
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveDraft();
+      setFormChanged(false);
+    }, 30000);
+
+    // cleanup on unmount
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [formChanged, isAuthenticated, isDirty, saveDraft]);
+
+  // Effect to ensure form refreshes when a draft is loaded
+  useEffect(() => {
+    if (currentDraftId) {
+      console.log("Current draft ID changed, triggering form refresh:", currentDraftId);
+      
+      // Force UI to update
+      const timer = setTimeout(() => {
+        // Re-apply current form values to trigger a redraw
+        const currentValues = watch();
+        reset({...currentValues});
+        
+        // Force active step to refresh
+        const currentStep = activeStep;
+        setActiveStep(0);
+        setTimeout(() => {
+          setActiveStep(currentStep);
+        }, 100);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentDraftId]);
 
   return (
     <div className="max-w-3xl mx-auto py-8">
@@ -3468,3 +2767,8 @@ export default function ArbitrationForm() {
     </div>
   )
 }
+
+// Export with dynamic to disable SSR
+export default dynamic(() => Promise.resolve(ArbitrationForm), { 
+  ssr: false 
+});

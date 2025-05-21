@@ -1,10 +1,10 @@
-// Mock API route to handle specific draft ID routes
+// Mock API route to handle specific draft ID routes with plural path
 import { NextResponse } from 'next/server';
 import { mockDrafts } from '@/lib/mock-data';
 
 export async function GET(req, { params }) {
   const { id } = params;
-  console.log(`🔶 Mock API - Getting draft with ID: ${id}`);
+  console.log(`🔶 Mock API - Getting draft with ID: ${id} (plural route)`);
   
   // Find the draft with the given ID
   const draft = mockDrafts.find(d => d.id === id);

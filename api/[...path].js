@@ -25,12 +25,12 @@ const getRemappedPath = (originalPath) => {
   
   // Handle draft ID routes
   if (originalPath.match(/^\/api\/arbitration\/draft\/[^\/]+$/)) {
-    return originalPath.replace('/api/arbitration/draft/', '/arbitration/draft/');
+    return originalPath.replace('/api/arbitration/drafts/', '/arbitration/draft/');
   }
   
   // Handle draft submission routes 
   if (originalPath.match(/^\/api\/arbitration\/draft\/[^\/]+\/submit$/)) {
-    return originalPath.replace('/api/arbitration/draft/', '/arbitration/draft/');
+    return originalPath.replace('/api/arbitration/drafts/', '/arbitration/draft/');
   }
   
   // Handle case ID routes
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     
     // Special handling for draft routes in development
     if (process.env.NODE_ENV !== 'production') {
-      if (path === '/api/arbitration/draft' || path.startsWith('/api/arbitration/draft/')) {
+      if (path === '/api/arbitration/draft' || path.startsWith('/api/arbitration/drafts/')) {
         console.log('Handling draft request in development mode, forwarding to Next.js API routes');
         return null; // Return null to let Next.js handle the route via app/api/...
       }

@@ -520,6 +520,16 @@ export const auth = {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
+        name: error.name,
+        code: error.code,
+        stack: error.stack,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL,
+        },
+        // Log the full error object for debugging
+        fullError: error,
       });
       throw error;
     }
@@ -756,15 +766,15 @@ const arbitrators = {
 // User profile management
 const profile = {
   // Get current user profile
-  getProfile: () => apiClient.get('/api/users/profile'),
+  getProfile: () => apiClient.get('/api/auth/profile'),
   
   // Update user profile
   updateProfile: (profileData: any) => 
-    apiClient.patch('/api/users/profile', profileData),
+    apiClient.patch('/api/auth/profile', profileData),
   
   // Change password
   changePassword: (passwordData: { currentPassword: string; newPassword: string }) => 
-    apiClient.post('/api/users/change-password', passwordData),
+    apiClient.post('/api/auth/change-password', passwordData),
 };
 
 // Communication endpoints

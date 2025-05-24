@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('users')
@@ -19,6 +20,38 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('profile')
+  async getProfile(@Request() req) {
+    // Get current user profile using JWT token
+    const userId = req.user.id;
+    const user = await this.usersService.findById(userId);
+    
+    // Remove password from response
+    const { password, ...userProfile } = user;
+    return userProfile;
+  }
+
+  @Patch('profile')
+  async updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
+    // Update current user's profile
+    const userId = req.user.id;
+    const updatedUser = await this.usersService.update(userId, updateUserDto);
+    
+    // Remove password from response
+    const { password, ...userProfile } = updatedUser;
+    return {
+      message: 'Profile updated successfully',
+      user: userProfile
+    };
+  }
+
+  @Post('change-password')
+  async changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
+    const userId = req.user.id;
+    await this.usersService.changePassword(userId, changePasswordDto);
+    return { message: 'Password changed successfully' };
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findById(id);
@@ -32,12 +65,5 @@ export class UsersController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
-  }
-
-  @Get('profile')
-  getProfile() {
-    // This would typically use the JWT token to get the current user
-    // For now, it's a placeholder
-    return { message: 'Profile endpoint' };
   }
 }

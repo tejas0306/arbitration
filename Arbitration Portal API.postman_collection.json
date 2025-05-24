@@ -1,7 +1,8 @@
 {
 	"info": {
 		"_postman_id": "de6e3571-3932-466b-9915-79f5aa9752be",
-		"name": "Arbitration Portal API",
+		"name": "Arbitration Portal API - Complete",
+		"description": "Complete API collection for the Arbitration Portal including all implemented endpoints",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "38445242"
 	},
@@ -32,7 +33,8 @@
 								"auth",
 								"login"
 							]
-						}
+						},
+						"description": "Login with email and password to get JWT token"
 					},
 					"response": []
 				},
@@ -48,7 +50,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"claimant\",\n  \"organization\": \"Company Inc.\"\n}"
+							"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"CLAIMANT\",\n  \"organization\": \"Company Inc.\",\n  \"expertise\": \"Commercial Law\",\n  \"qualifications\": \"LLB, MBA\",\n  \"experience\": 5,\n  \"bio\": \"Experienced in commercial disputes\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/register",
@@ -59,7 +61,32 @@
 								"auth",
 								"register"
 							]
-						}
+						},
+						"description": "Register new user with role-specific fields"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						},
+						"description": "Get current authenticated user information"
 					},
 					"response": []
 				},
@@ -82,7 +109,8 @@
 								"auth",
 								"logout"
 							]
-						}
+						},
+						"description": "Logout current session"
 					},
 					"response": []
 				},
@@ -109,7 +137,8 @@
 								"auth",
 								"forgot-password"
 							]
-						}
+						},
+						"description": "Request password reset"
 					},
 					"response": []
 				},
@@ -136,11 +165,195 @@
 								"auth",
 								"reset-password"
 							]
-						}
+						},
+						"description": "Reset password with token"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Authentication endpoints for login, registration, and password management"
+		},
+		{
+			"name": "Profile Management",
+			"item": [
+				{
+					"name": "Get Profile (Auth)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"profile"
+							]
+						},
+						"description": "Get user profile via auth controller"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile (Auth)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"newemail@example.com\",\n  \"organization\": \"New Organization\",\n  \"expertise\": \"Updated Expertise\",\n  \"qualifications\": \"Updated Qualifications\",\n  \"experience\": 10,\n  \"bio\": \"Updated professional bio\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"profile"
+							]
+						},
+						"description": "Update user profile via auth controller"
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password (Auth)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"currentPassword\": \"currentpass123\",\n  \"newPassword\": \"newpassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/change-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"change-password"
+							]
+						},
+						"description": "Change password via auth controller"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Profile (Users)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"profile"
+							]
+						},
+						"description": "Get user profile via users controller"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile (Users)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"newemail@example.com\",\n  \"organization\": \"New Organization\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"profile"
+							]
+						},
+						"description": "Update user profile via users controller"
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password (Users)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"currentPassword\": \"currentpass123\",\n  \"newPassword\": \"newpassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/change-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"change-password"
+							]
+						},
+						"description": "Change password via users controller"
+					},
+					"response": []
+				}
+			],
+			"description": "User profile management endpoints"
 		},
 		{
 			"name": "Arbitration",
@@ -152,7 +365,7 @@
 						"header": [
 							{
 								"key": "Content-Type",
-								"value": "application/json"
+								"value": "multipart/form-data"
 							},
 							{
 								"key": "Authorization",
@@ -160,8 +373,24 @@
 							}
 						],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"claimantDetails\": {},\n  \"respondentDetails\": {},\n  \"arbitrationAgreement\": {},\n  \"disputeCategory\": \"commercial\",\n  \"disputeSubCategory\": \"contract\",\n  \"disputeDescription\": \"Description of the dispute\",\n  \"preferredLanguage\": \"English\",\n  \"preferredLocation\": \"New York\",\n  \"additionalNotes\": \"Additional notes\"\n}"
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "data",
+									"value": "{\n  \"type\": \"Individual\",\n  \"name\": \"John Doe\",\n  \"pincode\": \"123456\",\n  \"address1\": \"123 Main St\",\n  \"city\": \"New York\",\n  \"district\": \"Manhattan\",\n  \"state\": \"NY\",\n  \"country\": \"USA\",\n  \"email\": \"john@example.com\",\n  \"phoneCountryCode\": \"+1\",\n  \"phone\": \"1234567890\",\n  \"additionalClaimants\": [],\n  \"respondents\": [{\n    \"type\": \"Company\",\n    \"name\": \"Respondent Corp\",\n    \"email\": \"resp@example.com\"\n  }],\n  \"arbitrationAgreement\": {\n    \"agreementDate\": \"2023-01-01\",\n    \"agreementType\": \"Clause\"\n  },\n  \"disputeDetails\": {\n    \"disputeType\": \"Contract\",\n    \"disputeAmount\": \"100000\",\n    \"disputeDescription\": \"Breach of contract dispute\",\n    \"disputeDate\": \"2023-06-01\"\n  }\n}",
+									"type": "text"
+								},
+								{
+									"key": "agreementFile",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "coi",
+									"type": "file",
+									"src": []
+								}
+							]
 						},
 						"url": {
 							"raw": "{{baseUrl}}/arbitration/submit",
@@ -172,7 +401,8 @@
 								"arbitration",
 								"submit"
 							]
-						}
+						},
+						"description": "Submit new arbitration request with file uploads"
 					},
 					"response": []
 				},
@@ -183,7 +413,7 @@
 						"header": [
 							{
 								"key": "Content-Type",
-								"value": "application/json"
+								"value": "multipart/form-data"
 							},
 							{
 								"key": "Authorization",
@@ -191,8 +421,14 @@
 							}
 						],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"claimantDetails\": {},\n  \"respondentDetails\": {},\n  \"arbitrationAgreement\": {},\n  \"disputeCategory\": \"commercial\",\n  \"disputeSubCategory\": \"contract\",\n  \"disputeDescription\": \"Description of the dispute\"\n}"
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "data",
+									"value": "{\n  \"type\": \"Individual\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"pincode\": \"123456\"\n}",
+									"type": "text"
+								}
+							]
 						},
 						"url": {
 							"raw": "{{baseUrl}}/arbitration/draft",
@@ -203,7 +439,8 @@
 								"arbitration",
 								"draft"
 							]
-						}
+						},
+						"description": "Save arbitration request as draft"
 					},
 					"response": []
 				},
@@ -232,7 +469,8 @@
 									"value": "pending"
 								}
 							]
-						}
+						},
+						"description": "Get cases for current user with optional filters"
 					},
 					"response": []
 				},
@@ -256,7 +494,33 @@
 								"cases",
 								"{{caseId}}"
 							]
-						}
+						},
+						"description": "Get specific case details by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Case by Case Number",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/arbitration/case/{{caseNumber}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"arbitration",
+								"case",
+								"{{caseNumber}}"
+							]
+						},
+						"description": "Get case details by case number"
 					},
 					"response": []
 				},
@@ -276,7 +540,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"status\": \"in-progress\"\n}"
+							"raw": "{\n  \"status\": \"UNDER_REVIEW\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/arbitration/cases/{{caseId}}/status",
@@ -289,7 +553,8 @@
 								"{{caseId}}",
 								"status"
 							]
-						}
+						},
+						"description": "Update case status"
 					},
 					"response": []
 				},
@@ -322,7 +587,8 @@
 								"{{caseId}}",
 								"respond"
 							]
-						}
+						},
+						"description": "Submit response to arbitration case (for respondents)"
 					},
 					"response": []
 				},
@@ -355,11 +621,94 @@
 								"{{caseId}}",
 								"assign-arbitrator"
 							]
-						}
+						},
+						"description": "Assign arbitrator to case"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Arbitration case management endpoints"
+		},
+		{
+			"name": "Draft Management",
+			"item": [
+				{
+					"name": "Get Drafts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/arbitration/drafts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"arbitration",
+								"drafts"
+							]
+						},
+						"description": "Get all drafts for current user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Draft by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/arbitration/draft/{{draftId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"arbitration",
+								"draft",
+								"{{draftId}}"
+							]
+						},
+						"description": "Get specific draft by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/arbitration/draft/{{draftId}}/submit",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"arbitration",
+								"draft",
+								"{{draftId}}",
+								"submit"
+							]
+						},
+						"description": "Convert draft to submitted case"
+					},
+					"response": []
+				}
+			],
+			"description": "Draft management endpoints for saving and managing draft arbitration requests"
 		},
 		{
 			"name": "Documents",
@@ -394,7 +743,8 @@
 								"{{caseId}}",
 								"upload"
 							]
-						}
+						},
+						"description": "Upload documents for a case"
 					},
 					"response": []
 				},
@@ -417,7 +767,8 @@
 								"documents",
 								"{{caseId}}"
 							]
-						}
+						},
+						"description": "Get all documents for a case"
 					},
 					"response": []
 				},
@@ -441,7 +792,8 @@
 								"download",
 								"{{documentId}}"
 							]
-						}
+						},
+						"description": "Download specific document"
 					},
 					"response": []
 				},
@@ -464,11 +816,13 @@
 								"documents",
 								"{{documentId}}"
 							]
-						}
+						},
+						"description": "Delete document"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Document management endpoints"
 		},
 		{
 			"name": "Hearings",
@@ -489,7 +843,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"date\": \"2023-12-15\",\n  \"time\": \"10:00\",\n  \"duration\": 120,\n  \"type\": \"virtual\",\n  \"meetingLink\": \"https://meeting-link.com\"\n}"
+							"raw": "{\n  \"date\": \"2023-12-15\",\n  \"time\": \"10:00\",\n  \"duration\": 120,\n  \"type\": \"virtual\",\n  \"meetingLink\": \"https://meeting-link.com\",\n  \"location\": \"Virtual Meeting Room\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/hearings/{{caseId}}/schedule",
@@ -501,7 +855,8 @@
 								"{{caseId}}",
 								"schedule"
 							]
-						}
+						},
+						"description": "Schedule hearing for a case"
 					},
 					"response": []
 				},
@@ -524,7 +879,8 @@
 								"hearings",
 								"{{caseId}}"
 							]
-						}
+						},
+						"description": "Get hearings for a case"
 					},
 					"response": []
 				},
@@ -555,7 +911,8 @@
 								"hearings",
 								"{{hearingId}}"
 							]
-						}
+						},
+						"description": "Update hearing details"
 					},
 					"response": []
 				},
@@ -587,11 +944,208 @@
 								"{{hearingId}}",
 								"cancel"
 							]
-						}
+						},
+						"description": "Cancel hearing with reason"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Hearing management endpoints"
+		},
+		{
+			"name": "Verification",
+			"item": [
+				{
+					"name": "Verify GST (GET)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/verification/gst?number={{gstNumber}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verification",
+								"gst"
+							],
+							"query": [
+								{
+									"key": "number",
+									"value": "{{gstNumber}}",
+									"description": "15-digit GST number"
+								}
+							]
+						},
+						"description": "Verify GST number format and existence"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify GST (POST)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"gstNumber\": \"27AAECE4986P1ZN\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/verification/gst",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verification",
+								"gst"
+							]
+						},
+						"description": "Verify GST number via POST request"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify PAN (GET)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/verification/pan?number={{panNumber}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verification",
+								"pan"
+							],
+							"query": [
+								{
+									"key": "number",
+									"value": "{{panNumber}}",
+									"description": "10-digit PAN number"
+								}
+							]
+						},
+						"description": "Verify PAN number format and existence"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify PAN (POST)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"panNumber\": \"AAECE4986P\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/verification/pan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verification",
+								"pan"
+							]
+						},
+						"description": "Verify PAN number via POST request"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify CIN (GET)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/verification/cin?number={{cinNumber}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verification",
+								"cin"
+							],
+							"query": [
+								{
+									"key": "number",
+									"value": "{{cinNumber}}",
+									"description": "21-digit CIN number"
+								}
+							]
+						},
+						"description": "Verify CIN number format and existence"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify CIN (POST)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cinNumber\": \"L74999DL1983PLC016067\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/verification/cin",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verification",
+								"cin"
+							]
+						},
+						"description": "Verify CIN number via POST request"
+					},
+					"response": []
+				}
+			],
+			"description": "Document verification endpoints for GST, PAN, and CIN numbers"
 		},
 		{
 			"name": "Users",
@@ -612,7 +1166,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"arbitrator\",\n  \"organization\": \"Arbitration Firm\"\n}"
+							"raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"ARBITRATOR\",\n  \"organization\": \"Arbitration Firm\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users",
@@ -622,33 +1176,215 @@
 							"path": [
 								"users"
 							]
-						}
+						},
+						"description": "Create new user (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Get all users (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Get specific user by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Name\",\n  \"organization\": \"Updated Organization\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Update user information"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Delete user (admin only)"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "User management endpoints"
+		},
+		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check system health status"
+					},
+					"response": []
+				},
+				{
+					"name": "App Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Basic app health check"
+					},
+					"response": []
+				}
+			],
+			"description": "System health and status endpoints"
 		}
 	],
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:3001/api"
+			"value": "http://localhost:3001/api",
+			"type": "string"
 		},
 		{
 			"key": "token",
-			"value": "your-jwt-token"
+			"value": "your-jwt-token",
+			"type": "string"
 		},
 		{
 			"key": "caseId",
-			"value": "case-uuid"
+			"value": "case-uuid",
+			"type": "string"
+		},
+		{
+			"key": "draftId",
+			"value": "draft-uuid",
+			"type": "string"
 		},
 		{
 			"key": "documentId",
-			"value": "document-uuid"
+			"value": "document-uuid",
+			"type": "string"
 		},
 		{
 			"key": "hearingId",
-			"value": "hearing-uuid"
+			"value": "hearing-uuid",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "user-uuid",
+			"type": "string"
+		},
+		{
+			"key": "gstNumber",
+			"value": "27AAECE4986P1ZN",
+			"type": "string"
+		},
+		{
+			"key": "panNumber",
+			"value": "AAECE4986P",
+			"type": "string"
+		},
+		{
+			"key": "cinNumber",
+			"value": "L74999DL1983PLC016067",
+			"type": "string"
+		},
+		{
+			"key": "caseNumber",
+			"value": "ARB-2024-001",
+			"type": "string"
 		}
 	]
 }

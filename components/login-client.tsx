@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { auth } from "@/lib/api"
 import { toast } from "sonner"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -23,18 +22,12 @@ export default function LoginClient() {
     setIsLoading(true)
 
     try {
-      // Use the direct API call to authenticate
-      const result = await auth.login({ email, password })
-      
-      // Update the auth context with the user data
-      if (result.user) {
-        authContextLogin(result.token, result.user)
-      }
+      // Use the auth context login function which handles everything
+      await authContextLogin(email, password)
       
       toast.success("Login successful!")
       
-      // Redirect to dashboard or home
-      router.push("/dashboard")
+      // The auth context will handle the redirect to dashboard
     } catch (err: any) {
       console.error("Login error:", err)
       

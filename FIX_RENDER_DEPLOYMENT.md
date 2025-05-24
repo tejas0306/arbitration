@@ -10,6 +10,7 @@ This document details the steps to fix deployment issues for the NestJS backend 
 4. **Module Import Error**: Non-existent module import
 5. **Build Output Path**: The build output is in dist/src/main.js instead of dist/main.js
 6. **Network Binding**: Application not binding to all interfaces for external connections
+7. **Database Connection**: Missing or invalid DATABASE_URL environment variable
 
 ## Changes Made
 
@@ -54,6 +55,8 @@ services:
         value: true
       - key: HOST
         value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false # This will be set manually in the Render dashboard as a secret
     healthCheckPath: /api/health
 ```
 
@@ -145,6 +148,11 @@ And removed the conditional startup that was preventing the app from listening i
 bootstrap();
 ```
 
+### 7. Added DATABASE_URL Configuration
+
+- Added the `DATABASE_URL` environment variable to the render.yaml configuration
+- Set `sync: false` to indicate this should be configured as a secret in the Render dashboard
+
 ## How to Fix the Deployment
 
 ### Option 1: Using Blueprint (Recommended)
@@ -155,9 +163,9 @@ bootstrap();
 4. Connect your GitHub repository
 5. Render will use the `render.yaml` configuration
 6. Add your database and security environment variables:
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `FRONTEND_URL`
+   - `DATABASE_URL`: Must be a valid PostgreSQL connection string (starting with `postgresql://` or `postgres://`)
+   - `JWT_SECRET`: Secret for JWT token generation
+   - `FRONTEND_URL`: Your Vercel frontend URL
 
 ### Option 2: Manual Configuration
 
@@ -172,7 +180,25 @@ If you prefer to configure manually:
    - **Build Command**: `npm install && npm run build`
    - **Start Command**: `HOST=0.0.0.0 NODE_OPTIONS="--max-old-space-size=2048" node dist/src/main.js`
    - **Health Check Path**: /api/health
-5. Add the required environment variables
+5. Add the required environment variables:
+   - `DATABASE_URL`: Must be a valid PostgreSQL connection string
+   - `JWT_SECRET`: Secret for JWT token generation
+   - `FRONTEND_URL`: Your Vercel frontend URL
+
+### Setting up the Database URL
+
+The `DATABASE_URL` must be in the following format:
+
+```
+postgresql://username:password@hostname:port/database
+```
+
+For example:
+```
+postgresql://postgres:mypassword@postgres.render.com:5432/arbitration_db
+```
+
+You can create a PostgreSQL database in the Render dashboard and connect to it, or use an external PostgreSQL database.
 
 ## Verification
 

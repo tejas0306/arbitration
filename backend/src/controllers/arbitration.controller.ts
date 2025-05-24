@@ -220,6 +220,22 @@ export class ArbitrationController {
     }
   }
 
+  @Get('draft/:id')
+  async getDraftById(@Req() req, @Param('id') id: string) {
+    try {
+      if (!req.user || !req.user.id) {
+        throw new Error('Authentication required. User not found in request.');
+      }
+      
+      const userId = req.user.id;
+      this.logger.log(`Fetching draft ${id} for user ${userId}`);
+      return this.arbitrationService.getDraftById(id, userId);
+    } catch (error) {
+      this.logger.error(`Error fetching draft: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   @Get('cases/:id')
   async findOne(@Param('id') id: string) {
     return this.arbitrationService.findOne(id);

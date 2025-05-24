@@ -144,7 +144,9 @@ export class ArbitrationService {
         // Evidence files
         evidenceFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('evidenceFiles_'))
-          .map(key => fileReferences[key])
+          .map(key => fileReferences[key]),
+        // Include any existing documents from form
+        ...(data.documents || {})
       };
       
       // Create the arbitration agreement structure
@@ -154,6 +156,9 @@ export class ArbitrationService {
             agreementFile: fileReferences.agreementFile || null
           }
         : {};
+      
+      // Extract claimant data from nested structure
+      const claimant = data.claimant || {};
       
       // Check if this is an update to an existing draft
       if (data.id) {
@@ -171,38 +176,54 @@ export class ArbitrationService {
           throw new Error('You do not have permission to edit this draft');
         }
         
-        // Update the existing draft
+        // Store the complete form data structure in a JSON field
         const processedData = {
-          type: data.type,
-          name: data.name,
-          pincode: data.pincode || '',
-          address1: data.address1 || '',
-          address2: data.address2,
-          city: data.city || '',
-          district: data.district || '',
-          state: data.state || '',
-          country: data.country || '',
-          email: data.email || '',
-          phoneCountryCode: data.phoneCountryCode || '+91',
-          phone: data.phone || '',
-          gst: data.gst,
-          pan: data.pan,
-          cin: data.cin,
+          // Store claimant data at top level for backward compatibility
+          type: claimant.type || data.type || '',
+          name: claimant.name || data.name || '',
+          pincode: claimant.pincode || data.pincode || '',
+          address1: claimant.address1 || data.address1 || '',
+          address2: claimant.address2 || data.address2 || '',
+          city: claimant.city || data.city || '',
+          district: claimant.district || data.district || '',
+          state: claimant.state || data.state || '',
+          country: claimant.country || data.country || '',
+          email: claimant.email || data.email || '',
+          phoneCountryCode: claimant.phoneCountryCode || data.phoneCountryCode || '+91',
+          phone: claimant.phone || data.phone || '',
+          gst: claimant.gst || data.gst || '',
+          pan: claimant.pan || data.pan || '',
+          cin: claimant.cin || data.cin || '',
+          // Store the complete nested structure
           additionalClaimants: data.additionalClaimants || [],
           respondents: data.respondents || [],
           arbitrationAgreement: arbitrationAgreement,
           disputeDetails: data.disputeDetails || {},
           documents: documents,
+          managerDetails: data.managerDetails || {},
+          prayers: data.prayers || {},
+          payment: data.payment || {},
+          arguments: data.arguments || {},
+          // Add a formData field to store the complete structure
+          formData: {
+            claimant: data.claimant,
+            additionalClaimants: data.additionalClaimants,
+            managerDetails: data.managerDetails,
+            respondents: data.respondents,
+            arbitrationAgreement: data.arbitrationAgreement,
+            disputeDetails: data.disputeDetails,
+            prayers: data.prayers,
+            documents: data.documents,
+            payment: data.payment,
+            arguments: data.arguments,
+          },
           status: 'draft',
           isDraft: true,
           lastEditedAt: new Date(),
           version: existingDraft.version + 1,
         };
         
-        console.log('Updating draft with data:', {
-          ...processedData,
-          documents: 'Documents object included'
-        });
+        console.log('Updating draft with structured data');
         
         return this.prisma.arbitration.update({
           where: { id: data.id },
@@ -213,26 +234,45 @@ export class ArbitrationService {
         const caseNumber = await generateCaseId();
         
         const processedData = {
-          type: data.type || '',
-          name: data.name || '',
-          pincode: data.pincode || '',
-          address1: data.address1 || '',
-          address2: data.address2 || '',
-          city: data.city || '',
-          district: data.district || '',
-          state: data.state || '',
-          country: data.country || '',
-          email: data.email || '',
-          phoneCountryCode: data.phoneCountryCode || '+91',
-          phone: data.phone || '',
-          gst: data.gst || '',
-          pan: data.pan || '',
-          cin: data.cin || '',
+          // Store claimant data at top level for backward compatibility
+          type: claimant.type || data.type || '',
+          name: claimant.name || data.name || '',
+          pincode: claimant.pincode || data.pincode || '',
+          address1: claimant.address1 || data.address1 || '',
+          address2: claimant.address2 || data.address2 || '',
+          city: claimant.city || data.city || '',
+          district: claimant.district || data.district || '',
+          state: claimant.state || data.state || '',
+          country: claimant.country || data.country || '',
+          email: claimant.email || data.email || '',
+          phoneCountryCode: claimant.phoneCountryCode || data.phoneCountryCode || '+91',
+          phone: claimant.phone || data.phone || '',
+          gst: claimant.gst || data.gst || '',
+          pan: claimant.pan || data.pan || '',
+          cin: claimant.cin || data.cin || '',
+          // Store the complete nested structure
           additionalClaimants: data.additionalClaimants || [],
           respondents: data.respondents || [],
           arbitrationAgreement: arbitrationAgreement,
           disputeDetails: data.disputeDetails || {},
           documents: documents,
+          managerDetails: data.managerDetails || {},
+          prayers: data.prayers || {},
+          payment: data.payment || {},
+          arguments: data.arguments || {},
+          // Add a formData field to store the complete structure
+          formData: {
+            claimant: data.claimant,
+            additionalClaimants: data.additionalClaimants,
+            managerDetails: data.managerDetails,
+            respondents: data.respondents,
+            arbitrationAgreement: data.arbitrationAgreement,
+            disputeDetails: data.disputeDetails,
+            prayers: data.prayers,
+            documents: data.documents,
+            payment: data.payment,
+            arguments: data.arguments,
+          },
           caseNumber,
           status: 'draft',
           isDraft: true,
@@ -240,10 +280,7 @@ export class ArbitrationService {
           userId: userId,
         };
         
-        console.log('Creating new draft with data:', {
-          ...processedData,
-          documents: 'Documents object included'
-        });
+        console.log('Creating new draft with structured data');
         
         return this.prisma.arbitration.create({
           data: processedData,
@@ -270,6 +307,26 @@ export class ArbitrationService {
       },
       orderBy: { lastEditedAt: 'desc' },
     });
+  }
+
+  async getDraftById(id: string, userId: string) {
+    const draft = await this.prisma.arbitration.findUnique({
+      where: { id },
+    });
+
+    if (!draft) {
+      throw new NotFoundException(`Draft with ID ${id} not found`);
+    }
+
+    if (draft.userId !== userId) {
+      throw new Error('You do not have permission to access this draft');
+    }
+
+    if (!draft.isDraft) {
+      throw new Error('This is not a draft');
+    }
+
+    return draft;
   }
 
   async findOne(id: string) {

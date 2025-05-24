@@ -64,6 +64,12 @@ model Arbitration {
   isDraft           Boolean  @default(true)
   version           Int      @default(1)
   lastEditedAt      DateTime @default(now())
+  // Additional form fields for comprehensive data storage
+  managerDetails    Json?
+  prayers           Json?
+  payment           Json?
+  arguments         Json?
+  formData          Json?    // Store complete form state as JSON
   // Add relation to user
   userId            String
   user              User     @relation(fields: [userId], references: [id])

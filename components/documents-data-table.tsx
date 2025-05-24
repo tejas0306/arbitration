@@ -59,9 +59,9 @@ export function DocumentsDataTable({
     if (document.downloadUrl) {
       window.open(document.downloadUrl, '_blank')
     } else {
-      // Fallback to direct file access
+      // Use the new /files/ endpoint that doesn't conflict with API proxy
       const baseUrl = window.location.origin
-      const directUrl = `${baseUrl}/api/direct-file/${document.filename}`
+      const directUrl = `${baseUrl}/files/${document.filename}`
       window.open(directUrl, '_blank')
     }
   }, [])

@@ -92,10 +92,10 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
         // It's already a full URL, just open it
         window.open(fileUrl, '_blank');
       } 
-      // If it's an agreement file, use the direct access route
+      // If it's an agreement file, use the new file access route
       else if (filename && (filename.includes('agreementFile-') || filename.includes('agreement'))) {
         const baseUrl = window.location.origin;
-        const directUrl = `${baseUrl}/api/uploads/arbitration/${filename}`;
+        const directUrl = `${baseUrl}/files/${filename}`;
         console.log(`Opening document directly: ${directUrl}`);
         window.open(directUrl, '_blank');
       }

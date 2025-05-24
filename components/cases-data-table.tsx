@@ -82,7 +82,7 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
         window.open(documentUrl, '_blank')
       } else if (filename) {
         const baseUrl = window.location.origin
-        const directUrl = `${baseUrl}/api/direct-file/${filename}`
+        const directUrl = `${baseUrl}/files/${filename}`
         console.log(`Opening document directly: ${directUrl}`)
         window.open(directUrl, '_blank')
       } else {

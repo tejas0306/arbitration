@@ -39,7 +39,16 @@ export class ArbitrationController {
 
   @Get('cases')
   async getCases(@Query() filters: any, @Request() req) {
-    return this.arbitrationService.getCasesByUser(req.user.id, filters);
+    console.log('🔍🔍🔍 ArbitrationController.getCases DEFINITELY CALLED 🔍🔍🔍');
+    console.log('🔍 ArbitrationController.getCases called with:', {
+      user: req.user,
+      userId: req.user?.id,
+      filters
+    });
+    
+    const result = await this.arbitrationService.getCasesByUser(req.user.id, filters);
+    console.log('🔍 ArbitrationController.getCases returning:', result.length, 'cases');
+    return result;
   }
 
   @Get('cases/:id')
@@ -85,5 +94,27 @@ export class ArbitrationController {
   @Get('draft/:id')
   async getDraftById(@Param('id') id: string, @Request() req) {
     return this.arbitrationService.getDraftById(id, req.user.id);
+  }
+
+  @Get('debug/auth')
+  async debugAuth(@Request() req) {
+    console.log('🧪 DEBUG AUTH ENDPOINT HIT');
+    console.log('🧪 User object:', req.user);
+    console.log('🧪 User ID:', req.user?.id);
+    console.log('🧪 User type:', typeof req.user?.id);
+    
+    // Get all cases (no filtering) for debugging
+    const allCases = await this.arbitrationService.getAllCasesForDebug();
+    
+    return {
+      authenticatedUser: req.user,
+      totalCasesInDB: allCases.length,
+      casesPreview: allCases.slice(0, 3).map(c => ({
+        id: c.id,
+        claimantId: c.claimantId,
+        respondentId: c.respondentId,
+        status: c.status
+      }))
+    };
   }
 }

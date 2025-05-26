@@ -64,9 +64,12 @@ export default function Header() {
               <Link href="/dashboard" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                 Dashboard
               </Link>
-              <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
-                New Petition
-              </Link>
+              {/* Only show New Petition for CLAIMANT role */}
+              {user?.role === 'CLAIMANT' && (
+                <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
+                  New Petition
+                </Link>
+              )}
               {isAdmin && (
                 <Link href="/admin" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                   Admin

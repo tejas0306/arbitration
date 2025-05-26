@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import ArbitrationForm from '@/components/arbitration-form';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import ProtectedRoute from '@/components/protected-route';
 
 export default function ArbitrationFormPage() {
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const draftId = searchParams?.get('draftId');
   const petitionId = searchParams?.get('petitionId');
@@ -22,6 +24,28 @@ export default function ArbitrationFormPage() {
       setTitle('Arbitration Petition Form');
     }
   }, [draftId, petitionId]);
+
+  // Restrict access to CLAIMANT role only
+  if (session && session.user?.role !== 'CLAIMANT') {
+    return (
+      <ProtectedRoute>
+        <Header />
+        <main className="container mx-auto py-8 px-4">
+          <div className="max-w-md mx-auto bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <div className="text-red-500 text-4xl mb-4">🚫</div>
+            <h2 className="text-xl font-semibold text-red-800 mb-2">Access Restricted</h2>
+            <p className="text-red-700 mb-4">
+              The Arbitration Request Form is only available to Claimants.
+            </p>
+            <p className="text-sm text-red-600">
+              Your role: <span className="font-medium">{session.user.role}</span>
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>

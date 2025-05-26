@@ -25,10 +25,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  
+  // Ensure we're on the client side before accessing localStorage
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   // Check if user is authenticated on initial load
   useEffect(() => {
+    if (!mounted) return // Don't run until mounted on client
+    
     const checkAuth = async () => {
       try {
         setIsLoading(true)
@@ -98,10 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     checkAuth()
-  }, [])
+  }, [mounted])
   
   // Login function
   const login = async (email: string, password: string) => {
+    if (!mounted) return // Don't run until mounted on client
+    
     setIsLoading(true)
     try {
       const response = await auth.login({email, password})
@@ -122,6 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Logout function
   const logout = () => {
+    if (!mounted) return // Don't run until mounted on client
+    
     auth.logout()
     setUser(null)
     router.push('/auth/login')
@@ -129,6 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Register function
   const register = async (userData: any) => {
+    if (!mounted) return // Don't run until mounted on client
+    
     setIsLoading(true)
     try {
       const response = await auth.register(userData)
@@ -151,8 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider 
       value={{ 
         user, 
-        isLoading, 
-        isAuthenticated: !!user,
+        isLoading: isLoading || !mounted, // Keep loading until mounted and auth check complete
+        isAuthenticated: mounted && !!user, // Only consider authenticated if mounted and user exists
         login,
         logout,
         register

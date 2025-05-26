@@ -18,7 +18,13 @@ export default function DashboardWorklist() {
       setLoading(true)
       setError(null)
       
+      console.log('🐛 DEBUG: About to fetch cases from API')
       const casesData = await api.arbitration.getAll()
+      console.log('🐛 DEBUG: Received cases data:', {
+        count: casesData.length,
+        firstCaseUserId: casesData[0]?.userId,
+        allUserIds: [...new Set(casesData.map(c => c.userId))]
+      })
       
       // Transform data to match our required format if needed
       const formattedCases: ArbitrationCase[] = casesData.map((caseData: any) => {

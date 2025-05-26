@@ -200,8 +200,73 @@ export class ArbitrationController {
   }
 
   @Get('cases')
-  async findAll() {
-    return this.arbitrationService.findAll();
+  async findAll(@Req() req) {
+    try {
+      console.log('🔧🔧🔧 ARBITRATION CONTROLLER FINDALL METHOD CALLED 🔧🔧🔧');
+      console.log('🔧 Raw request user object:', JSON.stringify(req.user, null, 2));
+      console.log('🔧 User ID extracted:', req.user?.id);
+      console.log('🔧 User ID type:', typeof req.user?.id);
+      console.log('🔧 User email:', req.user?.email);
+      console.log('🔧 User role:', req.user?.role);
+      
+      if (!req.user || !req.user.id) {
+        console.log('🔧 ERROR: No user or user ID found in request');
+        throw new Error('Authentication required. User not found in request.');
+      }
+      
+      const userId = req.user.id;
+      console.log('🔧 Using userId for filtering:', userId);
+      this.logger.log(`🔧 FIXED CONTROLLER - Fetching cases for user ${userId}`);
+      
+      // Return only cases where the user is claimant or respondent (excluding drafts)
+      const result = await this.arbitrationService.findUserCases(userId);
+      console.log('🔧 Service returned:', result.length, 'cases');
+      console.log('🔧 First case userId (if any):', result[0]?.userId);
+      console.log('🔧 All case userIds:', result.map(c => c.userId));
+      this.logger.log(`🔧 CONTROLLER RETURNING ${result.length} cases to frontend`);
+      return result;
+    } catch (error) {
+      console.log('🔧 ERROR in findAll:', error.message);
+      this.logger.error(`Error fetching user cases: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Get('debug/cases')
+  async debugCases(@Req() req) {
+    try {
+      if (!req.user || !req.user.id) {
+        throw new Error('Authentication required. User not found in request.');
+      }
+      
+      const userId = req.user.id;
+      this.logger.log(`🧪 DEBUG: User ID is ${userId}`);
+      
+      // Get all cases for comparison
+      const allCases = await this.arbitrationService.findAll();
+      const userCases = await this.arbitrationService.findUserCases(userId);
+      
+      return {
+        authenticatedUserId: userId,
+        totalCasesInDB: allCases.length,
+        userSpecificCases: userCases.length,
+        allCasesPreview: allCases.slice(0, 3).map(c => ({
+          id: c.id,
+          userId: c.userId,
+          isDraft: c.isDraft,
+          status: c.status
+        })),
+        userCasesPreview: userCases.slice(0, 3).map(c => ({
+          id: c.id,
+          userId: c.userId,
+          isDraft: c.isDraft,
+          status: c.status
+        }))
+      };
+    } catch (error) {
+      this.logger.error(`Debug error: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   @Get('drafts')

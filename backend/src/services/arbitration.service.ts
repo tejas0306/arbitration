@@ -294,9 +294,24 @@ export class ArbitrationService {
 
   async findAll() {
     return this.prisma.arbitration.findMany({
-      where: { isDraft: false },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { lastEditedAt: 'desc' },
     });
+  }
+
+  async findUserCases(userId: string) {
+    console.log('🔧 ArbitrationService.findUserCases called for user:', userId);
+    
+    // Find cases where user is claimant (owner) and exclude drafts
+    const cases = await this.prisma.arbitration.findMany({
+      where: {
+        userId: userId,
+        isDraft: false, // Exclude draft cases
+      },
+      orderBy: { lastEditedAt: 'desc' },
+    });
+    
+    console.log(`🔧 Found ${cases.length} submitted cases for user ${userId}`);
+    return cases;
   }
 
   async findUserDrafts(userId: string) {

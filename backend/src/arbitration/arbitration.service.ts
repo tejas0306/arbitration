@@ -70,8 +70,15 @@ export class ArbitrationService {
   }
 
   async getCasesByUser(userId: string, filters: any) {
+    console.log('🔍 ArbitrationService.getCasesByUser called with:', {
+      userId,
+      filters,
+      userIdType: typeof userId
+    });
+
     const query = this.arbitrationCaseRepository.createQueryBuilder('case')
-      .where('case.claimantId = :userId OR case.respondentId = :userId', { userId });
+      .where('(case.claimantId = :userId OR case.respondentId = :userId)', { userId })
+      .andWhere('case.status != :draftStatus', { draftStatus: 'DRAFT' }); // Exclude drafts
 
     if (filters.status) {
       query.andWhere('case.status = :status', { status: filters.status });
@@ -81,7 +88,14 @@ export class ArbitrationService {
       query.andWhere('case.category = :category', { category: filters.category });
     }
 
-    return query.getMany();
+    const results = await query.getMany();
+    console.log('🔍 ArbitrationService.getCasesByUser results:', {
+      userId,
+      resultsCount: results.length,
+      resultIds: results.map(r => ({ id: r.id, claimantId: r.claimantId, respondentId: r.respondentId, status: r.status }))
+    });
+
+    return results;
   }
 
   async getCaseById(id: string) {
@@ -178,5 +192,12 @@ export class ArbitrationService {
     }
 
     return draft;
+  }
+
+  async getAllCasesForDebug() {
+    console.log('🧪 getAllCasesForDebug called - returning all cases');
+    return this.arbitrationCaseRepository.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 }

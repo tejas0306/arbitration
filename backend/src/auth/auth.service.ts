@@ -34,6 +34,12 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
+    // Prevent internal roles from being registered through public API
+    const internalRoles = ['ADMIN', 'CASE_MANAGER', 'TEAM_MEMBER'];
+    if (internalRoles.includes(registerDto.role)) {
+      throw new UnauthorizedException('This role cannot be registered through the public registration API. Please contact an administrator.');
+    }
+
     // Check if user already exists
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     if (existingUser) {

@@ -90,6 +90,34 @@ npm run start
 - Upload supporting documents
 - Dashboard view of all cases and drafts
 
+## 📚 Documentation
+
+Below are all key documentation files for this project:
+
+### General & Deployment
+- [SERVER_DEPLOYMENT_GUIDE.md](SERVER_DEPLOYMENT_GUIDE.md): Complete server deployment guide (dev/staging)
+- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md): Overview of deployment options
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md): Step-by-step deployment checklist
+- [DEPLOY_TO_VERCEL.md](DEPLOY_TO_VERCEL.md): Vercel-specific deployment guide
+- [FIX_RENDER_DEPLOYMENT.md](FIX_RENDER_DEPLOYMENT.md): Render deployment troubleshooting
+- [SERVER_COMPONENT_FIXES.md](SERVER_COMPONENT_FIXES.md): Server component fixes for Next.js
+- [DATABASE_SETUP.md](DATABASE_SETUP.md): Database setup and migration guide
+- [FINAL_FIX_SUMMARY.md](FINAL_FIX_SUMMARY.md): Summary of final fixes
+- [REAL_FIX_FOUND.md](REAL_FIX_FOUND.md): Real fix found summary
+- [AUTH_DEBUG_INSTRUCTIONS.md](AUTH_DEBUG_INSTRUCTIONS.md): Debugging authentication
+- [DATA_ISOLATION_TEST.md](DATA_ISOLATION_TEST.md): Data isolation test notes
+- [ROLE_TESTING_GUIDE.md](ROLE_TESTING_GUIDE.md): Guide for testing role-based features
+- [ROLE_SPECIFIC_FORMS_IMPLEMENTATION.md](ROLE_SPECIFIC_FORMS_IMPLEMENTATION.md): Implementation details for role-specific forms
+- [TEAM_MEMBER_INTEGRATION.md](TEAM_MEMBER_INTEGRATION.md): Team member integration guide
+
+### Backend Specific
+- [backend/DEPLOY_TO_RENDER.md](backend/DEPLOY_TO_RENDER.md): Render-specific backend deployment
+- [backend/ADMIN_USER_MANAGEMENT.md](backend/ADMIN_USER_MANAGEMENT.md): Admin user management documentation
+
+### Other
+- [Arbitration Portal API.postman_collection.json](Arbitration%20Portal%20API.postman_collection.json): Postman API collection for testing endpoints
+- [Legal_AI_Project_FRS_Arbitration Functionality v1.0 260425.docx](Legal_AI_Project_FRS_Arbitration%20Functionality%20v1.0%20260425.docx): Functional requirements specification (FRS)
+
 ## Troubleshooting
 
 ### Common Issues

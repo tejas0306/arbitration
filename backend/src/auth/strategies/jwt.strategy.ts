@@ -13,6 +13,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    return { id: payload.sub, email: payload.email, role: payload.role };
+    console.log('🔑🔑🔑 JWT STRATEGY VALIDATE CALLED 🔑🔑🔑');
+    console.log('🔑 JWT payload received:', JSON.stringify(payload, null, 2));
+    console.log('🔑 Extracting user ID from payload.sub:', payload.sub);
+    console.log('🔑 User email from payload:', payload.email);
+    console.log('🔑 User role from payload:', payload.role);
+    
+    const user = { id: payload.sub, email: payload.email, role: payload.role };
+    console.log('🔑 Returning user object:', JSON.stringify(user, null, 2));
+    return user;
   }
 }

@@ -50,6 +50,9 @@ export default function Header() {
                 <Link href="/dashboard/my-cases" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
                   My Cases
                 </Link>
+                <Link href="/support" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
+                  Support
+                </Link>
                 <Link href="/profile" className="text-white hover:text-indigo-200 transition-colors px-2 py-1 flex items-center space-x-1">
                   <User className="h-4 w-4" />
                   <span>Profile</span>
@@ -64,9 +67,12 @@ export default function Header() {
               <Link href="/dashboard" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                 Dashboard
               </Link>
-              <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
-                New Petition
-              </Link>
+              {/* Only show New Petition for CLAIMANT role */}
+              {user?.role === 'CLAIMANT' && (
+                <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
+                  New Petition
+                </Link>
+              )}
               {isAdmin && (
                 <Link href="/admin" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                   Admin

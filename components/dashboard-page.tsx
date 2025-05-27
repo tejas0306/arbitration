@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import ProtectedRoute from '@/components/protected-route';
@@ -10,6 +11,7 @@ import { toast } from 'sonner';
 import DashboardWorklist from '@/components/dashboard-worklist';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [userData, setUserData] = useState(null);
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,13 +31,30 @@ export default function DashboardPage() {
         const user = await api.auth.getCurrentUser();
         setUserData(user);
         console.log('User data fetched successfully');
+        
+        // Redirect users to their role-specific dashboards
+        if (user.role === 'ADMIN') {
+          router.push('/admin/dashboard');
+          return;
+        } else if (user.role === 'CASE_MANAGER') {
+          router.push('/case-manager/dashboard');
+          return;
+        } else if (user.role === 'ARBITRATOR') {
+          router.push('/arbitrator/dashboard');
+          return;
+        } else if (user.role === 'TEAM_MEMBER') {
+          router.push('/team-member/dashboard');
+          return;
+        }
+        // CLAIMANT and RESPONDENT stay on this dashboard
+        
       } catch (userErr) {
         console.error('Error fetching user data:', userErr);
         toast.error('Unable to load your profile information');
         // Continue execution to try loading other data
       }
 
-      // Fetch drafts
+      // Fetch drafts (only for CLAIMANT/RESPONDENT)
       try {
         console.log('Fetching draft submissions...');
         const draftsData = await api.arbitration.getDrafts();
@@ -65,6 +84,42 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Show role-specific navigation for different users
+  const getRoleSpecificContent = (role) => {
+    switch (role) {
+      case 'CLAIMANT':
+        return {
+          title: 'Claimant Dashboard',
+          subtitle: 'Manage your arbitration cases and submissions.',
+          quickActions: [
+            { label: 'Submit New Case', href: '/arbitration/new', icon: '➕' },
+            { label: 'View My Cases', href: '/arbitration/cases', icon: '📁' },
+            { label: 'Payment History', href: '/payments', icon: '💳' },
+            { label: 'Get Support', href: '/support', icon: '🆘' }
+          ]
+        };
+      case 'RESPONDENT':
+        return {
+          title: 'Respondent Dashboard',
+          subtitle: 'Respond to cases and manage your submissions.',
+          quickActions: [
+            { label: 'Response Forms', href: '/respondent/response-form', icon: '📝' },
+            { label: 'View Notices', href: '/notices', icon: '📩' },
+            { label: 'Payment History', href: '/payments', icon: '💳' },
+            { label: 'Get Support', href: '/support', icon: '🆘' }
+          ]
+        };
+      default:
+        return {
+          title: 'Dashboard',
+          subtitle: 'Manage your arbitration activities.',
+          quickActions: [
+            // No default actions - role-specific dashboards should be used
+          ]
+        };
+    }
+  };
 
   if (loading) {
     return (
@@ -103,6 +158,8 @@ export default function DashboardPage() {
     );
   }
 
+  const roleContent = userData ? getRoleSpecificContent(userData.role) : getRoleSpecificContent('DEFAULT');
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen flex flex-col">
@@ -110,28 +167,50 @@ export default function DashboardPage() {
         <main className="flex-grow container mx-auto px-4 py-8">
           <div className="max-w-5xl mx-auto">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
-              <h1 className="text-3xl font-bold text-indigo-800 mb-4 md:mb-0">Dashboard</h1>
-              <Link 
-                href="/arbitration/new" 
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out inline-flex items-center shadow-md"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                New Arbitration Request
-              </Link>
+              <h1 className="text-3xl font-bold text-indigo-800 mb-4 md:mb-0">{roleContent.title}</h1>
+              {/* Only show New Arbitration Request for CLAIMANT role */}
+              {userData?.role === 'CLAIMANT' && (
+                <Link 
+                  href="/arbitration/new" 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out inline-flex items-center shadow-md"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  New Arbitration Request
+                </Link>
+              )}
             </div>
 
             {userData && (
               <div className="bg-indigo-50 rounded-lg p-4 mb-6 border border-indigo-100">
                 <h2 className="text-lg font-medium text-indigo-800 mb-2">Welcome, {userData.name}</h2>
-                <p className="text-gray-600">
-                  {userData.role === 'ADMIN' 
-                    ? 'You have administrator access to the arbitration portal.' 
-                    : 'Manage your arbitration cases and draft submissions below.'}
-                </p>
+                <p className="text-gray-600">{roleContent.subtitle}</p>
+                <div className="mt-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                    {userData.role.replace('_', ' ')} Account
+                  </span>
+                </div>
               </div>
             )}
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {roleContent.quickActions.map((action, index) => (
+                <Link
+                  key={index}
+                  href={action.href}
+                  className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 hover:border-indigo-300"
+                >
+                  <div className="flex items-center">
+                    <span className="text-2xl mr-3">{action.icon}</span>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900">{action.label}</h3>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
 
             <div className="mb-6">
               <div className="border-b border-gray-200">
@@ -154,8 +233,32 @@ export default function DashboardPage() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Saved Drafts
+                    Saved Drafts ({drafts.length})
                   </button>
+                  {userData?.role === 'CLAIMANT' && (
+                    <button
+                      onClick={() => setActiveTab('payments')}
+                      className={`ml-8 py-2 px-4 border-b-2 font-medium text-sm ${
+                        activeTab === 'payments'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Payments
+                    </button>
+                  )}
+                  {userData?.role === 'RESPONDENT' && (
+                    <button
+                      onClick={() => setActiveTab('notices')}
+                      className={`ml-8 py-2 px-4 border-b-2 font-medium text-sm ${
+                        activeTab === 'notices'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Notices
+                    </button>
+                  )}
                 </nav>
               </div>
             </div>

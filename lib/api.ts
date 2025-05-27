@@ -399,9 +399,24 @@ export const arbitrationApi = {
 
   getAll: async () => {
     try {
+      // Debug current user info
+      const token = localStorage.getItem('auth_token');
+      const user = localStorage.getItem('user');
+      console.log('🐛 DEBUG: Making cases request with:', {
+        hasToken: !!token,
+        tokenPreview: token?.substring(0, 20) + '...',
+        user: user ? JSON.parse(user) : null
+      });
+      
       console.log('Fetching all cases from:', `${API_URL}/api/arbitration/cases`);
       const response = await apiClient.get('/api/arbitration/cases');
       console.log('Got cases response:', response.data ? 'SUCCESS' : 'EMPTY');
+      console.log('🐛 DEBUG: Response data preview:', {
+        count: response.data?.length,
+        firstCaseUserId: response.data?.[0]?.userId,
+        allUserIds: [...new Set((response.data || []).map(c => c.userId))]
+      });
+      
       return response.data;
     } catch (error: any) {
       console.error('Error getting cases:', {
@@ -989,4 +1004,197 @@ export const api = {
       }
     }
   }
+};
+
+export const teamMemberApi = {
+  // Dashboard data - use case-manager endpoint since team members have access
+  getDashboard: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/dashboard');
+      return response.data;
+    } catch (error) {
+      console.error('Team member dashboard API error:', error);
+      throw error;
+    }
+  },
+
+  // Team members list
+  getTeamMembers: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/team/members');
+      return response.data;
+    } catch (error) {
+      console.error('Get team members API error:', error);
+      throw error;
+    }
+  },
+
+  // Team availability
+  getTeamAvailability: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/team/availability', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get team availability API error:', error);
+      throw error;
+    }
+  },
+
+  // Team performance
+  getTeamPerformance: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/team/performance', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get team performance API error:', error);
+      throw error;
+    }
+  },
+
+  // Get my cases (for team members)
+  getMyCases: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/cases/my', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get my cases API error:', error);
+      throw error;
+    }
+  },
+
+  // Notifications
+  getNotifications: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/notifications', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get notifications API error:', error);
+      throw error;
+    }
+  },
+
+  markNotificationRead: async (notificationId: string) => {
+    try {
+      const response = await apiClient.patch(`/case-manager/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Mark notification read API error:', error);
+      throw error;
+    }
+  },
+
+  markAllNotificationsRead: async () => {
+    try {
+      const response = await apiClient.post('/case-manager/notifications/mark-all-read');
+      return response.data;
+    } catch (error) {
+      console.error('Mark all notifications read API error:', error);
+      throw error;
+    }
+  },
+
+  // QA Reviews
+  getPendingQAReview: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/qa/pending-review');
+      return response.data;
+    } catch (error) {
+      console.error('Get pending QA review API error:', error);
+      throw error;
+    }
+  },
+
+  // Calendar and scheduling
+  getCalendar: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/calendar', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get calendar API error:', error);
+      throw error;
+    }
+  },
+
+  getUpcomingEvents: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/schedule/upcoming', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get upcoming events API error:', error);
+      throw error;
+    }
+  },
+
+  // Case notes
+  getCaseNotes: async (caseId: string) => {
+    try {
+      const response = await apiClient.get(`/case-manager/cases/${caseId}/notes`);
+      return response.data;
+    } catch (error) {
+      console.error('Get case notes API error:', error);
+      throw error;
+    }
+  },
+
+  createCaseNote: async (caseId: string, noteData: any) => {
+    try {
+      const response = await apiClient.post(`/case-manager/cases/${caseId}/notes`, noteData);
+      return response.data;
+    } catch (error) {
+      console.error('Create case note API error:', error);
+      throw error;
+    }
+  },
+
+  // Reports and analytics
+  getCaseFlowReport: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/reports/case-flow', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get case flow report API error:', error);
+      throw error;
+    }
+  },
+
+  getEfficiencyMetrics: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/reports/efficiency', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get efficiency metrics API error:', error);
+      throw error;
+    }
+  },
+
+  getSLACompliance: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/reports/sla-compliance', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get SLA compliance API error:', error);
+      throw error;
+    }
+  },
+
+  // Deadlines
+  getUpcomingDeadlines: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/deadlines/upcoming', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get upcoming deadlines API error:', error);
+      throw error;
+    }
+  },
+
+  getOverdueDeadlines: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/deadlines/overdue');
+      return response.data;
+    } catch (error) {
+      console.error('Get overdue deadlines API error:', error);
+      throw error;
+    }
+  },
 };

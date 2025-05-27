@@ -27,7 +27,17 @@ const nextConfig = {
       },
     ];
   },
-  experimental: {},
+  experimental: {
+    // Optimize hydration performance
+    optimizeCss: true,
+    // Enable experimental React features that help with hydration
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
+  // Reduce hydration mismatches by ensuring consistent rendering
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
   serverExternalPackages: ['@prisma/client']
 }
 

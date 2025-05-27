@@ -1,103 +1,113 @@
-// Mock API route to handle arbitration draft requests in development mode
-// This serves as a fallback when the backend service isn't available
-
+// API route to handle arbitration draft requests with proper authentication
 import { NextResponse } from 'next/server';
-import { mockDrafts } from '@/lib/mock-data';
 
-// This is a fallback route for development that serves mock data
-// The real backend should handle these requests in production
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
 export async function GET(req) {
-  console.log('🔶 Mock API - Getting all drafts');
-  console.log(`🔶 Current mock drafts: ${mockDrafts.length}`);
-  
-  // Ensure we have some mock data even if array is empty
-  if (mockDrafts.length === 0) {
-    mockDrafts.push({
-      id: 'test-draft-' + Date.now(),
-      title: 'Test Draft',
-      type: 'Commercial',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isDraft: true,
-      data: {
-        type: 'Commercial',
-        name: 'Test Company',
-        disputeDetails: {
-          disputeType: 'Commercial',
-          disputeAmount: '100000',
-          disputeDescription: 'Test dispute for development',
-        }
-      }
-    });
-    console.log('🔶 Added test draft for development');
-  }
-  
-  // Return mock data
-  return NextResponse.json(mockDrafts);
-}
-
-export async function POST(req) {
-  console.log('🔶 Mock API - Saving draft');
+  console.log('🔶 Draft API - Getting user-specific drafts');
   
   try {
-    // Parse the request body
-    const formData = await req.formData();
-    let id = formData.get('id');
-    const jsonData = formData.get('data');
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('authorization');
     
-    console.log(`🔶 Got form data - ID: ${id}, Data: ${jsonData ? 'present' : 'missing'}`);
+    if (!authHeader) {
+      console.log('🔶 Draft API - No authorization header found');
+      return NextResponse.json(
+        { error: 'Authorization required' },
+        { status: 401 }
+      );
+    }
     
-    // Create a draft object
-    const draftData = { 
-      id: id || (`draft-${Date.now()}`),
-      data: jsonData ? JSON.parse(jsonData) : {},
-    };
+    // Forward the request to the NestJS backend
+    const backendUrl = `${API_URL}/arbitration/draft`;
+    console.log(`🔶 Draft API - Forwarding to: ${backendUrl}`);
+    console.log('🔶 Draft API - Auth header present:', !!authHeader);
     
-    // Save the draft
-    const savedDraft = saveMockDraft(draftData);
+    const backendResponse = await fetch(backendUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
     
-    console.log('🔶 Mock API - Draft saved:', savedDraft.id);
+    if (!backendResponse.ok) {
+      console.log(`🔶 Draft API - Backend response error: ${backendResponse.status}`);
+      const errorText = await backendResponse.text();
+      console.log(`🔶 Draft API - Backend error details: ${errorText}`);
+      
+      return NextResponse.json(
+        { error: `Backend error: ${backendResponse.status}`, details: errorText },
+        { status: backendResponse.status }
+      );
+    }
     
-    // Return the saved draft
-    return NextResponse.json(savedDraft);
+    const draftsData = await backendResponse.json();
+    console.log(`🔶 Draft API - Successfully retrieved ${draftsData.length || 0} drafts for authenticated user`);
+    
+    return NextResponse.json(draftsData);
+    
   } catch (error) {
-    console.error('🔶 Mock API - Error saving draft:', error);
+    console.error('🔶 Draft API - Error getting drafts:', error);
     return NextResponse.json(
-      { error: 'Error saving draft', message: error.message },
+      { error: 'Internal server error', message: error.message },
       { status: 500 }
     );
   }
 }
 
-// Store drafts in memory (will be reset on server restart)
-const saveMockDraft = (draft) => {
-  // Generate an ID if not present
-  if (!draft.id) {
-    draft.id = `draft-${Date.now()}`;
-  }
+export async function POST(req) {
+  console.log('🔶 Draft API - Saving draft');
   
-  // Check if this draft already exists
-  const existingIndex = mockDrafts.findIndex(d => d.id === draft.id);
-  
-  if (existingIndex >= 0) {
-    // Update existing
-    mockDrafts[existingIndex] = {
-      ...mockDrafts[existingIndex],
-      ...draft,
-      updatedAt: new Date().toISOString()
-    };
-    return mockDrafts[existingIndex];
-  } else {
-    // Add new draft
-    const newDraft = {
-      ...draft,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      type: draft.data?.type || 'Default Type',
-      isDraft: true
-    };
-    mockDrafts.push(newDraft);
-    return newDraft;
+  try {
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('authorization');
+    
+    if (!authHeader) {
+      console.log('🔶 Draft API - No authorization header found');
+      return NextResponse.json(
+        { error: 'Authorization required' },
+        { status: 401 }
+      );
+    }
+    
+    // Forward the request to the NestJS backend
+    const backendUrl = `${API_URL}/arbitration/draft`;
+    console.log(`🔶 Draft API - Forwarding draft save to: ${backendUrl}`);
+    
+    // Get the request body (FormData)
+    const formData = await req.formData();
+    
+    const backendResponse = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader
+      },
+      body: formData
+    });
+    
+    if (!backendResponse.ok) {
+      console.log(`🔶 Draft API - Backend save error: ${backendResponse.status}`);
+      const errorText = await backendResponse.text();
+      console.log(`🔶 Draft API - Backend error details: ${errorText}`);
+      
+      return NextResponse.json(
+        { error: `Backend error: ${backendResponse.status}`, details: errorText },
+        { status: backendResponse.status }
+      );
+    }
+    
+    const savedDraft = await backendResponse.json();
+    console.log(`🔶 Draft API - Successfully saved draft via backend`);
+    
+    return NextResponse.json(savedDraft);
+    
+  } catch (error) {
+    console.error('🔶 Draft API - Error saving draft:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error.message },
+      { status: 500 }
+    );
   }
-}; 
+} 

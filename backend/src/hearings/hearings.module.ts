@@ -1,13 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { HearingsController } from './hearings.controller';
 import { HearingsService } from './hearings.service';
-import { Hearing } from './entities/hearing.entity';
+import { PrismaService } from '../services/prisma.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Hearing])],
   controllers: [HearingsController],
-  providers: [HearingsService],
-  exports: [HearingsService],
+  providers: [HearingsService, PrismaService],
 })
 export class HearingsModule {}

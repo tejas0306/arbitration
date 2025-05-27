@@ -24,6 +24,12 @@ export class AuthService {
       bio
     } = registerDto;
 
+    // Prevent internal roles from being registered through public API
+    const internalRoles = ['ADMIN', 'CASE_MANAGER', 'TEAM_MEMBER'];
+    if (internalRoles.includes(role)) {
+      throw new ConflictException('This role cannot be registered through the public registration API. Please contact an administrator.');
+    }
+
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email },

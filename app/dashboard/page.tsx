@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import DashboardWorklist from '@/components/dashboard-worklist';
-import { User, Settings, FileText, PlusCircle } from 'lucide-react';
+import { User, Settings, FileText, PlusCircle, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function DashboardPage() {
@@ -127,15 +127,15 @@ export default function DashboardPage() {
             </Card>
           </Link>
 
-          <Link href="/settings">
+          <Link href="/support">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-orange-200 hover:border-orange-300">
               <CardContent className="flex items-center space-x-4 p-6">
                 <div className="bg-orange-100 p-3 rounded-full">
-                  <Settings className="h-6 w-6 text-orange-600" />
+                  <HelpCircle className="h-6 w-6 text-orange-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Settings</h3>
-                  <p className="text-sm text-gray-600">Account settings</p>
+                  <h3 className="font-semibold text-gray-900">Support</h3>
+                  <p className="text-sm text-gray-600">Get help & support</p>
                 </div>
               </CardContent>
             </Card>

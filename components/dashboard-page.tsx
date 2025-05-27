@@ -96,7 +96,7 @@ export default function DashboardPage() {
             { label: 'Submit New Case', href: '/arbitration/new', icon: '➕' },
             { label: 'View My Cases', href: '/arbitration/cases', icon: '📁' },
             { label: 'Payment History', href: '/payments', icon: '💳' },
-            { label: 'Submit Feedback', href: '/feedback', icon: '⭐' }
+            { label: 'Get Support', href: '/support', icon: '🆘' }
           ]
         };
       case 'RESPONDENT':
@@ -107,7 +107,7 @@ export default function DashboardPage() {
             { label: 'Response Forms', href: '/respondent/response-form', icon: '📝' },
             { label: 'View Notices', href: '/notices', icon: '📩' },
             { label: 'Payment History', href: '/payments', icon: '💳' },
-            { label: 'Submit Feedback', href: '/feedback', icon: '⭐' }
+            { label: 'Get Support', href: '/support', icon: '🆘' }
           ]
         };
       default:

@@ -1,11 +1,16 @@
 import { Metadata } from 'next';
-import AdminDashboardPage from '@/components/admin-dashboard-page';
+import DashboardLayout from '@/components/admin/dashboard-layout'
+import DashboardHome from '@/components/admin/dashboard-home'
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard | Arbitration Portal',
-  description: 'Manage users and arbitration cases',
+  title: 'Admin Dashboard - Arbitration Portal',
+  description: 'Administrative dashboard for managing arbitration cases, users, and system configuration'
 };
 
-export default function AdminPage() {
-  return <AdminDashboardPage />;
+export default function AdminDashboard() {
+  return (
+    <DashboardLayout>
+      <DashboardHome />
+    </DashboardLayout>
+  )
 } 

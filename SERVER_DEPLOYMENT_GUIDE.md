@@ -197,14 +197,4 @@ jobs:
 - **Database errors:** Check connection string and PostgreSQL status
 - **.env issues:** Ensure all required variables are set
 
-## Production Notes
 
-- Use strong secrets and passwords
-- Enable SSL and proper CORS
-- Use PM2 or Docker for process management
-- Harden security and monitoring
-- Scale with multiple instances and load balancer
-
----
-
-**This guide is for development/staging. For production, see the original guide or consult your DevOps team.** 

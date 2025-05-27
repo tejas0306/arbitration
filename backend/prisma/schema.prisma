@@ -15,6 +15,56 @@ enum UserRole {
   RESPONDENT
   ARBITRATOR
   ADMIN
+  CASE_MANAGER
+  TEAM_MEMBER
+}
+
+enum ArbitratorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_APPROVAL
+  SUSPENDED
+}
+
+enum CaseAssignmentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum HearingType {
+  VIRTUAL
+  PHYSICAL
+}
+
+enum HearingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+enum NotificationType {
+  SYSTEM
+  REMINDER
+  ALERT
+  MESSAGE
+  ESCALATION
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum WorkflowStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  ESCALATED
 }
 
 model User {
@@ -24,16 +74,145 @@ model User {
   name         String
   role         UserRole @default(CLAIMANT)
   organization String?
+  
   // Fields specific to arbitrators
   expertise    String?
   qualifications String?
   experience   Int?     // Years of experience
   bio          String?  // Professional bio
+  languages    String[] // Languages spoken
+  location     String?  // Preferred location
+  hourlyRate   Decimal? // Hourly rate
+  
+  // Arbitrator specific status
+  arbitratorStatus ArbitratorStatus?
+  
+  // User status fields for admin management
+  isActive     Boolean  @default(true)
+  isSuspended  Boolean  @default(false)
+  suspendedUntil DateTime?
+  suspensionReason String?
+  
+  // Case Manager fields
+  managedCases String[] // Case IDs this manager is responsible for
+  teamMembers  String[] // User IDs of team members
+  
   // Common fields
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  // Add relation to arbitrations
+  
+  // Relations
   arbitrations Arbitration[]
+  caseAssignments CaseAssignment[]
+  hearings     Hearing[]
+  awards       Award[]
+  availability ArbitratorAvailability[]
+  feedback     Feedback[]
+  
+  // Case Manager relations
+  notificationsSent Notification[] @relation("NotificationSender")
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  caseNotes    CaseNote[]
+  reminders    Reminder[]
+  qaReviews    QAReview[]
+}
+
+model ArbitratorAvailability {
+  id           String   @id @default(uuid())
+  arbitratorId String
+  arbitrator   User     @relation(fields: [arbitratorId], references: [id])
+  
+  dayOfWeek    Int      // 0 = Sunday, 1 = Monday, etc.
+  startTime    String   // "09:00"
+  endTime      String   // "17:00"
+  isAvailable  Boolean  @default(true)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model CaseAssignment {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator   User     @relation(fields: [arbitratorId], references: [id])
+  
+  status       CaseAssignmentStatus @default(PENDING)
+  assignedAt   DateTime @default(now())
+  respondedAt  DateTime?
+  notes        String?  // Arbitrator's notes when accepting/rejecting
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Hearing {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator   User     @relation(fields: [arbitratorId], references: [id])
+  
+  title        String
+  description  String?
+  scheduledDate DateTime
+  duration     Int      // Duration in minutes
+  type         HearingType
+  status       HearingStatus @default(SCHEDULED)
+  
+  // For virtual hearings
+  meetingLink  String?
+  meetingId    String?
+  
+  // For physical hearings
+  location     String?
+  address      String?
+  
+  // Hearing notes and outcomes
+  notes        String?
+  outcome      String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Award {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator   User     @relation(fields: [arbitratorId], references: [id])
+  
+  title        String
+  content      String   // Award content/decision
+  filePath     String?  // Path to uploaded award document
+  
+  issuedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Feedback {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator   User     @relation(fields: [arbitratorId], references: [id])
+  reviewerId   String   // User who gave the feedback
+  
+  rating       Int      // 1-5 rating
+  comments     String?
+  
+  // Admin moderation fields
+  isApproved   Boolean  @default(true)
+  isFlagged    Boolean  @default(false)
+  moderatedBy  String?
+  moderatedAt  DateTime?
+  moderationNotes String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Arbitration {
@@ -60,13 +239,265 @@ model Arbitration {
   disputeDetails     Json
   documents         Json?
   status            String   @default("pending")
+  
   // New fields for editable petitions
   isDraft           Boolean  @default(true)
   version           Int      @default(1)
   lastEditedAt      DateTime @default(now())
+  
+  // Additional form fields for comprehensive data storage
+  managerDetails    Json?
+  prayers           Json?
+  payment           Json?
+  arguments         Json?
+  formData          Json?    // Store complete form state as JSON
+  
+  // Admin oversight fields
+  reviewStatus      String?  @default("pending") // pending, approved, rejected
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  dueDate           DateTime?
+  priority          String?  @default("medium") // low, medium, high, urgent
+  isArchived        Boolean  @default(false)
+  archivedBy        String?
+  archivedAt        DateTime?
+  archiveReason     String?
+  
+  // Case Manager fields
+  workflowStatus    WorkflowStatus @default(PENDING)
+  assignedManagerId String?
+  estimatedCompletion DateTime?
+  slaDeadline       DateTime?
+  
   // Add relation to user
   userId            String
   user              User     @relation(fields: [userId], references: [id])
+  
+  // Arbitrator relations
+  assignments       CaseAssignment[]
+  hearings          Hearing[]
+  awards            Award[]
+  feedback          Feedback[]
+  
+  // Admin relations
+  auditLogs         AuditLog[]
+  caseTimelines     CaseTimeline[]
+  
+  // Case Manager relations
+  notifications     Notification[]
+  caseNotes         CaseNote[]
+  reminders         Reminder[]
+  qaReviews         QAReview[]
+  
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model CaseTimeline {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  
+  milestone    String   // "submission", "review", "arbitrator_assignment", "hearing", "award"
+  title        String
+  description  String?
+  dueDate      DateTime
+  completedAt  DateTime?
+  isCompleted  Boolean  @default(false)
+  
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  
+  // Entity information
+  entityType   String   // "case", "user", "arbitrator", etc.
+  entityId     String
+  case         Arbitration? @relation(fields: [entityId], references: [id])
+  
+  // Action details
+  action       String   // "created", "updated", "deleted", "assigned", etc.
+  details      Json     // Additional context
+  oldValue     Json?    // Previous state
+  newValue     Json?    // New state
+  
+  // User who performed the action
+  performedBy  String
+  userAgent    String?
+  ipAddress    String?
+  
+  createdAt    DateTime @default(now())
+}
+
+model Announcement {
+  id           String   @id @default(uuid())
+  title        String
+  content      String
+  type         String   @default("info") // info, warning, error, success
+  priority     String   @default("medium") // low, medium, high
+  
+  // Targeting
+  targetRoles  String[] // Which roles can see this announcement
+  isActive     Boolean  @default(true)
+  
+  // Scheduling
+  publishAt    DateTime @default(now())
+  expiresAt    DateTime?
+  
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SystemSettings {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  value        Json
+  description  String?
+  category     String   @default("general")
+  
+  updatedBy    String
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+}
+
+// Case Manager specific models
+
+model Notification {
+  id           String   @id @default(uuid())
+  title        String
+  message      String
+  type         NotificationType @default(SYSTEM)
+  status       NotificationStatus @default(UNREAD)
+  
+  // Targeting
+  senderId     String
+  sender       User     @relation("NotificationSender", fields: [senderId], references: [id])
+  recipientId  String
+  recipient    User     @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  
+  // Case association
+  caseId       String?
+  case         Arbitration? @relation(fields: [caseId], references: [id])
+  
+  // Metadata
+  metadata     Json?    // Additional data
+  actionUrl    String?  // URL for action button
+  
+  // Scheduling
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  readAt       DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model CaseNote {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  
+  title        String?
+  content      String
+  isPrivate    Boolean  @default(false) // Only visible to case manager team
+  tags         String[] // For categorization
+  
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id])
+  
+  attachments  String[] // File paths
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Reminder {
+  id           String   @id @default(uuid())
+  title        String
+  message      String
+  
+  // Targeting
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  
+  // Case association
+  caseId       String?
+  case         Arbitration? @relation(fields: [caseId], references: [id])
+  
+  // Scheduling
+  scheduledFor DateTime
+  sentAt       DateTime?
+  isRecurring  Boolean  @default(false)
+  recurringPattern String? // "daily", "weekly", "monthly"
+  
+  // Status
+  isActive     Boolean  @default(true)
+  isCompleted  Boolean  @default(false)
+  
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model NotificationTemplate {
+  id           String   @id @default(uuid())
+  name         String
+  subject      String
+  body         String
+  type         NotificationType
+  
+  // Variables for templating
+  variables    String[] // ["caseNumber", "userName", etc.]
+  
+  isActive     Boolean  @default(true)
+  
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model WorkflowRule {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  
+  // Trigger conditions
+  triggerEvent String   // "case_created", "deadline_approaching", etc.
+  conditions   Json     // Condition logic
+  
+  // Actions
+  actions      Json     // Actions to perform
+  
+  isActive     Boolean  @default(true)
+  
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model QAReview {
+  id           String   @id @default(uuid())
+  caseId       String
+  case         Arbitration @relation(fields: [caseId], references: [id])
+  
+  reviewerId   String
+  reviewer     User     @relation(fields: [reviewerId], references: [id])
+  
+  score        Int      // 1-10 quality score
+  feedback     String
+  recommendations String[]
+  
+  // Review criteria
+  criteria     Json     // Structured review criteria and scores
+  
+  // Status
+  isCompleted  Boolean  @default(true)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 } 

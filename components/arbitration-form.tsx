@@ -1357,9 +1357,9 @@ function ArbitrationForm() {
       setIsLoadingDrafts(true);
       
       // Get the specific draft by ID
-      console.log(`Attempting to load draft with ID: ${draftId}`);
+      console.log(`🔥 DRAFT LOADING: Attempting to load draft with ID: ${draftId}`);
       const draftResponse = await arbitrationApi.getDraft(draftId);
-      console.log("Draft API response:", draftResponse);
+      console.log("🔥 DRAFT LOADING: Draft API response:", draftResponse);
       
       // The response might be directly the draft or it might contain the draft in a property
       // Try to find the actual draft data in common response formats
@@ -1381,52 +1381,92 @@ function ArbitrationForm() {
       
       // Check if we found a draft
       if (!draft) {
-        console.error("Could not find valid draft data in response:", draftResponse);
+        console.error("🔥 DRAFT LOADING: Could not find valid draft data in response:", draftResponse);
         toast.error('Failed to load draft: Invalid draft format');
         return;
       }
       
-      console.log("Found draft data:", draft);
+      console.log("🔥 DRAFT LOADING: Found draft data:", draft);
+      console.log("🔥 DRAFT LOADING: Draft has formData:", !!draft.formData);
+      console.log("🔥 DRAFT LOADING: Draft keys:", Object.keys(draft));
       
-      // Now extract the actual form data
-      // The data could be directly in the draft object or in a nested data property
-      let formData = null;
-      if (draft.data) {
-        formData = draft.data;
-      } else if (draft.formData) {
-        formData = draft.formData;
-      } else if (draft.claimant || draft.respondents) {
-        // The draft object itself might contain the form data
-        formData = draft;
+      // Check if we have the new formData structure, otherwise fallback to reconstruction
+      let completeFormData;
+      
+      if (draft.formData && typeof draft.formData === 'object') {
+        // Use the stored formData structure (new format)
+        console.log("🔥 DRAFT LOADING: Using stored formData structure");
+        console.log("🔥 DRAFT LOADING: formData keys:", Object.keys(draft.formData));
+        
+        // Log each section to understand the structure
+        if (draft.formData.claimant) {
+          console.log("🔥 DRAFT LOADING: Claimant data found:", draft.formData.claimant);
+        } else {
+          console.log("🔥 DRAFT LOADING: No claimant data in formData");
+        }
+        
+        completeFormData = {
+          claimant: draft.formData.claimant || initialClaimant,
+          additionalClaimants: draft.formData.additionalClaimants || [initialAdditionalClaimant],
+          managerDetails: draft.formData.managerDetails || initialManagerDetails,
+          respondents: draft.formData.respondents || [initialRespondent],
+          arbitrationAgreement: draft.formData.arbitrationAgreement || initialArbitrationAgreement,
+          disputeDetails: draft.formData.disputeDetails || initialDisputeDetails,
+          prayers: draft.formData.prayers || initialPrayers,
+          documents: draft.formData.documents || initialDocuments,
+          payment: draft.formData.payment || initialPayment,
+          arguments: draft.formData.arguments || initialArguments,
+        };
+      } else {
+        // Fallback: reconstruct from flattened data (old format)
+        console.log("🔥 DRAFT LOADING: Reconstructing from flattened data structure");
+        console.log("🔥 DRAFT LOADING: Available fields:", Object.keys(draft));
+        
+        const reconstructedFormData = {
+          claimant: {
+            type: draft.type || initialClaimant.type,
+            name: draft.name || initialClaimant.name,
+            pincode: draft.pincode || initialClaimant.pincode,
+            address1: draft.address1 || initialClaimant.address1,
+            address2: draft.address2 || initialClaimant.address2,
+            city: draft.city || initialClaimant.city,
+            district: draft.district || initialClaimant.district,
+            state: draft.state || initialClaimant.state,
+            country: draft.country || initialClaimant.country,
+            email: draft.email || initialClaimant.email,
+            phoneCountryCode: draft.phoneCountryCode || initialClaimant.phoneCountryCode,
+            phone: draft.phone || initialClaimant.phone,
+            gst: draft.gst || initialClaimant.gst,
+            pan: draft.pan || initialClaimant.pan,
+            cin: draft.cin || initialClaimant.cin,
+          },
+          additionalClaimants: draft.additionalClaimants || [initialAdditionalClaimant],
+          managerDetails: draft.managerDetails || initialManagerDetails,
+          respondents: draft.respondents || [initialRespondent],
+          arbitrationAgreement: draft.arbitrationAgreement || initialArbitrationAgreement,
+          disputeDetails: draft.disputeDetails || initialDisputeDetails,
+          prayers: draft.prayers || initialPrayers,
+          documents: draft.documents || initialDocuments,
+          payment: draft.payment || initialPayment,
+          arguments: draft.arguments || initialArguments,
+        };
+        
+        console.log("🔥 DRAFT LOADING: Reconstructed claimant data:", reconstructedFormData.claimant);
+        completeFormData = reconstructedFormData;
       }
       
-      if (!formData) {
-        console.error("Could not find form data in draft:", draft);
-        toast.error('Failed to load draft data: Missing form content');
-        return;
-      }
-      
-      console.log("Found form data:", formData);
-      
-      // Ensure formData has all required sections to prevent errors
-      const completeFormData = {
-        claimant: formData.claimant || initialClaimant,
-        additionalClaimants: formData.additionalClaimants || [initialAdditionalClaimant],
-        managerDetails: formData.managerDetails || initialManagerDetails,
-        respondents: formData.respondents || [initialRespondent],
-        arbitrationAgreement: formData.arbitrationAgreement || initialArbitrationAgreement,
-        disputeDetails: formData.disputeDetails || initialDisputeDetails,
-        prayers: formData.prayers || initialPrayers,
-        documents: formData.documents || initialDocuments,
-        payment: formData.payment || initialPayment,
-        arguments: formData.arguments || initialArguments,
-        ...formData // Keep any additional fields
-      };
-      
-      console.log("Final form data structure:", completeFormData);
+      console.log("🔥 DRAFT LOADING: Final form data structure:", completeFormData);
+      console.log("🔥 DRAFT LOADING: Final claimant data:", completeFormData.claimant);
       
       // Reset the form with the form data
+      console.log("🔥 DRAFT LOADING: Calling reset() with form data");
       reset(completeFormData);
+      
+      // Trigger a form validation to update any computed values
+      setTimeout(() => {
+        console.log("🔥 DRAFT LOADING: Triggering form validation");
+        trigger();
+      }, 100);
       
       // Set the current draft ID
       setCurrentDraftId(draftId);
@@ -1439,13 +1479,34 @@ function ArbitrationForm() {
       // Set edit mode
       setEditMode(true);
       
-      // Refresh the form
-      const values = watch();
-      console.log("Form values after reset:", values);
+      // Verify the form was updated
+      setTimeout(() => {
+        const values = watch();
+        console.log("🔥 DRAFT LOADING: Form values after reset and delay:", values);
+        console.log("🔥 DRAFT LOADING: Claimant name after reset:", values.claimant?.name);
+        
+        // If the form still doesn't have the data, try a force update
+        if (!values.claimant?.name && completeFormData.claimant?.name) {
+          console.log("🔥 DRAFT LOADING: Form didn't update properly, forcing update");
+          
+          // Try setting values individually
+          Object.keys(completeFormData.claimant).forEach(key => {
+            setValue(`claimant.${key}` as any, completeFormData.claimant[key]);
+          });
+          
+          // Set other sections
+          if (completeFormData.respondents?.length > 0) {
+            setValue('respondents' as any, completeFormData.respondents);
+          }
+          
+          // Force a re-render
+          setActiveStep(activeStep);
+        }
+      }, 500);
       
       toast.success('Draft loaded successfully');
     } catch (error: any) {
-      console.error('Draft load error:', error);
+      console.error('🔥 DRAFT LOADING: Draft load error:', error);
       toast.error(`Error loading draft: ${error.message}`);
     } finally {
       setIsLoadingDrafts(false);

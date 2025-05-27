@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsInt, Min, Max, IsNotEmpty } from 'class-validator';
 
 export enum UserRole {
   CLAIMANT = 'CLAIMANT',
@@ -52,4 +52,48 @@ export class LoginDto {
 
   @IsString()
   password: string;
+}
+
+export class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  organization?: string;
+
+  // Fields specific to arbitrators
+  @IsOptional()
+  @IsString()
+  expertise?: string;
+
+  @IsOptional()
+  @IsString()
+  qualifications?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  experience?: number;
+
+  @IsOptional()
+  @IsString()
+  bio?: string;
+}
+
+export class ChangePasswordDto {
+  @IsNotEmpty()
+  @IsString()
+  currentPassword: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
 } 

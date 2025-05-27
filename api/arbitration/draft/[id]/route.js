@@ -1,146 +1,121 @@
 // Mock API route to handle specific draft ID routes
 import { NextResponse } from 'next/server';
-import { mockDrafts } from '@/lib/mock-data';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
 export async function GET(req, { params }) {
   const { id } = params;
-  console.log(`🔶 Mock API - Getting draft with ID: ${id}`);
+  console.log(`🔶 Next.js API - Getting draft with ID: ${id}`);
   
-  // Find the draft with the given ID
-  const draft = mockDrafts.find(d => d.id === id);
-  
-  if (!draft) {
-    console.log(`🔶 Mock API - Draft not found with ID: ${id}, creating fallback mock`);
+  try {
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('authorization');
     
-    // Create a fallback mock draft if the requested one doesn't exist
-    const fallbackDraft = {
-      id: id,
-      title: 'Fallback Draft',
-      type: 'Commercial',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isDraft: true,
-      data: {
-        claimant: {
-          type: 'company',
-          name: 'ACME Corporation',
-          pincode: '400001',
-          address1: '123 Business Park',
-          address2: '',
-          city: 'Mumbai',
-          district: 'Mumbai',
-          state: 'Maharashtra',
-          country: 'India',
-          email: 'contact@acme.com',
-          phoneCountryCode: '+91',
-          phone: '9876543210',
-          gst: '',
-          pan: '',
-          cin: ''
-        },
-        additionalClaimants: [],
-        managerDetails: {
-          name: '',
-          email: '',
-          phoneCountryCode: '+91',
-          phone: '',
-          address: '',
-          designation: '',
-          authority: ''
-        },
-        respondents: [
-          {
-            type: 'company',
-            name: 'XYZ Ltd',
-            address: '456 Corporate Tower, Mumbai',
-            email: 'legal@xyz.com',
-            phoneCountryCode: '+91',
-            phone: '8765432109',
-            gst: '',
-            pan: '',
-            cin: ''
-          }
-        ],
-        arbitrationAgreement: {
-          agreementDate: '2023-01-01',
-          agreementType: 'contract',
-          resolutionMode: 'sole',
-          seatOfArbitration: 'Mumbai',
-          signedOnPlace: 'Mumbai',
-          agreementParties: 'ACME Corporation and XYZ Ltd',
-          arbitratorSelection: 'parties'
-        },
-        disputeDetails: {
-          disputeType: 'commercial',
-          disputeAmount: '1000000',
-          disputeDescription: 'Non-fulfillment of contractual obligations',
-          disputeDate: '2023-10-15',
-          serviceType: 'regular',
-          applicableActs: ['Arbitration and Conciliation Act, 1996'],
-          disputeCategory: 'contractual',
-          disputeSubCategory: 'breach',
-          natureOfDispute: 'civil',
-          factsOfCase: 'This is a mock dispute for testing purposes',
-          clauseReferences: 'Clause 15.3 of the Agreement'
-        },
-        prayers: {
-          prayers: 'The claimant seeks monetary compensation of INR 10,00,000/- (Indian Rupees Ten Lakhs Only) along with interest at the rate of 12% per annum.'
-        },
-        documents: {
-          supportingDocuments: [],
-          evidenceFiles: [],
-          documentTypes: {}
-        },
-        payment: {
-          paymentHead: 'filing_fee',
-          paymentAmount: '50000',
-          paymentDetails: 'Payment made via NEFT'
-        },
-        arguments: {
-          argumentsPerIssue: ['The respondent failed to deliver the agreed goods as per the timeline specified in the contract.']
-        }
+    if (!authHeader) {
+      console.log('🔶 Next.js API - No authorization header found');
+      return NextResponse.json(
+        { error: 'Authorization required' },
+        { status: 401 }
+      );
+    }
+    
+    // Forward the request to the NestJS backend
+    const backendUrl = `${API_URL}/api/arbitration/draft/${id}`;
+    console.log(`🔶 Next.js API - Forwarding to: ${backendUrl}`);
+    
+    const backendResponse = await fetch(backendUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
-    };
+    });
     
-    // Return the fallback draft
-    return NextResponse.json(fallbackDraft);
+    if (!backendResponse.ok) {
+      console.log(`🔶 Next.js API - Backend response error: ${backendResponse.status}`);
+      const errorText = await backendResponse.text();
+      console.log(`🔶 Next.js API - Backend error details: ${errorText}`);
+      
+      return NextResponse.json(
+        { error: `Backend error: ${backendResponse.status}`, details: errorText },
+        { status: backendResponse.status }
+      );
+    }
+    
+    const draftData = await backendResponse.json();
+    console.log(`🔶 Next.js API - Successfully retrieved draft from backend`);
+    console.log(`🔶 Next.js API - Draft data keys:`, Object.keys(draftData));
+    
+    // Log if formData is present
+    if (draftData.formData) {
+      console.log(`🔶 Next.js API - Draft has formData structure`);
+    } else {
+      console.log(`🔶 Next.js API - Draft using legacy flattened structure`);
+    }
+    
+    return NextResponse.json(draftData);
+    
+  } catch (error) {
+    console.error('🔶 Next.js API - Error getting draft:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error.message },
+      { status: 500 }
+    );
   }
-  
-  return NextResponse.json(draft);
 }
 
 export async function PUT(req, { params }) {
   const { id } = params;
-  console.log(`🔶 Mock API - Updating draft with ID: ${id}`);
+  console.log(`🔶 Next.js API - Updating draft with ID: ${id}`);
   
   try {
-    // Parse the request body
-    const data = await req.formData();
-    const jsonData = data.get('data');
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('authorization');
     
-    // Find the draft index
-    const index = mockDrafts.findIndex(d => d.id === id);
-    
-    if (index === -1) {
-      console.log(`🔶 Mock API - Draft not found with ID: ${id}`);
+    if (!authHeader) {
+      console.log('🔶 Next.js API - No authorization header found');
       return NextResponse.json(
-        { error: 'Draft not found' },
-        { status: 404 }
+        { error: 'Authorization required' },
+        { status: 401 }
       );
     }
     
-    // Update the draft
-    mockDrafts[index] = {
-      ...mockDrafts[index],
-      data: jsonData ? JSON.parse(jsonData) : mockDrafts[index].data,
-      updatedAt: new Date().toISOString()
-    };
+    // Forward the request to the NestJS backend
+    const backendUrl = `${API_URL}/api/arbitration/draft`;
+    console.log(`🔶 Next.js API - Forwarding update to: ${backendUrl}`);
     
-    return NextResponse.json(mockDrafts[index]);
+    // Get the request body (FormData)
+    const formData = await req.formData();
+    
+    const backendResponse = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader
+      },
+      body: formData
+    });
+    
+    if (!backendResponse.ok) {
+      console.log(`🔶 Next.js API - Backend update error: ${backendResponse.status}`);
+      const errorText = await backendResponse.text();
+      console.log(`🔶 Next.js API - Backend error details: ${errorText}`);
+      
+      return NextResponse.json(
+        { error: `Backend error: ${backendResponse.status}`, details: errorText },
+        { status: backendResponse.status }
+      );
+    }
+    
+    const updatedDraft = await backendResponse.json();
+    console.log(`🔶 Next.js API - Successfully updated draft via backend`);
+    
+    return NextResponse.json(updatedDraft);
+    
   } catch (error) {
-    console.error('🔶 Mock API - Error updating draft:', error);
+    console.error('🔶 Next.js API - Error updating draft:', error);
     return NextResponse.json(
-      { error: 'Error updating draft', message: error.message },
+      { error: 'Internal server error', message: error.message },
       { status: 500 }
     );
   }

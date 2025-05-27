@@ -5,8 +5,13 @@ import { AppService } from './app.service';
 import { AuthModule } from './modules/auth.module';
 import { ArbitrationModule } from './modules/arbitration.module';
 import { VerificationModule } from './modules/verification.module';
+import { ArbitratorsModule } from './arbitrators/arbitrators.module';
+import { AdminModule } from './admin/admin.module';
+import { CaseManagerModule } from './case-manager/case-manager.module';
+import { HearingsModule } from './hearings/hearings.module';
 import { PrismaService } from './services/prisma.service';
 import { HealthModule } from './health/health.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -16,7 +21,12 @@ import { HealthModule } from './health/health.module';
     AuthModule,
     ArbitrationModule,
     VerificationModule,
+    ArbitratorsModule,
+    AdminModule,
+    CaseManagerModule,
+    HearingsModule,
     HealthModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

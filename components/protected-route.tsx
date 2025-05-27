@@ -4,52 +4,69 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { auth } from '@/lib/api'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/auth-context'
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode
+  requiredRole?: string
+}
+
+export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const router = useRouter()
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [hasAccess, setHasAccess] = useState(false)
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAccess = async () => {
       try {
         setIsLoading(true)
         
+        // Wait for auth context to finish loading
+        if (authLoading) {
+          return
+        }
+        
         // Enable bypassing auth check in development/preview
         if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
-          setIsAuthenticated(true)
+          setHasAccess(true)
           setIsLoading(false)
           return
         }
         
-        // Check if token exists and is valid
-        if (!auth.isAuthenticated()) {
+        // Check if user is authenticated
+        if (!isAuthenticated || !user) {
           toast.error('Please log in to access this feature')
           router.push('/auth/login')
           return
         }
         
-        // Verify token by getting current user
-        const user = await auth.getCurrentUser()
-        setIsAuthenticated(true)
+        // Check role-based access if required
+        if (requiredRole) {
+          const userRole = user.role?.toLowerCase()
+          const required = requiredRole.toLowerCase()
+          
+          if (userRole !== required && userRole !== 'admin') {
+            toast.error(`Access denied. This section requires ${requiredRole} privileges.`)
+            router.push('/dashboard')
+            return
+          }
+        }
+        
+        setHasAccess(true)
       } catch (error: any) {
-        console.error('Authentication error:', error)
-        
-        // Use the error message from the API if available
-        const errorMessage = error.message || 'Your session has expired. Please log in again.'
-        toast.error(errorMessage)
-        
-        // No need to manually clear tokens here, auth.getCurrentUser will handle that
+        console.error('Access check error:', error)
+        toast.error('Access verification failed')
         router.push('/auth/login')
       } finally {
         setIsLoading(false)
       }
     }
 
-    checkAuth()
-  }, [router])
+    checkAccess()
+  }, [router, requiredRole, authLoading, isAuthenticated, user])
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -57,6 +74,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     )
   }
 
-  // Only render children if authenticated
-  return isAuthenticated ? <>{children}</> : null
+  // Only render children if user has access
+  return hasAccess ? <>{children}</> : null
 }

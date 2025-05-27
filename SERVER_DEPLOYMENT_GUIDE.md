@@ -1,6 +1,6 @@
 # Complete Server Deployment Guide - Arbitration Portal (Development/Staging)
 
-> **Note:** This guide is intended for **development and staging environments**. For production, see the security and scaling notes at the end.
+> **Note:** This guide is intended for **development and staging environments**. 
 
 ---
 

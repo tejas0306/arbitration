@@ -11,6 +11,7 @@ import {
   Request,
   BadRequestException,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminService } from './admin.service';
@@ -23,11 +24,23 @@ import { UpdateArbitratorStatusDto } from './dto/update-arbitrator-status.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../decorators/roles.decorator';
+import { AuthService } from '../auth/auth.service';
+import { UsersService } from '../users/users.service';
+import { UserRole, UserStatus } from '../users/entities/user.entity';
+import { CreateInternalUserDto } from './dto/create-internal-user.dto';
 
 @Controller('admin')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, AdminGuard, AuthGuard('jwt'), RolesGuard)
+@Roles(UserRole.ADMIN)
 export class AdminController {
-  constructor(private adminService: AdminService) {}
+  constructor(
+    private adminService: AdminService,
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   // ===== DASHBOARD & ANALYTICS =====
   @Get('dashboard/stats')
@@ -146,18 +159,17 @@ export class AdminController {
     return this.adminService.getAllArbitratorsForAdmin(filters);
   }
 
-  @Get('arbitrators/pending-approval')
+  @Get('arbitrators/pending')
   async getPendingArbitrators() {
-    return this.adminService.getPendingArbitrators();
+    return this.usersService.findByRoleAndStatus(
+      UserRole.ARBITRATOR,
+      UserStatus.PENDING_APPROVAL
+    );
   }
 
   @Post('arbitrators/:id/approve')
-  async approveArbitrator(
-    @Param('id') id: string,
-    @Body() approvalData: { notes?: string },
-    @Request() req,
-  ) {
-    return this.adminService.approveArbitrator(id, approvalData, req.user.id);
+  async approveArbitrator(@Req() req, @Param('id') arbitratorId: string) {
+    return this.authService.approveArbitrator(req.user.id, arbitratorId);
   }
 
   @Post('arbitrators/:id/reject')
@@ -527,5 +539,22 @@ export class AdminController {
     @Request() req
   ) {
     return this.adminService.updateHelpDeskTicketStatus(id, statusData, req.user.id);
+  }
+
+  @Post('users/internal')
+  async createInternalUser(
+    @Req() req,
+    @Body() createUserDto: CreateInternalUserDto,
+  ) {
+    return this.authService.createInternalUser(req.user.id, createUserDto);
+  }
+
+  @Get('users/internal')
+  async getInternalUsers() {
+    return this.usersService.findByRoles([
+      UserRole.ADMIN,
+      UserRole.CASE_MANAGER,
+      UserRole.TEAM_MEMBER,
+    ]);
   }
 } 

@@ -1,25 +1,48 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsEnum, IsOptional, IsNumber, IsArray, MinLength, IsPhoneNumber } from 'class-validator';
 import { UserRole } from '../../users/entities/user.entity';
 
 export class RegisterDto {
-  @IsNotEmpty()
   @IsString()
   name: string;
 
-  @IsNotEmpty()
   @IsEmail()
   email: string;
 
-  @IsNotEmpty()
   @IsString()
   @MinLength(8)
   password: string;
 
-  @IsNotEmpty()
+  @IsPhoneNumber('IN')
+  mobile: string;
+
+  @IsString()
+  @IsOptional()
+  organization?: string;
+
   @IsEnum(UserRole)
   role: UserRole;
 
-  @IsOptional()
+  // Arbitrator specific fields
   @IsString()
-  organization?: string;
+  @IsOptional()
+  qualifications?: string;
+
+  @IsString()
+  @IsOptional()
+  expertise?: string;
+
+  @IsNumber()
+  @IsOptional()
+  hourlyRate?: number;
+
+  @IsString()
+  @IsOptional()
+  availability?: string;
+
+  @IsArray()
+  @IsOptional()
+  documents?: {
+    type: string;
+    file: Express.Multer.File;
+  }[];
 }

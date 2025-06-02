@@ -25,11 +25,12 @@
 							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/auth/login",
+							"raw": "{{baseUrl}}/api/auth/login",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
+								"api",
 								"auth",
 								"login"
 							]
@@ -53,11 +54,12 @@
 							"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"CLAIMANT\",\n  \"organization\": \"Company Inc.\",\n  \"expertise\": \"Commercial Law\",\n  \"qualifications\": \"LLB, MBA\",\n  \"experience\": 5,\n  \"bio\": \"Experienced in commercial disputes\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/auth/register",
+							"raw": "{{baseUrl}}/api/auth/register",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
+								"api",
 								"auth",
 								"register"
 							]
@@ -77,11 +79,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/auth/me",
+							"raw": "{{baseUrl}}/api/auth/me",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
+								"api",
 								"auth",
 								"me"
 							]
@@ -714,7 +717,7 @@
 			"name": "Documents",
 			"item": [
 				{
-					"name": "Upload Documents",
+					"name": "Upload Document",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -727,29 +730,39 @@
 							"mode": "formdata",
 							"formdata": [
 								{
-									"key": "files",
+									"key": "file",
 									"type": "file",
-									"src": []
+									"src": "/path/to/file"
+								},
+								{
+									"key": "caseId",
+									"value": "case-id-here",
+									"type": "text"
+								},
+								{
+									"key": "documentType",
+									"value": "EVIDENCE",
+									"type": "text"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/documents/{{caseId}}/upload",
+							"raw": "{{baseUrl}}/api/documents/upload",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
+								"api",
 								"documents",
-								"{{caseId}}",
 								"upload"
 							]
 						},
-						"description": "Upload documents for a case"
+						"description": "Upload a document for a specific case"
 					},
 					"response": []
 				},
 				{
-					"name": "Get Documents",
+					"name": "Get Case Documents",
 					"request": {
 						"method": "GET",
 						"header": [
@@ -759,16 +772,24 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/documents/{{caseId}}",
+							"raw": "{{baseUrl}}/api/documents/case/:caseId",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
+								"api",
 								"documents",
-								"{{caseId}}"
+								"case",
+								":caseId"
+							],
+							"variable": [
+								{
+									"key": "caseId",
+									"value": "case-id-here"
+								}
 							]
 						},
-						"description": "Get all documents for a case"
+						"description": "Get all documents for a specific case"
 					},
 					"response": []
 				},
@@ -822,7 +843,48 @@
 					"response": []
 				}
 			],
-			"description": "Document management endpoints"
+			"description": "Document management endpoints for uploading and retrieving case documents"
+		},
+		{
+			"name": "File Management",
+			"item": [
+				{
+					"name": "Direct File Upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/direct-file/upload",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"direct-file",
+								"upload"
+							]
+						},
+						"description": "Upload a file directly without case association"
+					},
+					"response": []
+				}
+			],
+			"description": "Direct file upload endpoints for general file management"
 		},
 		{
 			"name": "Hearings",
@@ -1333,12 +1395,12 @@
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:3001/api",
+			"value": "http://localhost:3000",
 			"type": "string"
 		},
 		{
 			"key": "token",
-			"value": "your-jwt-token",
+			"value": "your-jwt-token-here",
 			"type": "string"
 		},
 		{

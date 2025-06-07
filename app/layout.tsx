@@ -1,6 +1,9 @@
+"use client"
+
 import { AuthProvider } from "@/contexts/auth-context"
 import "./globals.css"
 import { Toaster } from 'sonner'
+import { SessionProvider } from "next-auth/react"
 
 export default function RootLayout({
   children,
@@ -10,9 +13,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <SessionProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </SessionProvider>
         <Toaster />
       </body>
     </html>

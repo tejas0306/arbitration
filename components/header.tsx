@@ -44,18 +44,11 @@ export default function Header() {
             
             {isAuthenticated && (
               <>
-                <Link href="/dashboard" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
-                  Dashboard
-                </Link>
                 <Link href="/dashboard/my-cases" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
                   My Cases
                 </Link>
                 <Link href="/support" className="text-white hover:text-indigo-200 transition-colors px-2 py-1">
                   Support
-                </Link>
-                <Link href="/profile" className="text-white hover:text-indigo-200 transition-colors px-2 py-1 flex items-center space-x-1">
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
                 </Link>
               </>
             )}
@@ -63,25 +56,30 @@ export default function Header() {
           
           {isAuthenticated ? (
             <div className="flex items-center space-x-3">
-              <span className="text-sm mr-2">Welcome, {user?.name}</span>
+              <span className="text-sm mr-2">Welcome, {user?.name || 'User'}</span>
+              
               <Link href="/dashboard" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                 Dashboard
               </Link>
+              
               {/* Only show New Petition for CLAIMANT role */}
               {user?.role === 'CLAIMANT' && (
                 <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                   New Petition
                 </Link>
               )}
+              
               {isAdmin && (
                 <Link href="/admin" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
                   Admin
                 </Link>
               )}
+              
               <Link href="/profile" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm flex items-center space-x-1">
                 <User className="h-4 w-4" />
                 <span>Profile</span>
               </Link>
+              
               <Button 
                 variant="destructive" 
                 size="sm" 

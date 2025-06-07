@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // Handle NextAuth session requests
+  if (request.nextUrl.pathname.startsWith('/api/auth')) {
+    return NextResponse.next();
+  }
+
   // Handle redirects from /login to /auth/login
   if (request.nextUrl.pathname === '/login') {
     console.log('Redirecting from /login to /auth/login');

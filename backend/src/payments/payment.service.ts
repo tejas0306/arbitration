@@ -4,7 +4,7 @@ import Razorpay from 'razorpay';
 
 @Injectable()
 export class PaymentService {
-  private razorpay: Razorpay;
+  private razorpay: any;
 
   constructor(private configService: ConfigService) {
     this.razorpay = new Razorpay({
@@ -27,10 +27,13 @@ export class PaymentService {
 
   async verifyPayment(paymentId: string, orderId: string, signature: string) {
     const text = orderId + '|' + paymentId;
-    const generated_signature = this.razorpay.webhooks.generateSignature(
-      text,
-      this.configService.get<string>('RAZORPAY_KEY_SECRET'),
-    );
+    
+    // Create a crypto hash using the HMAC SHA256 algorithm
+    const crypto = require('crypto');
+    const generated_signature = crypto
+      .createHmac('sha256', this.configService.get<string>('RAZORPAY_KEY_SECRET'))
+      .update(text)
+      .digest('hex');
 
     if (generated_signature === signature) {
       return true;

@@ -12,6 +12,7 @@ import { HearingsModule } from './hearings/hearings.module';
 import { PrismaService } from './services/prisma.service';
 import { HealthModule } from './health/health.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PaymentModule } from './payments/payment.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PaymentsModule } from './payments/payments.module';
     HearingsModule,
     HealthModule,
     PaymentsModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

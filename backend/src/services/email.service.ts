@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { User } from '../users/entities/user.entity';
 
 export interface EmailData {
   to: string | string[];
@@ -25,8 +28,18 @@ export interface PasswordResetData {
 
 @Injectable()
 export class EmailService {
-  constructor() {
-    // TODO: Initialize email service provider (NodeMailer, SendGrid, etc.)
+  private transporter: nodemailer.Transporter;
+
+  constructor(private configService: ConfigService) {
+    this.transporter = nodemailer.createTransport({
+      host: this.configService.get<string>('SMTP_HOST'),
+      port: this.configService.get<number>('SMTP_PORT'),
+      secure: true,
+      auth: {
+        user: this.configService.get<string>('SMTP_USER'),
+        pass: this.configService.get<string>('SMTP_PASS'),
+      },
+    });
   }
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
@@ -217,6 +230,78 @@ Arbitration Portal Team
       subject,
       text: textContent,
       html: htmlContent
+    });
+  }
+
+  async sendRegistrationConfirmation(user: User) {
+    await this.transporter.sendMail({
+      to: user.email,
+      subject: 'Welcome to Arbitration Portal',
+      html: `
+        <h1>Welcome to Arbitration Portal</h1>
+        <p>Dear ${user.name},</p>
+        <p>Your account has been successfully created.</p>
+        <p>You can now log in using your email: ${user.email}</p>
+        ${user.temporaryPassword ? `<p>Your temporary password is: ${user.temporaryPassword}</p>` : ''}
+        <p>Please change your password after first login.</p>
+      `,
+    });
+  }
+
+  async sendArbitratorApprovalNotification(user: User) {
+    await this.transporter.sendMail({
+      to: user.email,
+      subject: 'Arbitrator Application Approved',
+      html: `
+        <h1>Arbitrator Application Approved</h1>
+        <p>Dear ${user.name},</p>
+        <p>Your application to become an arbitrator has been approved.</p>
+        <p>You can now log in to your account and start accepting cases.</p>
+      `,
+    });
+  }
+
+  async sendArbitratorPendingNotification(user: User) {
+    await this.transporter.sendMail({
+      to: user.email,
+      subject: 'Arbitrator Application Received',
+      html: `
+        <h1>Arbitrator Application Received</h1>
+        <p>Dear ${user.name},</p>
+        <p>Your application to become an arbitrator is under review.</p>
+        <p>We will notify you once the review is complete.</p>
+      `,
+    });
+  }
+
+  async sendInternalUserCredentials(user: User, temporaryPassword: string) {
+    await this.transporter.sendMail({
+      to: user.email,
+      subject: 'Your Arbitration Portal Account Credentials',
+      html: `
+        <h1>Welcome to Arbitration Portal</h1>
+        <p>Dear ${user.name},</p>
+        <p>Your account has been created by an administrator.</p>
+        <p>Login Email: ${user.email}</p>
+        <p>Temporary Password: ${temporaryPassword}</p>
+        <p>Please change your password after first login.</p>
+      `,
+    });
+  }
+
+  async sendPasswordResetLink(user: User, resetToken: string) {
+    const resetLink = `${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${resetToken}`;
+    
+    await this.transporter.sendMail({
+      to: user.email,
+      subject: 'Reset Your Password',
+      html: `
+        <h1>Password Reset Request</h1>
+        <p>Dear ${user.name},</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetLink}">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+      `,
     });
   }
 } 

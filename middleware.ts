@@ -4,7 +4,9 @@ import { getToken } from 'next-auth/jwt'
 
 export async function middleware(request: NextRequest) {
   // Handle NextAuth session requests
-  if (request.nextUrl.pathname.startsWith('/api/auth')) {
+  if (request.nextUrl.pathname.startsWith('/api/auth') || 
+      request.nextUrl.pathname === '/api/auth/session') {
+    console.log('NextAuth request:', request.nextUrl.pathname);
     return NextResponse.next();
   }
 
@@ -34,8 +36,11 @@ export async function middleware(request: NextRequest) {
 // Configure which paths this middleware will run on
 export const config = {
   matcher: [
-    // Apply to all paths
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    // Apply to these paths
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // Include NextAuth paths
+    '/api/auth/:path*',
+    '/api/auth/session',
     // Also include the incorrect upload path
     '/upload/arbtation/:path*',
   ],

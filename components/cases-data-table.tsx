@@ -49,19 +49,84 @@ interface CasesDataTableProps {
 export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTableProps) {
   const router = useRouter()
 
-  const handleViewCase = React.useCallback((id: string) => {
+  // Helper function to determine if we're in admin context
+  const isAdminContext = React.useCallback(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname.includes('/admin/');
+    }
+    return false;
+  }, []);
+
+  const handleViewCase = React.useCallback((id: string, status?: string) => {
     try {
-      console.log(`Navigating to case details: /dashboard/case/${id}`)
-      router.push(`/dashboard/case/${id}`)
+      console.log(`Attempting to navigate to case details: id=${id}, status=${status}`)
+      
+      // Check if the case exists
+      if (!id) {
+        console.error("Cannot navigate: Case ID is missing")
+        toast.error("Case ID is missing")
+        return
+      }
+      
+      // Determine if we're in admin context
+      const adminContext = isAdminContext();
+      
+      // For drafts in user context, navigate to edit page instead of view
+      if (!adminContext && status && status.toLowerCase() === 'draft') {
+        console.log(`Case is a draft, navigating to edit: /dashboard/petition/edit/${id}`)
+        router.push(`/dashboard/petition/edit/${id}`)
+        return
+      }
+      
+      // Select appropriate URL based on context
+      let viewUrl;
+      
+      if (adminContext) {
+        viewUrl = `/admin/cases/${id}`;
+        console.log(`Admin context detected, navigating to admin case details: ${viewUrl}`)
+      } else {
+        viewUrl = `/dashboard/case/${id}`;
+        console.log(`Regular user context, navigating to case details: ${viewUrl}`)
+      }
+      
+      router.push(viewUrl)
     } catch (error) {
       console.error("Navigation error:", error)
       toast.error("Failed to navigate to case details. Please try again.")
     }
-  }, [router])
+  }, [router, isAdminContext])
 
-  const handleEditCase = React.useCallback((id: string) => {
-    router.push(`/dashboard/petition/edit/${id}`)
-  }, [router])
+  const handleEditCase = React.useCallback((id: string, status?: string) => {
+    try {
+      console.log(`Attempting to navigate to edit case: id=${id}, status=${status}`)
+      
+      // Check if the case exists
+      if (!id) {
+        console.error("Cannot navigate: Case ID is missing")
+        toast.error("Case ID is missing")
+        return
+      }
+      
+      // Determine if we're in an admin context
+      const adminContext = isAdminContext();
+      
+      // Use appropriate edit URL based on context
+      let editUrl = `/dashboard/petition/edit/${id}`
+      
+      if (adminContext) {
+        editUrl = `/admin/cases/edit/${id}`
+        console.log(`Admin context detected, using admin edit URL: ${editUrl}`)
+      } else {
+        console.log(`Regular user context, using standard edit URL: ${editUrl}`)
+      }
+      
+      console.log(`Navigating to edit case: ${editUrl}`)
+      router.push(editUrl)
+    } catch (error) {
+      console.error("Navigation error:", error)
+      toast.error("Failed to navigate to edit case. Please try again.")
+    }
+  }, [router, isAdminContext])
 
   const handleDownloadDocuments = React.useCallback((id: string) => {
     toast.info('Document download will be available soon')
@@ -197,7 +262,7 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
             <Button
               variant="link"
               className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800"
-              onClick={() => handleViewCase(row.original.id)}
+              onClick={() => handleViewCase(row.original.id, row.original.status)}
             >
               {row.getValue("caseNumber") || "Pending"}
             </Button>
@@ -360,11 +425,11 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
               <DropdownMenuContent align="end" className="w-[160px]">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleViewCase(caseData.id)}>
+                <DropdownMenuItem onClick={() => handleViewCase(caseData.id, caseData.status)}>
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleEditCase(caseData.id)}>
+                <DropdownMenuItem onClick={() => handleEditCase(caseData.id, caseData.status)}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Case
                 </DropdownMenuItem>

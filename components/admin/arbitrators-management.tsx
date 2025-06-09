@@ -234,15 +234,15 @@ export default function ArbitratorsManagement() {
   }
   
   const navigateToNewArbitrator = () => {
-    router.push('/dashboard/arbitrators/new')
+    router.push('/admin/arbitrators/new')
   }
   
   const handleEditArbitrator = (id: string) => {
-    router.push(`/dashboard/arbitrators/edit/${id}`)
+    router.push(`/admin/arbitrators/edit/${id}`)
   }
   
   const handleViewArbitrator = (id: string) => {
-    router.push(`/dashboard/arbitrators/${id}`)
+    router.push(`/admin/arbitrators/${id}`)
   }
   
   const getStatusBadge = (status: string) => {

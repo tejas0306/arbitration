@@ -8,7 +8,7 @@ export default function CaseDetailLayout({
 }) {
   return (
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
-      <DashboardLayoutClient>
+      <DashboardLayoutClient showHeader={false} showFooter={false}>
         {children}
       </DashboardLayoutClient>
     </Suspense>

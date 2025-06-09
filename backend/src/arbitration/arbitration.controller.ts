@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ArbitrationService } from './arbitration.service';
@@ -15,6 +16,9 @@ import { CreateArbitrationDto } from './dto/create-arbitration.dto';
 import { UpdateCaseStatusDto } from './dto/update-case-status.dto';
 import { CaseResponseDto } from './dto/case-response.dto';
 import { AssignArbitratorDto } from './dto/assign-arbitrator.dto';
+import { ProposeArbitratorDto } from './dto/propose-arbitrator.dto';
+import { RespondArbitratorProposalDto } from './dto/respond-arbitrator-proposal.dto';
+import { ArbitratorResponseDto } from './dto/arbitrator-response.dto';
 
 @Controller('arbitration')
 @UseGuards(JwtAuthGuard)
@@ -116,5 +120,65 @@ export class ArbitrationController {
         status: c.status
       }))
     };
+  }
+
+  // Arbitrator assignment workflow endpoints
+  
+  // Get all arbitrator proposals for a case
+  @Get('cases/:id/arbitrator-proposals')
+  async getArbitratorProposals(@Param('id') id: string, @Request() req) {
+    return this.arbitrationService.getArbitratorProposals(id);
+  }
+  
+  // Propose an arbitrator for a case
+  @Post('cases/:id/propose-arbitrator')
+  async proposeArbitrator(
+    @Param('id') id: string,
+    @Body() proposeArbitratorDto: ProposeArbitratorDto,
+    @Request() req
+  ) {
+    return this.arbitrationService.proposeArbitrator(id, proposeArbitratorDto, req.user.id);
+  }
+  
+  // Respond to an arbitrator proposal
+  @Post('arbitrator-proposals/:proposalId/respond')
+  async respondToArbitratorProposal(
+    @Param('proposalId') proposalId: string,
+    @Body() responseDto: RespondArbitratorProposalDto,
+    @Request() req
+  ) {
+    return this.arbitrationService.respondToArbitratorProposal(
+      proposalId,
+      responseDto,
+      req.user.id
+    );
+  }
+  
+  // Arbitrator responds to a case assignment
+  @Post('arbitrator-proposals/:proposalId/arbitrator-response')
+  async arbitratorRespondsToAssignment(
+    @Param('proposalId') proposalId: string,
+    @Body() responseDto: ArbitratorResponseDto,
+    @Request() req
+  ) {
+    if (req.user.role !== 'ARBITRATOR') {
+      throw new BadRequestException('Only arbitrators can respond to assignments');
+    }
+    
+    return this.arbitrationService.arbitratorRespondsToAssignment(
+      proposalId,
+      responseDto,
+      req.user.id
+    );
+  }
+  
+  // Get pending arbitrator assignments for an arbitrator
+  @Get('arbitrator/assignments')
+  async getArbitratorAssignments(@Request() req) {
+    if (req.user.role !== 'ARBITRATOR') {
+      throw new BadRequestException('Only arbitrators can view assignments');
+    }
+    
+    return this.arbitrationService.getArbitratorAssignments(req.user.id);
   }
 }

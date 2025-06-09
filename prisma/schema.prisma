@@ -26,6 +26,22 @@ enum ArbitratorStatus {
   PENDING
 }
 
+// Adding new enum for tracking arbitrator proposal status
+enum ArbitratorProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// Adding new enum for tracking who proposed the arbitrator
+enum ProposedBy {
+  CLAIMANT
+  RESPONDENT
+  SYSTEM
+  ADMIN
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -70,6 +86,13 @@ model User {
   
   // Add relation to feedback
   receivedFeedback ArbitratorFeedback[]
+  
+  // Add relation to arbitrator proposals
+  proposedAsArbitrator ArbitratorProposal[] @relation("ProposedArbitrator")
+  arbitratorProposals ArbitratorProposal[] @relation("Proposer")
+  
+  // Add relation to case assignments
+  caseAssignments CaseAssignment[]
 }
 
 model ArbitratorFeedback {
@@ -124,4 +147,70 @@ model Arbitration {
   arbitratorId      String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  
+  // Fields for arbitrator selection process
+  arbitratorSelectionStatus String? @default("not_started") // not_started, in_progress, completed
+  currentProposerRole String? // Tracks whose turn it is to propose next (CLAIMANT/RESPONDENT)
+  
+  // Add relation to arbitrator proposals
+  arbitratorProposals ArbitratorProposal[]
+  
+  // Add relation to case assignments
+  caseAssignments CaseAssignment[]
+}
+
+// New model for tracking arbitrator proposals
+model ArbitratorProposal {
+  id String @id @default(uuid())
+  
+  // Relations
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator User @relation("ProposedArbitrator", fields: [arbitratorId], references: [id])
+  
+  // Who proposed this arbitrator
+  proposedById String
+  proposedBy User @relation("Proposer", fields: [proposedById], references: [id])
+  proposerRole ProposedBy
+  
+  // Status of this proposal
+  status ArbitratorProposalStatus @default(PENDING)
+  sequence Int // To track the order of proposals
+  
+  // Response details
+  respondedAt DateTime?
+  responseNotes String?
+  
+  // Arbitrator acceptance details (if proposal is accepted by both parties)
+  arbitratorAccepted Boolean? // null=not decided, true=accepted, false=rejected
+  arbitratorResponseAt DateTime?
+  arbitratorNotes String?
+  
+  // Disclosure document (when arbitrator accepts)
+  disclosureDocuments Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for tracking case assignments to arbitrators
+model CaseAssignment {
+  id String @id @default(uuid())
+  
+  // Relations
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator User @relation(fields: [arbitratorId], references: [id])
+  
+  // Assignment details
+  status String // PENDING, ACCEPTED, REJECTED
+  respondedAt DateTime?
+  notes String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

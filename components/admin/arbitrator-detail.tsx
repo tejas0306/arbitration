@@ -483,7 +483,7 @@ export default function ArbitratorDetail() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => router.push(`/dashboard/case/${caseItem.id}`)}
+                            onClick={() => router.push(`/admin/cases/${caseItem.id}`)}
                           >
                             View Case
                           </Button>

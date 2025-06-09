@@ -180,6 +180,11 @@ export const arbitrationAgreementSchema = z.object({
   signedOnPlace: z.string().min(1, "Signed-on place is required"),
   agreementParties: z.string().min(1, "Agreement parties is required"),
   arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
+  placeOfSigning: z.string().min(1, "Place of signing is required"),
+  arbitrationText: z.string().min(1, "Text of Arbitration Agreement/clause is required").max(2000, "Text cannot exceed 2000 characters"),
+  stampDutyPercentage: z.string().optional(),
+  stampDutyAmount: z.string().optional(),
+  numberOfArbitrators: z.string().min(1, "Number of Arbitrators is required"),
   agreementFile: z.any().optional(),
 });
 
@@ -196,6 +201,14 @@ export const disputeDetailsSchema = z.object({
   natureOfDispute: z.string().min(1, "Nature of dispute is required"),
   factsOfCase: z.string().min(1, "Facts of case is required").max(2000),
   clauseReferences: z.string().min(1, "Clause references is required").max(500),
+  claimType: z.string().min(1, "Claim type is required"),
+  claimReason: z.string().min(1, "Claim reason is required").max(1000),
+  lawsReliedUpon: z.string().min(1, "Laws relied upon is required").max(1000),
+  clauseNumber: z.string().min(1, "Clause number/page number is required"),
+  clauseSupportingClaim: z.string().min(1, "Clause supporting claim is required").max(1000),
+  clause: z.string().min(1, "Clause is required").max(1000),
+  documentSupportingClaim: z.string().min(1, "Document supporting claim is required"),
+  reliefSought: z.string().min(1, "Relief sought is required").max(1000),
 });
 
 // Prayers schema

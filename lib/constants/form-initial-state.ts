@@ -72,6 +72,11 @@ export const initialArbitrationAgreement = {
   signedOnPlace: "",
   agreementParties: "",
   arbitratorSelection: "",
+  placeOfSigning: "",
+  arbitrationText: "",
+  stampDutyPercentage: "",
+  stampDutyAmount: "",
+  numberOfArbitrators: "",
 };
 
 export const initialDisputeDetails = {
@@ -86,6 +91,14 @@ export const initialDisputeDetails = {
   natureOfDispute: "",
   factsOfCase: "",
   clauseReferences: "",
+  claimType: "",
+  claimReason: "",
+  lawsReliedUpon: "",
+  clauseNumber: "",
+  clauseSupportingClaim: "",
+  clause: "",
+  documentSupportingClaim: "",
+  reliefSought: "",
 };
 
 export const initialPrayers = {

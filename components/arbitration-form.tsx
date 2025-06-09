@@ -127,6 +127,11 @@ const initialArbitrationAgreement = {
   signedOnPlace: "",
   agreementParties: "",
   arbitratorSelection: "",
+  placeOfSigning: "",
+  arbitrationText: "",
+  stampDutyPercentage: "",
+  stampDutyAmount: "",
+  numberOfArbitrators: "",
 }
 
 const initialDisputeDetails = {
@@ -141,6 +146,14 @@ const initialDisputeDetails = {
   natureOfDispute: "",
   factsOfCase: "",
   clauseReferences: "",
+  claimType: "",
+  claimReason: "",
+  lawsReliedUpon: "",
+  clauseNumber: "",
+  clauseSupportingClaim: "",
+  clause: "",
+  documentSupportingClaim: "",
+  reliefSought: "",
 }
 
 const initialPrayers = {
@@ -636,6 +649,11 @@ const formSchema = z.object({
     signedOnPlace: z.string().min(1, "Signed-on place is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
     agreementParties: z.string().min(1, "Agreement parties is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
     arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
+    placeOfSigning: z.string().min(1, "Place of signing is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
+    arbitrationText: z.string().min(1, "Text of Arbitration Agreement/clause is required").max(2000, "Text cannot exceed 2000 characters"),
+    stampDutyPercentage: z.string().optional(),
+    stampDutyAmount: z.string().optional(),
+    numberOfArbitrators: z.string().min(1, "Number of Arbitrators is required"),
     // agreementFile handled separately
   }),
   
@@ -662,6 +680,14 @@ const formSchema = z.object({
     natureOfDispute: z.string().min(1, "Nature of dispute is required"),
     factsOfCase: z.string().min(1, "Facts of the case is required").max(2000),
     clauseReferences: z.string().min(1, "Clause references is required").max(500),
+    claimType: z.string().min(1, "Claim type is required"),
+    claimReason: z.string().min(1, "Claim reason is required").max(1000),
+    lawsReliedUpon: z.string().min(1, "Laws relied upon is required").max(1000),
+    clauseNumber: z.string().min(1, "Clause number/page number is required"),
+    clauseSupportingClaim: z.string().min(1, "Clause supporting claim is required").max(1000),
+    clause: z.string().min(1, "Clause is required").max(1000),
+    documentSupportingClaim: z.string().min(1, "Document supporting claim is required"),
+    reliefSought: z.string().min(1, "Relief sought is required").max(1000),
   }),
   
   // Prayers & Reliefs
@@ -1171,7 +1197,8 @@ function ArbitrationForm() {
           'arbitrationAgreement.agreementDate', 'arbitrationAgreement.agreementType',
           'arbitrationAgreement.resolutionMode', 'arbitrationAgreement.seatOfArbitration',
           'arbitrationAgreement.signedOnPlace', 'arbitrationAgreement.agreementParties',
-          'arbitrationAgreement.arbitratorSelection'
+          'arbitrationAgreement.arbitratorSelection', 'arbitrationAgreement.placeOfSigning',
+          'arbitrationAgreement.arbitrationText', 'arbitrationAgreement.numberOfArbitrators'
         ];
         
         // Check file
@@ -1187,7 +1214,11 @@ function ArbitrationForm() {
           'disputeDetails.serviceType', 'disputeDetails.disputeCategory',
           'disputeDetails.disputeSubCategory', 'disputeDetails.natureOfDispute',
           'disputeDetails.factsOfCase', 'disputeDetails.clauseReferences',
-          'disputeDetails.applicableActs'
+          'disputeDetails.applicableActs', 'disputeDetails.claimType',
+          'disputeDetails.claimReason', 'disputeDetails.lawsReliedUpon',
+          'disputeDetails.clauseNumber', 'disputeDetails.clauseSupportingClaim',
+          'disputeDetails.clause', 'disputeDetails.documentSupportingClaim',
+          'disputeDetails.reliefSought'
         ];
         break;
       case 5: // Prayers & Reliefs
@@ -2308,6 +2339,16 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
+                  label="Place of Signing"
+                  name="arbitrationAgreement.placeOfSigning"
+                  required
+                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
+                  placeholder="Where was the agreement signed"
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
                   label="Arbitrator Selection"
                   name="arbitrationAgreement.arbitratorSelection"
                   required
@@ -2320,6 +2361,21 @@ function ArbitrationForm() {
                   ]}
                 />
               </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Number of Arbitrators"
+                  name="arbitrationAgreement.numberOfArbitrators"
+                  required
+                  type="select"
+                  options={[
+                    { value: "1", label: "1 (Sole Arbitrator)" },
+                    { value: "3", label: "3 (Tribunal)" },
+                    { value: "5", label: "5" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
               <div className="col-span-2">
                 <ControlledFormField
                   control={control}
@@ -2328,6 +2384,37 @@ function ArbitrationForm() {
                   required
                   maxLength={MAX_ARBITRATION_FIELD_LENGTH}
                 />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Text of Arbitration Agreement/Clause"
+                  name="arbitrationAgreement.arbitrationText"
+                  required
+                  maxLength={2000}
+                  rows={5}
+                  placeholder="Enter the exact text of the arbitration agreement or clause"
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Stamp Duty Percentage"
+                  name="arbitrationAgreement.stampDutyPercentage"
+                  placeholder="% of Agreement value"
+                  type="number"
+                />
+                <p className="text-xs text-gray-500 mt-1">Enter as percentage of agreement value</p>
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Stamp Duty Amount Paid"
+                  name="arbitrationAgreement.stampDutyAmount"
+                  placeholder="Amount in INR"
+                  type="number"
+                />
+                <p className="text-xs text-gray-500 mt-1">Enter the amount in INR</p>
               </div>
               <div className="col-span-2">
                 <FileField
@@ -2421,6 +2508,23 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
+                  label="Claim Type"
+                  name="disputeDetails.claimType"
+                  required
+                  type="select"
+                  options={[
+                    { value: "monetary", label: "Monetary" },
+                    { value: "specific_performance", label: "Specific Performance" },
+                    { value: "declaratory", label: "Declaratory Relief" },
+                    { value: "injunctive", label: "Injunctive Relief" },
+                    { value: "combination", label: "Combination of Above" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
                   label="Dispute Amount (INR)"
                   name="disputeDetails.disputeAmount"
                   type="number"
@@ -2464,7 +2568,18 @@ function ArbitrationForm() {
                   ]}
                 />
               </div>
-              <div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Claim Reason"
+                  name="disputeDetails.claimReason"
+                  required
+                  maxLength={1000}
+                  placeholder="Provide the primary reason for the claim"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
                 <Controller
                   control={control}
                   name="disputeDetails.applicableActs"
@@ -2490,6 +2605,17 @@ function ArbitrationForm() {
                 />
               </div>
               <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Laws Relied Upon"
+                  name="disputeDetails.lawsReliedUpon"
+                  required
+                  maxLength={1000}
+                  placeholder="List specific Acts/Rules/Regulations/Others relied upon by Claimant"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
                 <ControlledFormField
                   control={control}
                   label="Contract Clause References"
@@ -2497,6 +2623,57 @@ function ArbitrationForm() {
                   required
                   maxLength={500}
                   placeholder="e.g., Clause 12.3, 15.2, etc."
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Relevant Clause Number/Page Number"
+                  name="disputeDetails.clauseNumber"
+                  required
+                  placeholder="e.g., Clause 5.2 or Page 7"
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Document Supporting Claim"
+                  name="disputeDetails.documentSupportingClaim"
+                  required
+                  placeholder="Name/reference of supporting document"
+                />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Clause Supporting Claim"
+                  name="disputeDetails.clauseSupportingClaim"
+                  required
+                  maxLength={1000}
+                  placeholder="Describe how the clause supports your claim"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Clause Text"
+                  name="disputeDetails.clause"
+                  required
+                  maxLength={1000}
+                  placeholder="Enter the exact text of the relevant clause"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Relief Sought"
+                  name="disputeDetails.reliefSought"
+                  required
+                  maxLength={1000}
+                  placeholder="Describe the specific relief you are seeking"
+                  rows={3}
                 />
               </div>
               <div className="col-span-2">
@@ -2933,10 +3110,30 @@ function ArbitrationForm() {
                       <span className="font-medium">Signed-on Place:</span> {arbitrationAgreement.signedOnPlace}
                     </div>
                     <div>
+                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement.placeOfSigning}
+                    </div>
+                    <div>
                       <span className="font-medium">Arbitrator Selection:</span> {arbitrationAgreement.arbitratorSelection}
+                    </div>
+                    <div>
+                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement.numberOfArbitrators}
                     </div>
                     <div className="col-span-2">
                       <span className="font-medium">Agreement Parties:</span> {arbitrationAgreement.agreementParties}
+                    </div>
+                    {arbitrationAgreement.stampDutyPercentage && (
+                      <div>
+                        <span className="font-medium">Stamp Duty Percentage:</span> {arbitrationAgreement.stampDutyPercentage}%
+                      </div>
+                    )}
+                    {arbitrationAgreement.stampDutyAmount && (
+                      <div>
+                        <span className="font-medium">Stamp Duty Amount:</span> ₹{arbitrationAgreement.stampDutyAmount}
+                      </div>
+                    )}
+                    <div className="col-span-2">
+                      <span className="font-medium">Arbitration Text:</span>
+                      <p className="mt-1 whitespace-pre-line">{arbitrationAgreement.arbitrationText}</p>
                     </div>
                   </div>
                 </div>
@@ -2957,6 +3154,9 @@ function ArbitrationForm() {
                       <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory}
                     </div>
                     <div>
+                      <span className="font-medium">Claim Type:</span> {disputeDetails.claimType}
+                    </div>
+                    <div>
                       <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount}
                     </div>
                     <div>
@@ -2965,11 +3165,37 @@ function ArbitrationForm() {
                     <div>
                       <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute}
                     </div>
-                    <div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Claim Reason:</span>
+                      <p className="mt-1">{disputeDetails.claimReason}</p>
+                    </div>
+                    <div className="col-span-2">
                       <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs.join(', ')}
                     </div>
                     <div className="col-span-2">
+                      <span className="font-medium">Laws Relied Upon:</span>
+                      <p className="mt-1">{disputeDetails.lawsReliedUpon}</p>
+                    </div>
+                    <div className="col-span-2">
                       <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences}
+                    </div>
+                    <div>
+                      <span className="font-medium">Clause/Page Number:</span> {disputeDetails.clauseNumber}
+                    </div>
+                    <div>
+                      <span className="font-medium">Supporting Document:</span> {disputeDetails.documentSupportingClaim}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Clause Supporting Claim:</span>
+                      <p className="mt-1">{disputeDetails.clauseSupportingClaim}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Clause Text:</span>
+                      <p className="mt-1">{disputeDetails.clause}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Relief Sought:</span>
+                      <p className="mt-1">{disputeDetails.reliefSought}</p>
                     </div>
                     <div className="col-span-2">
                       <span className="font-medium">Facts of the Case:</span>

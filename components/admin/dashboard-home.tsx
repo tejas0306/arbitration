@@ -280,12 +280,12 @@ export default function DashboardHome() {
 
   // Handle case editing
   const handleEditCase = (caseId: string) => {
-    router.push(`/dashboard/petition/edit/${caseId}`)
+    router.push(`/admin/cases/edit/${caseId}`)
   }
 
   // Handle case viewing
   const handleViewCase = (caseId: string) => {
-    router.push(`/dashboard/case/${caseId}`)
+    router.push(`/admin/cases/${caseId}`)
   }
 
   // Handle new case creation
@@ -295,17 +295,17 @@ export default function DashboardHome() {
 
   // Handle adding an arbitrator
   const handleAddArbitrator = () => {
-    router.push('/dashboard/arbitrators/new')
+    router.push('/admin/arbitrators/new')
   }
 
   // Handle creating a user
   const handleCreateUser = () => {
-    router.push('/dashboard/users/new')
+    router.push('/admin/users/new')
   }
 
   // Handle configuration
   const handleConfiguration = () => {
-    router.push('/dashboard/settings')
+    router.push('/admin/configuration')
   }
 
   if (loading) {

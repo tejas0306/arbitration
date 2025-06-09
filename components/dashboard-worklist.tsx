@@ -48,20 +48,26 @@ export default function DashboardWorklist({
       
       // Transform data to match our required format if needed
       const formattedCases: ArbitrationCase[] = casesData.map((caseData: any) => {
+        // Extract claimant name
+        const claimantName = caseData.name || 
+                           caseData.claimant?.name || 
+                           (caseData.claimants && caseData.claimants.length > 0 ? caseData.claimants[0].name : 'Not specified');
+
         // Extract respondent name from the respondents array (first one if multiple)
-        const respondentName = caseData.respondents && caseData.respondents.length > 0
-          ? caseData.respondents[0].name
-          : 'Not specified'
+        const respondentName = (caseData.respondents && caseData.respondents.length > 0) ? 
+                             caseData.respondents[0].name : 
+                             caseData.respondent?.name || 
+                             'Not specified';
           
         // Extract nature of dispute from disputeDetails
-        const natureOfDispute = caseData.disputeDetails?.disputeType || 'Not specified'
+        const natureOfDispute = caseData.disputeDetails?.disputeType || caseData.natureOfDispute || 'Not specified'
         
         // Map category and subcategory from disputeDetails
-        const category = caseData.type || 'Not specified'
-        const subCategory = caseData.disputeDetails?.subCategory || 'Not specified'
+        const category = caseData.type || caseData.category || 'Not specified'
+        const subCategory = caseData.disputeDetails?.subCategory || caseData.subCategory || 'Not specified'
         
         // Determine if arbitrator is assigned
-        const arbitratorAssigned = caseData.arbitratorId ? "Assigned" : "Not Assigned"
+        const arbitratorAssigned = caseData.arbitratorId || caseData.arbitratorName ? "Assigned" : "Not Assigned"
         
         // Get agreement file information
         const agreementFile = 
@@ -81,10 +87,18 @@ export default function DashboardWorklist({
             caseData.documents?.arbitrationAgreement?.agreementFile?.path) ||
           null
         
+        // Console log for debugging
+        console.log('Case data mapping:', {
+          id: caseData.id,
+          caseNumber: caseData.caseNumber,
+          claimant: claimantName,
+          respondent: respondentName
+        });
+        
         return {
           id: caseData.id,
           caseNumber: caseData.caseNumber || 'Pending',
-          claimant: caseData.name || 'Not specified',
+          claimant: claimantName,
           respondent: respondentName,
           category,
           subCategory,
@@ -96,7 +110,7 @@ export default function DashboardWorklist({
           lastUpdatedDate: caseData.updatedAt || caseData.createdAt,
           nextHearingDate: caseData.nextHearingDate || null,
           agreementFile,
-          disputeAmount: caseData.disputeDetails?.disputeAmount,
+          disputeAmount: caseData.disputeDetails?.disputeAmount || caseData.disputeAmount,
           priority: caseData.priority || 'Medium'
         }
       })

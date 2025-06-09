@@ -1,5 +1,5 @@
 import DashboardLayout from '@/components/admin/dashboard-layout'
-import CaseForm from '@/components/admin/case-form'
+import CaseView from '@/components/admin/case-view'
 
 export const metadata = {
   title: 'Case Details - Admin Portal',
@@ -9,7 +9,7 @@ export const metadata = {
 export default function CaseDetailPage() {
   return (
     <DashboardLayout>
-      <CaseForm />
+      <CaseView />
     </DashboardLayout>
   )
 } 

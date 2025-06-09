@@ -15,22 +15,51 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Check admin role
+    // Get user from database
     const user = await prisma.user.findUnique({
       where: { email: session.user.email as string }
     });
     
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const arbitratorId = params.id;
+    // Only admin or arbitrators themselves can view detailed info
+    const isAdmin = user.role === 'ADMIN';
+    const isSelf = user.id === params.id;
     
-    // Fetch the arbitrator
+    if (!isAdmin && !isSelf) {
+      // For non-admin users, limit the fields returned
+      const arbitrator = await prisma.user.findUnique({
+        where: {
+          id: params.id,
+          role: 'ARBITRATOR',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          expertise: true,
+          qualifications: true,
+          experience: true,
+          location: true,
+          rating: true,
+          status: true,
+        },
+      });
+      
+      if (!arbitrator) {
+        return NextResponse.json({ error: 'Arbitrator not found' }, { status: 404 });
+      }
+      
+      return NextResponse.json(arbitrator);
+    }
+    
+    // For admins and self, return full details
     const arbitrator = await prisma.user.findUnique({
-      where: { 
-        id: arbitratorId,
-        role: 'ARBITRATOR'
+      where: {
+        id: params.id,
+        role: 'ARBITRATOR',
       },
       select: {
         id: true,
@@ -41,41 +70,48 @@ export async function GET(
         qualifications: true,
         experience: true,
         bio: true,
+        pastExperience: true,
         languages: true,
         location: true,
         hourlyRate: true,
         availabilityInfo: true,
         status: true,
+        rating: true,
         createdAt: true,
         updatedAt: true,
-        // Include related data
-        arbitrations: {
-          select: {
-            id: true,
-            caseNumber: true,
-            status: true,
-            updatedAt: true
+        // Include arbitration cases for admins
+        ...(isAdmin ? {
+          arbitrations: {
+            select: {
+              id: true,
+              caseNumber: true,
+              status: true,
+              updatedAt: true
+            }
           }
-        }
-      }
+        } : {})
+      },
     });
     
     if (!arbitrator) {
       return NextResponse.json({ error: 'Arbitrator not found' }, { status: 404 });
     }
     
-    // Add calculated fields
-    const arbitratorWithStats = {
-      ...arbitrator,
-      assignedCases: arbitrator.arbitrations.length,
-      completedCases: arbitrator.arbitrations.filter(c => c.status === 'COMPLETED').length
-    };
+    // Add calculated fields for admins
+    if (isAdmin && arbitrator.arbitrations) {
+      const arbitratorWithStats = {
+        ...arbitrator,
+        assignedCases: arbitrator.arbitrations.length,
+        completedCases: arbitrator.arbitrations.filter((c: any) => c.status === 'COMPLETED').length
+      };
+      return NextResponse.json(arbitratorWithStats);
+    }
     
-    return NextResponse.json(arbitratorWithStats);
+    return NextResponse.json(arbitrator);
   } catch (error) {
     console.error('Error fetching arbitrator:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch arbitrator' },
+      { error: 'Failed to fetch arbitrator details' },
       { status: 500 }
     );
   }

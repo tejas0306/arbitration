@@ -22,12 +22,12 @@ import {
   Phone, 
   Mail 
 } from "lucide-react"
+import DashboardLayoutClient from "@/components/dashboard-layout-client"
 
 export default function CaseDetailPage({ params }: { params: { id: string } }) {
-  // Unwrap params using React.use()
-  const unwrappedParams = React.use(params as any)
-  const caseId = unwrappedParams?.id
-
+  // Safely extract the ID from params
+  const caseId = params?.id
+  
   const router = useRouter()
   const [caseDetails, setCaseDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -183,400 +183,408 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
     return documents;
   }
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex flex-col items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-indigo-600">Loading case details...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!caseDetails) {
-    return (
-      <div className="container mx-auto py-8">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground mb-4">Case not found or you don't have permission to view it.</p>
-            <Button onClick={() => router.push('/dashboard/my-cases')}>
-              Back to My Cases
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  const documents = getAllDocuments();
-
+  // Main component content wrapped in DashboardLayoutClient
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Case #{caseDetails.caseNumber}</h1>
-          <p className="text-muted-foreground mt-1">Filed on {new Date(caseDetails.createdAt).toLocaleDateString()}</p>
-        </div>
-        <Button variant="outline" onClick={() => router.push('/dashboard')}>
-          Back to Dashboard
-        </Button>
-      </div>
-
-      {/* Case Summary Card */}
-      <Card className="mb-8 overflow-hidden">
-        <div className="bg-indigo-600 p-4">
-          <h2 className="text-white text-xl font-semibold">Case Summary</h2>
-        </div>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex items-start">
-              <div className="bg-indigo-100 p-2 rounded-full mr-3">
-                <Scale className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-700">Case Status</h3>
-                <p className="text-lg font-medium mt-1">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                    ${caseDetails.status?.toLowerCase() === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                    caseDetails.status?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-800' : 
-                    caseDetails.status?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-800' :
-                    caseDetails.status?.toLowerCase() === 'in_progress' ? 'bg-indigo-100 text-indigo-800' :
-                    'bg-gray-100 text-gray-800'}`}>
-                    {caseDetails.status ? caseDetails.status.toLowerCase() : 'pending'}
-                  </span>
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Last updated: {new Date(caseDetails.updatedAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start">
-              <div className="bg-indigo-100 p-2 rounded-full mr-3">
-                <DollarSign className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-700">Dispute Amount</h3>
-                <p className="text-lg font-medium mt-1">₹{caseDetails.disputeDetails?.disputeAmount || 'Not specified'}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start">
-              <div className="bg-indigo-100 p-2 rounded-full mr-3">
-                <Award className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-700">Arbitrator</h3>
-                <p className="text-lg font-medium mt-1">{caseDetails.arbitratorName || 'Not assigned yet'}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {caseDetails.arbitratorId ? 'Assigned' : 'Pending assignment'}
-                </p>
-              </div>
-            </div>
+    <DashboardLayoutClient showHeader={false} showFooter={false}>
+      <div className="container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Case #{caseDetails?.caseNumber || 'Loading...'}</h1>
+            <p className="text-muted-foreground mt-1">
+              {caseDetails ? `Filed on ${new Date(caseDetails.createdAt).toLocaleDateString()}` : ''}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <Button variant="outline" onClick={() => router.push('/dashboard')}>
+            Back to Dashboard
+          </Button>
+        </div>
 
-      {/* Tab Navigation */}
-      <Tabs defaultValue="details" className="mb-8" onValueChange={setActiveTab} value={activeTab}>
-        <TabsList className="grid grid-cols-3 mb-6">
-          <TabsTrigger value="details">Case Details</TabsTrigger>
-          <TabsTrigger value="parties">Parties</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-        </TabsList>
-        
-        {/* Case Details Tab */}
-        <TabsContent value="details" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Dispute Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Dispute Type</h3>
-                  <p className="mt-1 text-lg">{caseDetails.disputeDetails?.disputeType || 'Not specified'}</p>
+        {/* Case Summary Card */}
+        <Card className="mb-8 overflow-hidden">
+          <div className="bg-indigo-600 p-4">
+            <h2 className="text-white text-xl font-semibold">Case Summary</h2>
+          </div>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="flex items-start">
+                <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                  <Scale className="h-5 w-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-700">Dispute Category</h3>
-                  <p className="mt-1 text-lg">{caseDetails.type || 'Not specified'}</p>
+                  <h3 className="font-semibold text-gray-700">Case Status</h3>
+                  {caseDetails ? (
+                    <>
+                      <p className="text-lg font-medium mt-1">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                          ${caseDetails?.status?.toLowerCase() === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          caseDetails?.status?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-800' : 
+                          caseDetails?.status?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-800' :
+                          caseDetails?.status?.toLowerCase() === 'in_progress' ? 'bg-indigo-100 text-indigo-800' :
+                          'bg-gray-100 text-gray-800'}`}>
+                          {caseDetails?.status ? caseDetails.status.toLowerCase() : 'pending'}
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Last updated: {new Date(caseDetails.updatedAt).toLocaleDateString()}</p>
+                    </>
+                  ) : (
+                    <p className="text-lg font-medium mt-1">Loading...</p>
+                  )}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-700">Sub-Category</h3>
-                  <p className="mt-1 text-lg">{caseDetails.disputeDetails?.subCategory || 'Not specified'}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-700">Dispute Date</h3>
-                  <p className="mt-1 text-lg">{caseDetails.disputeDetails?.disputeDate || 'Not specified'}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <h3 className="font-semibold text-gray-700">Dispute Description</h3>
-                  <div className="mt-2 bg-gray-50 p-4 rounded-md">
-                    <p>{caseDetails.disputeDetails?.disputeDescription || 'No description provided'}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <File className="h-5 w-5" />
-                Arbitration Agreement
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Agreement Type</h3>
-                  <p className="mt-1 text-lg">{caseDetails.arbitrationAgreement?.agreementType || 'Not specified'}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-700">Agreement Date</h3>
-                  <p className="mt-1 text-lg">{caseDetails.arbitrationAgreement?.agreementDate || 'Not specified'}</p>
-                </div>
-              </div>
-            </CardContent>
-            {caseDetails.arbitrationAgreement?.agreementFile && (
-              <CardFooter className="bg-gray-50 border-t">
-                <div className="flex items-center w-full justify-between">
-                  <div className="flex items-center">
-                    <File className="h-5 w-5 text-indigo-600 mr-2" />
-                    <span>Agreement Document</span>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleViewDocument(caseDetails.arbitrationAgreement.agreementFile)}
-                  >
-                    View Document
-                  </Button>
-                </div>
-              </CardFooter>
-            )}
-          </Card>
-        </TabsContent>
-        
-        {/* Parties Tab */}
-        <TabsContent value="parties" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Claimant Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Name</h3>
-                  <p className="mt-1 text-lg">{caseDetails.name || 'Not specified'}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-700">Type</h3>
-                  <p className="mt-1 text-lg">{caseDetails.type || 'Not specified'}</p>
-                </div>
-                <div className="flex items-center">
-                  <Mail className="h-4 w-4 text-gray-500 mr-2" />
-                  <span>{caseDetails.email || 'Not specified'}</span>
-                </div>
-                <div className="flex items-center">
-                  <Phone className="h-4 w-4 text-gray-500 mr-2" />
-                  <span>{caseDetails.phoneCountryCode} {caseDetails.phone || 'Not specified'}</span>
-                </div>
-                <div className="md:col-span-2">
-                  <h3 className="font-semibold text-gray-700">Address</h3>
-                  <p className="mt-1">
-                    {caseDetails.address1}
-                    {caseDetails.address2 ? `, ${caseDetails.address2}` : ''}
-                    <br />
-                    {caseDetails.city}, {caseDetails.state}, {caseDetails.pincode}
-                  </p>
-                </div>
-                {caseDetails.gst && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700">GST</h3>
-                    <p className="mt-1">{caseDetails.gst}</p>
-                  </div>
-                )}
-                {caseDetails.pan && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700">PAN</h3>
-                    <p className="mt-1">{caseDetails.pan}</p>
-                  </div>
-                )}
-                {caseDetails.cin && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700">CIN</h3>
-                    <p className="mt-1">{caseDetails.cin}</p>
-                  </div>
-                )}
               </div>
               
-              {caseDetails.additionalClaimants && caseDetails.additionalClaimants.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="font-semibold text-gray-700 mb-3">Additional Claimants</h3>
-                  <div className="space-y-4 bg-gray-50 p-4 rounded-md">
-                    {caseDetails.additionalClaimants.map((claimant: any, index: number) => (
-                      <div key={index} className="pb-3 last:pb-0 last:border-b-0 border-b border-gray-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <span className="text-gray-500 text-sm">Name:</span>
-                            <p>{claimant.name}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-500 text-sm">Email:</span>
-                            <p className="flex items-center">
-                              <Mail className="h-3 w-3 text-gray-500 mr-1" />
-                              {claimant.email}
-                            </p>
-                          </div>
-                          {claimant.phone && (
-                            <div>
-                              <span className="text-gray-500 text-sm">Phone:</span>
-                              <p className="flex items-center">
-                                <Phone className="h-3 w-3 text-gray-500 mr-1" />
-                                {claimant.phoneCountryCode} {claimant.phone}
-                              </p>
-                            </div>
-                          )}
-                          {claimant.address && (
-                            <div>
-                              <span className="text-gray-500 text-sm">Address:</span>
-                              <p>{claimant.address}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div className="flex items-start">
+                <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                  <DollarSign className="h-5 w-5 text-indigo-600" />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <div>
+                  <h3 className="font-semibold text-gray-700">Dispute Amount</h3>
+                  <p className="text-lg font-medium mt-1">₹{caseDetails?.disputeDetails?.disputeAmount || 'Not specified'}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start">
+                <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                  <Award className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-700">Arbitrator</h3>
+                  <p className="text-lg font-medium mt-1">{caseDetails?.arbitratorName || 'Not assigned yet'}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {caseDetails?.arbitratorId ? 'Assigned' : 'Pending assignment'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tab Navigation */}
+        <Tabs defaultValue="details" className="mb-8" onValueChange={setActiveTab} value={activeTab}>
+          <TabsList className="grid grid-cols-3 mb-6">
+            <TabsTrigger value="details">Case Details</TabsTrigger>
+            <TabsTrigger value="parties">Parties</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+          </TabsList>
           
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Respondent Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {caseDetails.respondents && caseDetails.respondents.length > 0 ? (
-                <div className="space-y-6">
-                  {caseDetails.respondents.map((respondent: any, index: number) => (
-                    <div key={index} className={`${index > 0 ? 'pt-6 border-t border-gray-200' : ''}`}>
-                      <h3 className="font-semibold text-gray-700 text-lg mb-3">Respondent {index + 1}</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <h4 className="font-semibold text-gray-700">Name</h4>
-                          <p className="mt-1">{respondent.name}</p>
+          {/* Case Details Tab */}
+          <TabsContent value="details" className="space-y-6">
+            {caseDetails ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Dispute Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Dispute Type</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.disputeDetails?.disputeType || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Dispute Category</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.type || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Sub-Category</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.disputeDetails?.subCategory || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Dispute Date</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.disputeDetails?.disputeDate || 'Not specified'}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <h3 className="font-semibold text-gray-700">Dispute Description</h3>
+                        <div className="mt-2 bg-gray-50 p-4 rounded-md">
+                          <p>{caseDetails?.disputeDetails?.disputeDescription || 'No description provided'}</p>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-700">Type</h4>
-                          <p className="mt-1">{respondent.type}</p>
-                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <File className="h-5 w-5" />
+                      Arbitration Agreement
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Agreement Type</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.arbitrationAgreement?.agreementType || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Agreement Date</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.arbitrationAgreement?.agreementDate || 'Not specified'}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                  {caseDetails?.arbitrationAgreement?.agreementFile && (
+                    <CardFooter className="bg-gray-50 border-t">
+                      <div className="flex items-center w-full justify-between">
                         <div className="flex items-center">
-                          <Mail className="h-4 w-4 text-gray-500 mr-2" />
-                          <span>{respondent.email}</span>
+                          <File className="h-5 w-5 text-indigo-600 mr-2" />
+                          <span>Agreement Document</span>
                         </div>
-                        {respondent.phone && (
-                          <div className="flex items-center">
-                            <Phone className="h-4 w-4 text-gray-500 mr-2" />
-                            <span>{respondent.phoneCountryCode} {respondent.phone}</span>
-                          </div>
-                        )}
-                        {respondent.address && (
-                          <div className="md:col-span-2">
-                            <h3 className="font-semibold text-gray-700">Address</h3>
-                            <p className="mt-1">{respondent.address}</p>
-                          </div>
-                        )}
-                        {respondent.gst && (
-                          <div>
-                            <h3 className="font-semibold text-gray-700">GST</h3>
-                            <p className="mt-1">{respondent.gst}</p>
-                          </div>
-                        )}
-                        {respondent.pan && (
-                          <div>
-                            <h3 className="font-semibold text-gray-700">PAN</h3>
-                            <p className="mt-1">{respondent.pan}</p>
-                          </div>
-                        )}
-                        {respondent.cin && (
-                          <div>
-                            <h3 className="font-semibold text-gray-700">CIN</h3>
-                            <p className="mt-1">{respondent.cin}</p>
-                          </div>
-                        )}
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewDocument(caseDetails.arbitrationAgreement.agreementFile)}
+                        >
+                          View Document
+                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <p>No respondent details available</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {/* Documents Tab */}
-        <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Case Documents
-              </CardTitle>
-              <CardDescription>
-                All documents submitted as part of this arbitration case
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {documents.length > 0 ? (
-                <div className="divide-y">
-                  {documents.map((doc, index) => (
-                    <div key={index} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between">
-                      <div className="flex items-start">
-                        <div className="bg-indigo-100 p-2 rounded-full mr-3">
-                          <File className="h-4 w-4 text-indigo-600" />
-                        </div>
+                    </CardFooter>
+                  )}
+                </Card>
+              </>
+            ) : (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-3"></div>
+                <p>Loading case details...</p>
+              </div>
+            )}
+          </TabsContent>
+          
+          {/* Parties Tab */}
+          <TabsContent value="parties" className="space-y-6">
+            {caseDetails ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Claimant Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Name</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.name || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-700">Type</h3>
+                        <p className="mt-1 text-lg">{caseDetails?.type || 'Not specified'}</p>
+                      </div>
+                      <div className="flex items-center">
+                        <Mail className="h-4 w-4 text-gray-500 mr-2" />
+                        <span>{caseDetails?.email || 'Not specified'}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 text-gray-500 mr-2" />
+                        <span>{caseDetails?.phoneCountryCode} {caseDetails?.phone || 'Not specified'}</span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <h3 className="font-semibold text-gray-700">Address</h3>
+                        <p className="mt-1">
+                          {caseDetails?.address1}
+                          {caseDetails?.address2 ? `, ${caseDetails.address2}` : ''}
+                          <br />
+                          {caseDetails?.city}, {caseDetails?.state}, {caseDetails?.pincode}
+                        </p>
+                      </div>
+                      {caseDetails?.gst && (
                         <div>
-                          <p className="font-medium">{doc.name}</p>
-                          <div className="flex items-center mt-1 space-x-4 text-sm text-gray-500">
-                            <span>{doc.type}</span>
-                            <span>•</span>
-                            <span>Uploaded: {new Date(doc.date).toLocaleDateString()}</span>
-                          </div>
+                          <h3 className="font-semibold text-gray-700">GST</h3>
+                          <p className="mt-1">{caseDetails.gst}</p>
+                        </div>
+                      )}
+                      {caseDetails?.pan && (
+                        <div>
+                          <h3 className="font-semibold text-gray-700">PAN</h3>
+                          <p className="mt-1">{caseDetails.pan}</p>
+                        </div>
+                      )}
+                      {caseDetails?.cin && (
+                        <div>
+                          <h3 className="font-semibold text-gray-700">CIN</h3>
+                          <p className="mt-1">{caseDetails.cin}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {caseDetails?.additionalClaimants && caseDetails.additionalClaimants.length > 0 && (
+                      <div className="mt-6">
+                        <h3 className="font-semibold text-gray-700 mb-3">Additional Claimants</h3>
+                        <div className="space-y-4 bg-gray-50 p-4 rounded-md">
+                          {caseDetails.additionalClaimants.map((claimant: any, index: number) => (
+                            <div key={index} className="pb-3 last:pb-0 last:border-b-0 border-b border-gray-200">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <span className="text-gray-500 text-sm">Name:</span>
+                                  <p>{claimant.name}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 text-sm">Email:</span>
+                                  <p className="flex items-center">
+                                    <Mail className="h-3 w-3 text-gray-500 mr-1" />
+                                    {claimant.email}
+                                  </p>
+                                </div>
+                                {claimant.phone && (
+                                  <div>
+                                    <span className="text-gray-500 text-sm">Phone:</span>
+                                    <p className="flex items-center">
+                                      <Phone className="h-3 w-3 text-gray-500 mr-1" />
+                                      {claimant.phoneCountryCode} {claimant.phone}
+                                    </p>
+                                  </div>
+                                )}
+                                {claimant.address && (
+                                  <div>
+                                    <span className="text-gray-500 text-sm">Address:</span>
+                                    <p>{claimant.address}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewDocument(doc.file)}
-                      >
-                        View
-                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Respondent Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {caseDetails?.respondents && caseDetails.respondents.length > 0 ? (
+                      <div className="space-y-6">
+                        {caseDetails.respondents.map((respondent: any, index: number) => (
+                          <div key={index} className={`${index > 0 ? 'pt-6 border-t border-gray-200' : ''}`}>
+                            <h3 className="font-semibold text-gray-700 text-lg mb-3">Respondent {index + 1}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <h4 className="font-semibold text-gray-700">Name</h4>
+                                <p className="mt-1">{respondent.name}</p>
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-700">Type</h4>
+                                <p className="mt-1">{respondent.type}</p>
+                              </div>
+                              <div className="flex items-center">
+                                <Mail className="h-4 w-4 text-gray-500 mr-2" />
+                                <span>{respondent.email}</span>
+                              </div>
+                              {respondent.phone && (
+                                <div className="flex items-center">
+                                  <Phone className="h-4 w-4 text-gray-500 mr-2" />
+                                  <span>{respondent.phoneCountryCode} {respondent.phone}</span>
+                                </div>
+                              )}
+                              {respondent.address && (
+                                <div className="md:col-span-2">
+                                  <h3 className="font-semibold text-gray-700">Address</h3>
+                                  <p className="mt-1">{respondent.address}</p>
+                                </div>
+                              )}
+                              {respondent.gst && (
+                                <div>
+                                  <h3 className="font-semibold text-gray-700">GST</h3>
+                                  <p className="mt-1">{respondent.gst}</p>
+                                </div>
+                              )}
+                              {respondent.pan && (
+                                <div>
+                                  <h3 className="font-semibold text-gray-700">PAN</h3>
+                                  <p className="mt-1">{respondent.pan}</p>
+                                </div>
+                              )}
+                              {respondent.cin && (
+                                <div>
+                                  <h3 className="font-semibold text-gray-700">CIN</h3>
+                                  <p className="mt-1">{respondent.cin}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-gray-500">
+                        <p>No respondent details available</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-3"></div>
+                <p>Loading parties information...</p>
+              </div>
+            )}
+          </TabsContent>
+          
+          {/* Documents Tab */}
+          <TabsContent value="documents">
+            {caseDetails ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Case Documents
+                  </CardTitle>
+                  <CardDescription>
+                    All documents submitted as part of this arbitration case
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {getAllDocuments().length > 0 ? (
+                    <div className="divide-y">
+                      {getAllDocuments().map((doc, index) => (
+                        <div key={index} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between">
+                          <div className="flex items-start">
+                            <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                              <File className="h-4 w-4 text-indigo-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{doc.name}</p>
+                              <div className="flex items-center mt-1 space-x-4 text-sm text-gray-500">
+                                <span>{doc.type}</span>
+                                <span>•</span>
+                                <span>Uploaded: {new Date(doc.date).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewDocument(doc.file)}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                  <p>No documents have been uploaded for this case</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                      <p>No documents have been uploaded for this case</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-3"></div>
+                <p>Loading document information...</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </DashboardLayoutClient>
   )
 } 

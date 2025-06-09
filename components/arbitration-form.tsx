@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import DocumentsTabs from './evidence/DocumentsTabs';
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -81,7 +82,13 @@ const initialAdditionalClaimant = {
   email: "",
   phoneCountryCode: "+91",
   phone: "",
-  address: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
 }
 
 const initialManagerDetails = {
@@ -97,7 +104,13 @@ const initialManagerDetails = {
 const initialRespondent = {
   type: "",
   name: "",
-  address: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
   email: "",
   phoneCountryCode: "+91",
   phone: "",
@@ -115,6 +128,11 @@ const initialArbitrationAgreement = {
   signedOnPlace: "",
   agreementParties: "",
   arbitratorSelection: "",
+  placeOfSigning: "",
+  arbitrationText: "",
+  stampDutyPercentage: "",
+  stampDutyAmount: "",
+  numberOfArbitrators: "",
 }
 
 const initialDisputeDetails = {
@@ -129,6 +147,14 @@ const initialDisputeDetails = {
   natureOfDispute: "",
   factsOfCase: "",
   clauseReferences: "",
+  claimType: "",
+  claimReason: "",
+  lawsReliedUpon: "",
+  clauseNumber: "",
+  clauseSupportingClaim: "",
+  clause: "",
+  documentSupportingClaim: "",
+  reliefSought: "",
 }
 
 const initialPrayers = {
@@ -572,8 +598,8 @@ const formSchema = z.object({
     phoneCountryCode: z.string().default("+91"),
   })).default([]),
   
-  // Manager details
-  managerDetails: z.object({
+  // Manager details - change to array
+  managerDetails: z.array(z.object({
     name: z.string().max(MAX_NAME_LENGTH),
     email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH).optional(),
     phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
@@ -581,13 +607,24 @@ const formSchema = z.object({
     designation: z.string().max(MAX_NAME_LENGTH).optional(),
     authority: z.string().max(MAX_NAME_LENGTH).optional(),
     phoneCountryCode: z.string().default("+91"),
-  }).optional(),
+  })).default([]),
   
   // Respondent details
   respondents: z.array(z.object({
     type: z.string().min(1, "Type is required"),
     name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
-    address: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH),
+    pincode: z.string()
+      .min(6, "Pincode must be 6 digits")
+      .max(6, "Pincode must be 6 digits")
+      .regex(/^\d{6}$/, "Must be a valid 6-digit pincode"),
+    address1: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters"),
+    address2: z.string().max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters").optional(),
+    city: z.string().min(1, "City is required").max(MAX_CITY_LENGTH),
+    district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
+    state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
+    country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
     email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
       .email("Must be a valid email address"),
     phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
@@ -613,6 +650,11 @@ const formSchema = z.object({
     signedOnPlace: z.string().min(1, "Signed-on place is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
     agreementParties: z.string().min(1, "Agreement parties is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
     arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
+    placeOfSigning: z.string().min(1, "Place of signing is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
+    arbitrationText: z.string().min(1, "Text of Arbitration Agreement/clause is required").max(2000, "Text cannot exceed 2000 characters"),
+    stampDutyPercentage: z.string().optional(),
+    stampDutyAmount: z.string().optional(),
+    numberOfArbitrators: z.string().min(1, "Number of Arbitrators is required"),
     // agreementFile handled separately
   }),
   
@@ -639,6 +681,14 @@ const formSchema = z.object({
     natureOfDispute: z.string().min(1, "Nature of dispute is required"),
     factsOfCase: z.string().min(1, "Facts of the case is required").max(2000),
     clauseReferences: z.string().min(1, "Clause references is required").max(500),
+    claimType: z.string().min(1, "Claim type is required"),
+    claimReason: z.string().min(1, "Claim reason is required").max(1000),
+    lawsReliedUpon: z.string().min(1, "Laws relied upon is required").max(1000),
+    clauseNumber: z.string().min(1, "Clause number/page number is required"),
+    clauseSupportingClaim: z.string().min(1, "Clause supporting claim is required").max(1000),
+    clause: z.string().min(1, "Clause is required").max(1000),
+    documentSupportingClaim: z.string().min(1, "Document supporting claim is required"),
+    reliefSought: z.string().min(1, "Relief sought is required").max(1000),
   }),
   
   // Prayers & Reliefs
@@ -667,9 +717,62 @@ const formSchema = z.object({
   documents: z.object({
     supportingDocuments: z
       .array(z.instanceof(File))
-      .min(1, "Please upload at least one supporting document"),
+      .optional(),
     evidenceFiles: z.array(z.instanceof(File)).optional(),
     documentTypes: z.record(z.string(), z.string()).optional(),
+    
+    // Add the new document fields
+    scannedDocuments: z.array(
+      z.object({
+        file: z.any(),
+        description: z.string().min(1, "Description is required").optional(),
+        isOCREnabled: z.boolean().default(false),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional(),
+        admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
+        crossExaminationRef: z.string().optional()
+      })
+    ).optional().default([]),
+    
+    affidavits: z.array(
+      z.object({
+        type: z.enum(["claimant", "respondent", "officer", "witness"]),
+        file: z.any(),
+        date: z.string().min(1, "Date is required").optional(),
+        place: z.string().min(1, "Place is required").optional(),
+        event: z.string().min(1, "Event is required").optional(),
+        hasVerificationClause: z.boolean().default(false),
+        deponentName: z.string().min(1, "Deponent name is required").optional(),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional()
+      })
+    ).optional().default([]),
+    
+    electronicEvidence: z.array(
+      z.object({
+        certificateFile: z.any(),
+        supportingFiles: z.array(z.any()).default([]),
+        description: z.string().min(1, "Description is required").optional(),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional(),
+        tabulatedList: z.string().min(1, "Tabulated list is required").optional()
+      })
+    ).optional().default([]),
+    
+    lawsReliedUpon: z.array(
+      z.object({
+        category: z.enum(["act", "rule", "regulation", "case", "other"]),
+        reference: z.string().min(1, "Reference is required").optional(),
+        citation: z.string().min(1, "Citation is required").optional(),
+        paragraphNumbers: z.string().optional(),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional()
+      })
+    ).optional().default([]),
+    
+    issueDocumentMap: z.record(
+      z.object({
+        affidavits: z.array(z.string()).default([]),
+        documents: z.array(z.string()).default([]),
+        laws: z.array(z.string()).default([])
+      })
+    ).optional().default({})
   }),
 });
 
@@ -804,6 +907,9 @@ function ArbitrationForm() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [formChanged, setFormChanged] = useState(false);
   
+  // Keep track of processed pincodes to avoid infinite loading
+  const processedPincodes = useRef<Record<string, boolean>>({});
+  
   // Location lookup state
   const [stateOptions, setStateOptions] = useState<Array<{ value: string, label: string }>>([]);
   const [districtOptions, setDistrictOptions] = useState<Array<{ value: string, label: string }>>([]);
@@ -884,7 +990,7 @@ function ArbitrationForm() {
     defaultValues: {
       claimant: initialClaimant,
       additionalClaimants: [initialAdditionalClaimant],
-      managerDetails: initialManagerDetails,
+      managerDetails: [initialManagerDetails],
       respondents: [initialRespondent],
       arbitrationAgreement: initialArbitrationAgreement,
       disputeDetails: initialDisputeDetails,
@@ -910,12 +1016,21 @@ function ArbitrationForm() {
   });
   
   const { 
+    fields: managerFields, 
+    append: appendManager,
+    remove: removeManagerField
+  } = useFieldArray({
+    control,
+    name: "managerDetails",
+  });
+  
+  const { 
     fields: respondentFields, 
     append: appendRespondent,
     remove: removeRespondentField
   } = useFieldArray({
-    control,
     name: "respondents",
+    control,
   });
   
   const { 
@@ -932,6 +1047,14 @@ function ArbitrationForm() {
   
   // Watch for pincode changes and fetch location data
   const pincode = watch('claimant.pincode');
+  
+  // Initialize processedPincodes when component mounts
+  useEffect(() => {
+    processedPincodes.current = {};
+  }, []);
+  
+  // Track all respondent pincodes
+  const respondentPincodes = watch('respondents')?.map(r => r.pincode) || [];
   
   useEffect(() => {
     if (pincode && pincode.length === 6) {
@@ -973,6 +1096,51 @@ function ArbitrationForm() {
     }
   }, [pincode, setValue]);
   
+  // Watch for respondent pincode changes
+  useEffect(() => {
+    // Check if we have any respondent with a valid pincode
+    if (respondentPincodes && respondentPincodes.length > 0) {
+      respondentPincodes.forEach((respPincode, index) => {
+        // Keep track of processed pincodes to avoid infinite loading
+        const processedPincodeKey = `respondent_${index}_${respPincode}`;
+        if (respPincode && respPincode.length === 6 && !processedPincodes.current[processedPincodeKey]) {
+          // Mark this pincode as processed
+          processedPincodes.current[processedPincodeKey] = true;
+          
+          const fetchRespondentLocationData = async () => {
+            try {
+              // Use the actual Indian postal pincode API
+              const response = await fetch(`https://api.postalpincode.in/pincode/${respPincode}`);
+              const data = await response.json() as PincodeResponse[];
+              
+              if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
+                const postOffice = data[0].PostOffice[0];
+                
+                // Extract unique cities from all post offices
+                const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
+                
+                // Update form fields with new values
+                setValue(`respondents.${index}.country`, postOffice.Country);
+                setValue(`respondents.${index}.state`, postOffice.State);
+                setValue(`respondents.${index}.district`, postOffice.District);
+                setValue(`respondents.${index}.city`, cities[0] || "");
+                
+                toast.success(`Respondent ${index + 1}: Pincode ${respPincode} found, location details loaded.`);
+              } else {
+                toast.error(`No data found for respondent ${index + 1} pincode ${respPincode}`);
+              }
+            } catch (error) {
+              console.error(`Error fetching location data for respondent ${index + 1}:`, error);
+              toast.error(`Error fetching location data for respondent ${index + 1} pincode ${respPincode}`);
+            }
+          };
+          
+          fetchRespondentLocationData();
+        }
+      });
+    }
+  }, [respondentPincodes, setValue]);
+  
   // Watch for identifier changes and validate them
   const gstNumber = watch('claimant.gst');
   const panNumber = watch('claimant.pan');
@@ -983,8 +1151,29 @@ function ArbitrationForm() {
     appendAdditionalClaimant(initialAdditionalClaimant);
   };
   
+  const addManager = () => {
+    appendManager(initialManagerDetails);
+  };
+  
   const addRespondent = () => {
-    appendRespondent(initialRespondent);
+    // Use the updated initialRespondent structure from form-initial-state.ts
+    appendRespondent({
+      type: "",
+      name: "",
+      pincode: "",
+      address1: "",
+      address2: "",
+      city: "",
+      district: "",
+      state: "",
+      country: "",
+      email: "",
+      phoneCountryCode: "+91",
+      phone: "",
+      gst: "",
+      pan: "",
+      cin: "",
+    });
   };
   
   const addArgument = () => {
@@ -1005,17 +1194,40 @@ function ArbitrationForm() {
         ];
         break;
       case 1: // Additional Claimants & Manager
-        // Only validate if manager details are provided
-        if (formValues.managerDetails?.name) {
-          fieldsToValidate = ['managerDetails.name', 'managerDetails.designation'];
-        }
+        // Validate managers if any exist
+        managerFields.forEach((_, index) => {
+          // If name is provided, validate required fields
+          if (formValues.managerDetails?.[index]?.name) {
+            fieldsToValidate.push(
+              `managerDetails.${index}.name`,
+              `managerDetails.${index}.designation`,
+              `managerDetails.${index}.authority`
+            );
+            
+            // If email is provided, validate it's in correct format
+            if (formValues.managerDetails?.[index]?.email) {
+              fieldsToValidate.push(`managerDetails.${index}.email`);
+            }
+            
+            // If phone is provided, validate it's in correct format
+            if (formValues.managerDetails?.[index]?.phone) {
+              fieldsToValidate.push(`managerDetails.${index}.phone`);
+            }
+          }
+        });
+        
         // Validate additional claimants if any exist
         additionalClaimantFields.forEach((_, index) => {
           fieldsToValidate.push(
             `additionalClaimants.${index}.name`,
             `additionalClaimants.${index}.email`,
             `additionalClaimants.${index}.phone`,
-            `additionalClaimants.${index}.address`
+            `additionalClaimants.${index}.pincode`,
+            `additionalClaimants.${index}.address1`,
+            `additionalClaimants.${index}.city`,
+            `additionalClaimants.${index}.district`,
+            `additionalClaimants.${index}.state`,
+            `additionalClaimants.${index}.country`
           );
         });
         break;
@@ -1025,7 +1237,12 @@ function ArbitrationForm() {
             `respondents.${index}.type`,
             `respondents.${index}.name`, 
             `respondents.${index}.email`,
-            `respondents.${index}.address`
+            `respondents.${index}.pincode`,
+            `respondents.${index}.address1`,
+            `respondents.${index}.city`,
+            `respondents.${index}.district`,
+            `respondents.${index}.state`,
+            `respondents.${index}.country`
           );
         });
         break;
@@ -1034,7 +1251,8 @@ function ArbitrationForm() {
           'arbitrationAgreement.agreementDate', 'arbitrationAgreement.agreementType',
           'arbitrationAgreement.resolutionMode', 'arbitrationAgreement.seatOfArbitration',
           'arbitrationAgreement.signedOnPlace', 'arbitrationAgreement.agreementParties',
-          'arbitrationAgreement.arbitratorSelection'
+          'arbitrationAgreement.arbitratorSelection', 'arbitrationAgreement.placeOfSigning',
+          'arbitrationAgreement.arbitrationText', 'arbitrationAgreement.numberOfArbitrators'
         ];
         
         // Check file
@@ -1050,19 +1268,85 @@ function ArbitrationForm() {
           'disputeDetails.serviceType', 'disputeDetails.disputeCategory',
           'disputeDetails.disputeSubCategory', 'disputeDetails.natureOfDispute',
           'disputeDetails.factsOfCase', 'disputeDetails.clauseReferences',
-          'disputeDetails.applicableActs'
+          'disputeDetails.applicableActs', 'disputeDetails.claimType',
+          'disputeDetails.claimReason', 'disputeDetails.lawsReliedUpon',
+          'disputeDetails.clauseNumber', 'disputeDetails.clauseSupportingClaim',
+          'disputeDetails.clause', 'disputeDetails.documentSupportingClaim',
+          'disputeDetails.reliefSought'
         ];
         break;
       case 5: // Prayers & Reliefs
         fieldsToValidate = ['prayers.prayers'];
         break;
       case 6: // Documents
-        await trigger('documents.supportingDocuments' as any);
-        if (!watch('documents.supportingDocuments')?.length) {
-          toast.error('Please upload at least one supporting document');
+        // Check at least one of the document types has been uploaded
+        const scannedDocs = watch('documents.scannedDocuments') || [];
+        const affidavits = watch('documents.affidavits') || [];
+        const electronicEvidence = watch('documents.electronicEvidence') || [];
+        const oldSupportingDocs = watch('documents.supportingDocuments') || [];
+        
+        // Ensure at least one document of any type exists
+        if (
+          scannedDocs.length === 0 &&
+          affidavits.length === 0 &&
+          electronicEvidence.length === 0 &&
+          oldSupportingDocs.length === 0
+        ) {
+          toast.error('Please upload at least one document or affidavit');
           return false;
         }
-        break;
+        
+        // Validate any scanned documents that exist
+        if (scannedDocs.length > 0) {
+          for (let i = 0; i < scannedDocs.length; i++) {
+            const fieldPaths = [
+              `documents.scannedDocuments.${i}.file`,
+              `documents.scannedDocuments.${i}.description`,
+              `documents.scannedDocuments.${i}.linkedIssue`,
+              `documents.scannedDocuments.${i}.date`
+            ];
+            const result = await trigger(fieldPaths as any);
+            if (!result) return false;
+          }
+        }
+        
+        // Validate any affidavits that exist
+        if (affidavits.length > 0) {
+          for (let i = 0; i < affidavits.length; i++) {
+            const fieldPaths = [
+              `documents.affidavits.${i}.file`,
+              `documents.affidavits.${i}.type`,
+              `documents.affidavits.${i}.deponentName`,
+              `documents.affidavits.${i}.date`,
+              `documents.affidavits.${i}.place`,
+              `documents.affidavits.${i}.event`,
+              `documents.affidavits.${i}.linkedIssue`
+            ];
+            const result = await trigger(fieldPaths as any);
+            if (!result) return false;
+          }
+        }
+        
+        // Validate any electronic evidence that exist
+        if (electronicEvidence.length > 0) {
+          for (let i = 0; i < electronicEvidence.length; i++) {
+            const fieldPaths = [
+              `documents.electronicEvidence.${i}.certificateFile`,
+              `documents.electronicEvidence.${i}.description`,
+              `documents.electronicEvidence.${i}.linkedIssue`,
+              `documents.electronicEvidence.${i}.tabulatedList`
+            ];
+            const result = await trigger(fieldPaths as any);
+            if (!result) return false;
+          }
+        }
+        
+        // For backward compatibility, check old supporting documents field
+        if (oldSupportingDocs.length > 0) {
+          await trigger('documents.supportingDocuments' as any);
+        }
+        
+        return true;
       case 7: // Payment
         fieldsToValidate = [
           'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
@@ -1097,8 +1381,8 @@ function ArbitrationForm() {
     const isStepValid = await validateCurrentStep();
     
     if (isStepValid) {
-    if (activeStep < steps.length - 1) {
-      setActiveStep(activeStep + 1);
+      if (activeStep < steps.length - 1) {
+        setActiveStep(activeStep + 1);
         
         // Focus the first input in the next step
         setTimeout(() => {
@@ -1108,9 +1392,10 @@ function ArbitrationForm() {
             firstInput.focus();
           }
         }, 50);
-    } else {
-        // On the last step, submit the form
-        handleSubmit(onSubmit)();
+      } else {
+        // We're on the last step, but we don't submit here
+        // Instead, the Submit button will directly call onSubmit
+        console.log('On last step, ready to submit via Submit button...');
       }
     }
   };
@@ -1136,9 +1421,12 @@ function ArbitrationForm() {
   
   // Form submission handler
   const onSubmit = async (data: FormData) => {
+    console.log('Starting form submission process...', { isSubmitting });
+    
     try {
       // Check authentication
       if (!isAuthenticated) {
+        console.log('Authentication check failed');
         toast.error('Please log in to submit your petition');
         router.push('/auth/login');
         return;
@@ -1153,22 +1441,25 @@ function ArbitrationForm() {
       
       if (Object.keys(fileErrors).length > 0) {
         // Show error for missing files
+        console.log('File validation failed:', fileErrors);
         toast.error('Please upload all required files');
         return;
       }
       
-      setIsSubmitting(true);
-
+      console.log('Files validated, preparing FormData...');
+      
       // Create FormData for submission
       const formData = new FormData();
       
       // Add the draft ID if editing
       if (currentDraftId) {
         formData.append('id', currentDraftId);
+        console.log('Adding draft ID to formData:', currentDraftId);
       }
       
       // Restructure data to match backend expectations
       // Backend expects claimant fields at the top level, not nested under 'claimant'
+      // All data will be properly saved to the NestJS backend database
       const restructuredData = {
         // Add claimant fields at the top level
         type: data.claimant.type,
@@ -1200,11 +1491,13 @@ function ArbitrationForm() {
       
       // Add structured data as JSON
       formData.append('data', JSON.stringify(restructuredData));
+      console.log('Added structured data to formData');
       
       // Add files
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
           formData.append(key, file);
+          console.log(`Added file ${key} to formData: ${file.name}`);
         }
       });
       
@@ -1212,12 +1505,14 @@ function ArbitrationForm() {
       const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
       
       if (supportingDocuments.length > 0) {
+        console.log(`Adding ${supportingDocuments.length} supporting documents`);
         supportingDocuments.forEach((file, index) => {
           formData.append(`supportingDocuments_${index}`, file);
         });
       }
       
       if (evidenceFiles.length > 0) {
+        console.log(`Adding ${evidenceFiles.length} evidence files`);
         evidenceFiles.forEach((file, index) => {
           formData.append(`evidenceFiles_${index}`, file);
         });
@@ -1226,42 +1521,78 @@ function ArbitrationForm() {
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
+      console.log('FormData prepared, submitting to API...');
+      
+      // Show submission toast
+      toast.loading('Submitting your petition...');
+      
       // Submit the form
       if (currentDraftId) {
         // If editing a draft, submit it
-        const response = await arbitrationApi.submitDraft(currentDraftId);
-        const caseId = response.caseId;
-        if (caseId) {
-          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-        } else {
-          toast.success('Arbitration request submitted successfully!');
-        }
-      
-        // Reload drafts
-        const drafts = await arbitrationApi.getDrafts();
-        setDraftList(drafts);
-        setCurrentDraftId(null);
-        reset();
+        console.log('Submitting existing draft with ID:', currentDraftId);
         
-        // Redirect to dashboard after successful submission
-        setTimeout(() => {
+        // Directly try the API call
+        try {
+          const response = await arbitrationApi.submitDraft(currentDraftId);
+          console.log('Draft submission successful:', response);
+          
+          // Dismiss the loading toast
+          toast.dismiss();
+          
+          const caseId = response.caseId;
+          if (caseId) {
+            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+          } else {
+            toast.success('Arbitration request submitted successfully!');
+          }
+          
+          // Reload drafts
+          const drafts = await arbitrationApi.getDrafts();
+          setDraftList(drafts);
+          setCurrentDraftId(null);
+          reset();
+          
+          // Redirect to dashboard after successful submission
           router.push('/dashboard');
-        }, 1500); // Delay to allow toast to be seen
+        } catch (submitError: any) {
+          // Dismiss the loading toast
+          toast.dismiss();
+          
+          console.error('Error submitting draft:', submitError);
+          toast.error(`Failed to submit draft: ${submitError.message || 'Unknown error'}`);
+          throw submitError; // Re-throw to be caught by the outer catch
+        }
       } else {
         // New submission
-        const response = await arbitrationApi.create(formData);
-        const caseId = response.caseId;
-        if (caseId) {
-          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-        } else {
-          toast.success('Arbitration request submitted successfully!');
-        }
-        reset();
+        console.log('Creating new arbitration submission...');
         
-        // Redirect to dashboard after successful submission
-        setTimeout(() => {
+        // Directly try the API call
+        try {
+          const response = await arbitrationApi.create(formData);
+          console.log('Submission successful:', response);
+          
+          // Dismiss the loading toast
+          toast.dismiss();
+          
+          const caseId = response.caseId;
+          if (caseId) {
+            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+          } else {
+            toast.success('Arbitration request submitted successfully!');
+          }
+          
+          reset();
+          
+          // Redirect to dashboard after successful submission
           router.push('/dashboard');
-        }, 1500); // Delay to allow toast to be seen
+        } catch (createError: any) {
+          // Dismiss the loading toast
+          toast.dismiss();
+          
+          console.error('Error creating submission:', createError);
+          toast.error(`Failed to submit: ${createError.message || 'Unknown error'}`);
+          throw createError; // Re-throw to be caught by the outer catch
+        }
       }
       
       // Reset form and files
@@ -1275,10 +1606,24 @@ function ArbitrationForm() {
       // Reset to first step
       setActiveStep(0);
       
+      console.log('Submission completed successfully');
+      return true;
+      
     } catch (error: any) {
       console.error('Submission error:', error);
-      toast.error(`Error: ${error.message}`);
+      
+      // Dismiss any existing toasts
+      toast.dismiss();
+      
+      // Display appropriate error message
+      if (error.message) {
+        toast.error(`Error: ${error.message}`);
+      } else {
+        toast.error('An unexpected error occurred during submission. Please try again.');
+      }
+      return false;
     } finally {
+      console.log('Resetting submission state in finally block');
       setIsSubmitting(false);
     }
   };
@@ -1405,10 +1750,17 @@ function ArbitrationForm() {
           console.log("🔥 DRAFT LOADING: No claimant data in formData");
         }
         
+        // Ensure managerDetails is an array
+        const managerDetails = Array.isArray(draft.formData.managerDetails) 
+          ? draft.formData.managerDetails 
+          : draft.formData.managerDetails 
+            ? [draft.formData.managerDetails] 
+            : [initialManagerDetails];
+        
         completeFormData = {
           claimant: draft.formData.claimant || initialClaimant,
           additionalClaimants: draft.formData.additionalClaimants || [initialAdditionalClaimant],
-          managerDetails: draft.formData.managerDetails || initialManagerDetails,
+          managerDetails: managerDetails,
           respondents: draft.formData.respondents || [initialRespondent],
           arbitrationAgreement: draft.formData.arbitrationAgreement || initialArbitrationAgreement,
           disputeDetails: draft.formData.disputeDetails || initialDisputeDetails,
@@ -1421,6 +1773,13 @@ function ArbitrationForm() {
         // Fallback: reconstruct from flattened data (old format)
         console.log("🔥 DRAFT LOADING: Reconstructing from flattened data structure");
         console.log("🔥 DRAFT LOADING: Available fields:", Object.keys(draft));
+        
+        // Ensure managerDetails is an array
+        const managerDetails = Array.isArray(draft.managerDetails) 
+          ? draft.managerDetails 
+          : draft.managerDetails 
+            ? [draft.managerDetails] 
+            : [initialManagerDetails];
         
         const reconstructedFormData = {
           claimant: {
@@ -1441,7 +1800,7 @@ function ArbitrationForm() {
             cin: draft.cin || initialClaimant.cin,
           },
           additionalClaimants: draft.additionalClaimants || [initialAdditionalClaimant],
-          managerDetails: draft.managerDetails || initialManagerDetails,
+          managerDetails: managerDetails,
           respondents: draft.respondents || [initialRespondent],
           arbitrationAgreement: draft.arbitrationAgreement || initialArbitrationAgreement,
           disputeDetails: draft.disputeDetails || initialDisputeDetails,
@@ -1726,10 +2085,63 @@ function ArbitrationForm() {
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="Address"
-                        name={`additionalClaimants.${index}.address`}
+                      label="Pincode"
+                        name={`additionalClaimants.${index}.pincode`}
+                      required
+                      maxLength={MAX_PINCODE_LENGTH}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 1"
+                        name={`additionalClaimants.${index}.address1`}
                       required
                       maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 2"
+                        name={`additionalClaimants.${index}.address2`}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="City"
+                        name={`additionalClaimants.${index}.city`}
+                      required
+                      maxLength={MAX_CITY_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="District"
+                        name={`additionalClaimants.${index}.district`}
+                      required
+                      maxLength={MAX_DISTRICT_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="State"
+                        name={`additionalClaimants.${index}.state`}
+                      required
+                      maxLength={MAX_STATE_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="Country"
+                        name={`additionalClaimants.${index}.country`}
+                      required
+                      maxLength={MAX_COUNTRY_LENGTH}
                     />
                   </div>
                 </div>
@@ -1745,57 +2157,74 @@ function ArbitrationForm() {
             
             <div className="mt-8">
               <h3 className="font-medium text-lg mb-4">Manager Details</h3>
-              <div className="border p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <ControlledFormField
-                      control={control}
-                      label="Name"
-                      name="managerDetails.name"
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Designation"
-                      name="managerDetails.designation"
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Email"
-                      name="managerDetails.email"
-                    maxLength={MAX_EMAIL_LENGTH}
-                  />
-                </div>
-                <div>
-                    <PhoneField
-                      control={control}
-                      phoneFieldName="managerDetails.phone"
-                      countryCodeFieldName="managerDetails.phoneCountryCode"
-                    label="Phone"
-                    />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Address"
-                      name="managerDetails.address"
-                    maxLength={MAX_ADDRESS_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Authority"
-                      name="managerDetails.authority"
-                    maxLength={MAX_NAME_LENGTH}
-                  />
+              {managerFields.map((field, index) => (
+                <div key={field.id} className="border p-4 rounded-lg mb-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium">Manager {index + 1}</h4>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeManagerField(index)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Name"
+                        name={`managerDetails.${index}.name`}
+                        maxLength={MAX_NAME_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Designation"
+                        name={`managerDetails.${index}.designation`}
+                        maxLength={MAX_NAME_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Email"
+                        name={`managerDetails.${index}.email`}
+                        maxLength={MAX_EMAIL_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <PhoneField
+                        control={control}
+                        phoneFieldName={`managerDetails.${index}.phone`}
+                        countryCodeFieldName={`managerDetails.${index}.phoneCountryCode`}
+                        label="Phone"
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Address"
+                        name={`managerDetails.${index}.address`}
+                        maxLength={MAX_ADDRESS_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Authority"
+                        name={`managerDetails.${index}.authority`}
+                        maxLength={MAX_NAME_LENGTH}
+                      />
+                    </div>
                   </div>
                 </div>
+              ))}
+              <div className="flex justify-end">
+                <Button onClick={addManager} variant="outline">
+                  Add Another Manager
+                </Button>
               </div>
             </div>
           </div>
@@ -1861,13 +2290,67 @@ function ArbitrationForm() {
                       label="Phone"
                       />
                   </div>
-                    <div className="col-span-2">
+                  <div>
                       <ControlledFormField
                         control={control}
-                      label="Address"
-                        name={`respondents.${index}.address`}
+                      label="Pincode"
+                        name={`respondents.${index}.pincode`}
+                      required
+                      maxLength={MAX_PINCODE_LENGTH}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 1"
+                        name={`respondents.${index}.address1`}
                       required
                       maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 2"
+                        name={`respondents.${index}.address2`}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="City"
+                        name={`respondents.${index}.city`}
+                      required
+                      maxLength={MAX_CITY_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="District"
+                        name={`respondents.${index}.district`}
+                      required
+                      maxLength={MAX_DISTRICT_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="State"
+                        name={`respondents.${index}.state`}
+                      required
+                      maxLength={MAX_STATE_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="Country"
+                        name={`respondents.${index}.country`}
+                      required
+                      maxLength={MAX_COUNTRY_LENGTH}
                     />
                   </div>
                   <div>
@@ -1899,7 +2382,7 @@ function ArbitrationForm() {
                         maxLength={MAX_CIN_LENGTH}
                       />
                       <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                        </div>
+                    </div>
                 </div>
               </div>
             ))}
@@ -1986,6 +2469,16 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
+                  label="Place of Signing"
+                  name="arbitrationAgreement.placeOfSigning"
+                  required
+                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
+                  placeholder="Where was the agreement signed"
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
                   label="Arbitrator Selection"
                   name="arbitrationAgreement.arbitratorSelection"
                   required
@@ -1998,6 +2491,21 @@ function ArbitrationForm() {
                   ]}
                 />
               </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Number of Arbitrators"
+                  name="arbitrationAgreement.numberOfArbitrators"
+                  required
+                  type="select"
+                  options={[
+                    { value: "1", label: "1 (Sole Arbitrator)" },
+                    { value: "3", label: "3 (Tribunal)" },
+                    { value: "5", label: "5" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
               <div className="col-span-2">
                 <ControlledFormField
                   control={control}
@@ -2006,6 +2514,37 @@ function ArbitrationForm() {
                   required
                   maxLength={MAX_ARBITRATION_FIELD_LENGTH}
                 />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Text of Arbitration Agreement/Clause"
+                  name="arbitrationAgreement.arbitrationText"
+                  required
+                  maxLength={2000}
+                  rows={5}
+                  placeholder="Enter the exact text of the arbitration agreement or clause"
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Stamp Duty Percentage"
+                  name="arbitrationAgreement.stampDutyPercentage"
+                  placeholder="% of Agreement value"
+                  type="number"
+                />
+                <p className="text-xs text-gray-500 mt-1">Enter as percentage of agreement value</p>
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Stamp Duty Amount Paid"
+                  name="arbitrationAgreement.stampDutyAmount"
+                  placeholder="Amount in INR"
+                  type="number"
+                />
+                <p className="text-xs text-gray-500 mt-1">Enter the amount in INR</p>
               </div>
               <div className="col-span-2">
                 <FileField
@@ -2099,6 +2638,23 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
+                  label="Claim Type"
+                  name="disputeDetails.claimType"
+                  required
+                  type="select"
+                  options={[
+                    { value: "monetary", label: "Monetary" },
+                    { value: "specific_performance", label: "Specific Performance" },
+                    { value: "declaratory", label: "Declaratory Relief" },
+                    { value: "injunctive", label: "Injunctive Relief" },
+                    { value: "combination", label: "Combination of Above" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
                   label="Dispute Amount (INR)"
                   name="disputeDetails.disputeAmount"
                   type="number"
@@ -2142,7 +2698,18 @@ function ArbitrationForm() {
                   ]}
                 />
               </div>
-              <div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Claim Reason"
+                  name="disputeDetails.claimReason"
+                  required
+                  maxLength={1000}
+                  placeholder="Provide the primary reason for the claim"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
                 <Controller
                   control={control}
                   name="disputeDetails.applicableActs"
@@ -2168,6 +2735,17 @@ function ArbitrationForm() {
                 />
               </div>
               <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Laws Relied Upon"
+                  name="disputeDetails.lawsReliedUpon"
+                  required
+                  maxLength={1000}
+                  placeholder="List specific Acts/Rules/Regulations/Others relied upon by Claimant"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
                 <ControlledFormField
                   control={control}
                   label="Contract Clause References"
@@ -2175,6 +2753,57 @@ function ArbitrationForm() {
                   required
                   maxLength={500}
                   placeholder="e.g., Clause 12.3, 15.2, etc."
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Relevant Clause Number/Page Number"
+                  name="disputeDetails.clauseNumber"
+                  required
+                  placeholder="e.g., Clause 5.2 or Page 7"
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Document Supporting Claim"
+                  name="disputeDetails.documentSupportingClaim"
+                  required
+                  placeholder="Name/reference of supporting document"
+                />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Clause Supporting Claim"
+                  name="disputeDetails.clauseSupportingClaim"
+                  required
+                  maxLength={1000}
+                  placeholder="Describe how the clause supports your claim"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Clause Text"
+                  name="disputeDetails.clause"
+                  required
+                  maxLength={1000}
+                  placeholder="Enter the exact text of the relevant clause"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
+                <ControlledTextAreaField
+                  control={control}
+                  label="Relief Sought"
+                  name="disputeDetails.reliefSought"
+                  required
+                  maxLength={1000}
+                  placeholder="Describe the specific relief you are seeking"
+                  rows={3}
                 />
               </div>
               <div className="col-span-2">
@@ -2223,115 +2852,27 @@ function ArbitrationForm() {
           </div>
         )
       case 6: // Documents
+        // Create default issues in case arguments don't exist yet
+        const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
+          (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
+            value: `issue_${index + 1}`,
+            label: `Issue ${index + 1}${arg ? ` - ${arg.substring(0, 30)}...` : ''}`
+          })) : 
+          [
+            { value: "issue_default_1", label: "Issue 1 - Breach of Contract" },
+            { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
+            { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
+          ];
+          
+        console.log("Rendering Documents section with issues:", disputeIssues);
+        
         return (
           <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Documents</h3>
-
-            {/* Supporting Documents */}
-            <Controller
-              control={control}
-              name="documents.supportingDocuments"
-              render={({ field, fieldState }) => (
-                <div>
-                  <FileField
-                    label="Supporting Documents"
-                    name="supportingDocuments"
-                    multiple={true}
-                    onChange={(files) => {
-                      if (Array.isArray(files)) {
-                        field.onChange(files);
-                        setFormChanged(true);
-                      }
-                    }}
-                    error={fieldState.error?.message}
-                    required
-                  />
-                  {Array.isArray(field.value) && field.value.map((file: File, idx: number) => (
-                    <div key={idx} className="flex items-center space-x-2 mt-2">
-                      <span>{file.name}</span>
-                      <Controller
-                        control={control}
-                        name={`documents.documentTypes.supporting_${idx}`}
-                        defaultValue=""
-                        render={({ field: typeField }) => (
-                          <select
-                            className="border rounded px-1 py-1"
-                            value={typeField.value || ""}
-                            onChange={typeField.onChange}
-                          >
-                            <option value="">Select type</option>
-                            <option value="contract">Contract</option>
-                            <option value="invoice">Invoice</option>
-                            <option value="correspondence">Correspondence</option>
-                            <option value="legal">Legal Document</option>
-                            <option value="other">Other</option>
-                          </select>
-                        )}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+            <DocumentsTabs 
+              control={control} 
+              watch={watch}
+              disputeIssues={disputeIssues}
             />
-
-            {/* Evidence Files */}
-            <Controller
-              control={control}
-              name="documents.evidenceFiles"
-              render={({ field, fieldState }) => (
-                <div>
-                  <FileField
-                    label="Evidence Files"
-                    name="evidenceFiles"
-                    multiple={true}
-                    onChange={(files) => {
-                      if (Array.isArray(files)) {
-                        field.onChange(files);
-                        setFormChanged(true);
-                      }
-                    }}
-                    error={fieldState.error?.message}
-                  />
-                  {Array.isArray(field.value) && field.value.map((file: File, idx: number) => (
-                    <div key={idx} className="flex items-center space-x-2 mt-2">
-                      <span>{file.name}</span>
-                      <Controller
-                        control={control}
-                        name={`documents.documentTypes.evidence_${idx}`}
-                        defaultValue=""
-                        render={({ field: typeField }) => (
-                          <select
-                            className="border rounded px-1 py-1"
-                            value={typeField.value || ""}
-                            onChange={typeField.onChange}
-                          >
-                            <option value="">Select type</option>
-                            <option value="photo">Photo</option>
-                            <option value="video">Video</option>
-                            <option value="audio">Audio</option>
-                            <option value="statement">Statement</option>
-                            <option value="expert">Expert Opinion</option>
-                            <option value="other">Other</option>
-                          </select>
-                        )}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            />
-
-            <div>
-              <div className="text-xs text-gray-500 mt-4">
-                <p>Tips for document uploads:</p>
-                <ul className="list-disc pl-5 mt-1 space-y-1">
-                  <li>Ensure all documents are clear and legible</li>
-                  <li>Supported formats: PDF, DOCX, JPG, PNG (max 10MB per file)</li>
-                  <li>For large documents, consider splitting them into smaller files</li>
-                  <li>Always categorize your documents accurately for easier reference</li>
-                </ul>
-              </div>
-            </div>
           </div>
         )
       case 7: // Payment
@@ -2497,21 +3038,24 @@ function ArbitrationForm() {
                   <h4 className="font-medium mb-2">Additional Claimants</h4>
                   {additionalClaimants.length > 0 ? (
                     additionalClaimants.map((claimant, index) => (
-                      <div key={index} className="mb-2 text-sm">
-                        <div>
-                          <span className="font-medium">Name:</span> {claimant.name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Email:</span> {claimant.email}
-                        </div>
-                        <div>
-                          <PhoneField
-                            control={control}
-                            phoneFieldName={`additionalClaimants.${index}.phone`}
-                            countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
-                            label="Phone"
-                            required
-                          />
+                      <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="font-medium">Name:</span> {claimant.name}
+                          </div>
+                          <div>
+                            <span className="font-medium">Email:</span> {claimant.email}
+                          </div>
+                          <div>
+                            <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                          </div>
+                          <div>
+                            <span className="font-medium">Pincode:</span> {claimant.pincode}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="font-medium">Address:</span> {claimant.address1}
+                            {claimant.address2 && `, ${claimant.address2}`}, {claimant.city}, {claimant.district}, {claimant.state}, {claimant.country}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -2522,47 +3066,68 @@ function ArbitrationForm() {
                 
                 <div>
                   <h4 className="font-medium mb-2">Manager Details</h4>
-                  {managerDetails?.name ? (
-                    <div className="text-sm">
-                      <div>
-                        <span className="font-medium">Name:</span> {managerDetails?.name}
+                  {managerDetails.length > 0 ? (
+                    managerDetails.map((manager, index) => (
+                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
+                        <p className="font-medium">Manager {index + 1}</p>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <span className="font-medium">Name:</span> {manager.name}
+                          </div>
+                          <div>
+                            <span className="font-medium">Designation:</span> {manager.designation}
+                          </div>
+                          <div>
+                            <span className="font-medium">Email:</span> {manager.email}
+                          </div>
+                          <div>
+                            <span className="font-medium">Authority:</span> {manager.authority}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-medium">Designation:</span> {managerDetails?.designation}
-                      </div>
-                      <div>
-                        <span className="font-medium">Email:</span> {managerDetails?.email}
-                      </div>
-                      <div>
-                        <span className="font-medium">Authority:</span> {managerDetails?.authority}
-                      </div>
-                    </div>
+                    ))
                   ) : (
                     <div className="text-sm text-gray-500">No manager details provided</div>
                   )}
                 </div>
 
+                {/* Respondents */}
                 <div>
                   <h4 className="font-medium mb-2">Respondents</h4>
                   {respondents.map((respondent, index) => (
-                    <div key={index} className="mb-2 text-sm">
-                      <div>
-                        <span className="font-medium">Type:</span> {respondent.type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Name:</span> {respondent.name}
-                      </div>
-                      <div>
-                        <span className="font-medium">Email:</span> {respondent.email}
-                      </div>
-                      <div>
-                        <PhoneField
-                          control={control}
-                          phoneFieldName={`respondents.${index}.phone`}
-                          countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
-                          label="Phone"
-                          required
-                        />
+                    <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="font-medium">Type:</span> {respondent.type}
+                        </div>
+                        <div>
+                          <span className="font-medium">Name:</span> {respondent.name}
+                        </div>
+                        <div>
+                          <span className="font-medium">Email:</span> {respondent.email}
+                        </div>
+                        <div>
+                          <span className="font-medium">Phone:</span> {respondent.phoneCountryCode} {respondent.phone}
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium">Address:</span> {respondent.address1}
+                          {respondent.address2 && `, ${respondent.address2}`}, {respondent.city}, {respondent.district}, {respondent.state}, {respondent.country} - {respondent.pincode}
+                        </div>
+                        {respondent.gst && (
+                          <div>
+                            <span className="font-medium">GST:</span> {respondent.gst}
+                          </div>
+                        )}
+                        {respondent.pan && (
+                          <div>
+                            <span className="font-medium">PAN:</span> {respondent.pan}
+                          </div>
+                        )}
+                        {respondent.cin && (
+                          <div>
+                            <span className="font-medium">CIN:</span> {respondent.cin}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2587,10 +3152,30 @@ function ArbitrationForm() {
                       <span className="font-medium">Signed-on Place:</span> {arbitrationAgreement.signedOnPlace}
                     </div>
                     <div>
+                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement.placeOfSigning}
+                    </div>
+                    <div>
                       <span className="font-medium">Arbitrator Selection:</span> {arbitrationAgreement.arbitratorSelection}
+                    </div>
+                    <div>
+                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement.numberOfArbitrators}
                     </div>
                     <div className="col-span-2">
                       <span className="font-medium">Agreement Parties:</span> {arbitrationAgreement.agreementParties}
+                    </div>
+                    {arbitrationAgreement.stampDutyPercentage && (
+                      <div>
+                        <span className="font-medium">Stamp Duty Percentage:</span> {arbitrationAgreement.stampDutyPercentage}%
+                      </div>
+                    )}
+                    {arbitrationAgreement.stampDutyAmount && (
+                      <div>
+                        <span className="font-medium">Stamp Duty Amount:</span> ₹{arbitrationAgreement.stampDutyAmount}
+                      </div>
+                    )}
+                    <div className="col-span-2">
+                      <span className="font-medium">Arbitration Text:</span>
+                      <p className="mt-1 whitespace-pre-line">{arbitrationAgreement.arbitrationText}</p>
                     </div>
                   </div>
                 </div>
@@ -2611,6 +3196,9 @@ function ArbitrationForm() {
                       <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory}
                     </div>
                     <div>
+                      <span className="font-medium">Claim Type:</span> {disputeDetails.claimType}
+                    </div>
+                    <div>
                       <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount}
                     </div>
                     <div>
@@ -2619,11 +3207,37 @@ function ArbitrationForm() {
                     <div>
                       <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute}
                     </div>
-                    <div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Claim Reason:</span>
+                      <p className="mt-1">{disputeDetails.claimReason}</p>
+                    </div>
+                    <div className="col-span-2">
                       <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs.join(', ')}
                     </div>
                     <div className="col-span-2">
+                      <span className="font-medium">Laws Relied Upon:</span>
+                      <p className="mt-1">{disputeDetails.lawsReliedUpon}</p>
+                    </div>
+                    <div className="col-span-2">
                       <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences}
+                    </div>
+                    <div>
+                      <span className="font-medium">Clause/Page Number:</span> {disputeDetails.clauseNumber}
+                    </div>
+                    <div>
+                      <span className="font-medium">Supporting Document:</span> {disputeDetails.documentSupportingClaim}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Clause Supporting Claim:</span>
+                      <p className="mt-1">{disputeDetails.clauseSupportingClaim}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Clause Text:</span>
+                      <p className="mt-1">{disputeDetails.clause}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Relief Sought:</span>
+                      <p className="mt-1">{disputeDetails.reliefSought}</p>
                     </div>
                     <div className="col-span-2">
                       <span className="font-medium">Facts of the Case:</span>
@@ -2812,15 +3426,40 @@ function ArbitrationForm() {
                 {isSavingDraft ? 'Saving...' : 'Save Draft'}
               </Button>
               
-              <Button
-                variant={activeStep === steps.length - 1 ? "default" : "outline"}
-                onClick={handleNext}
-                disabled={isSubmitting}
-              >
-                {activeStep === steps.length - 1 
-                  ? (isSubmitting ? 'Submitting...' : 'Submit') 
-                  : 'Next'}
-              </Button>
+              {activeStep === steps.length - 1 ? (
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    if (!isSubmitting) {
+                      setIsSubmitting(true);
+                      // Get the current form values directly
+                      const currentFormValues = watch();
+                      // Call onSubmit directly
+                      onSubmit(currentFormValues as any)
+                        .catch(error => {
+                          console.error('Submission error:', error);
+                          toast.error(`Error: ${error?.message || 'An unexpected error occurred'}`);
+                        })
+                        .finally(() => {
+                          // This should be redundant as onSubmit also sets it false in finally,
+                          // but we'll keep it as a safety measure
+                          setIsSubmitting(false);
+                        });
+                    }
+                  }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                >
+                  Next
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

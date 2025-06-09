@@ -7,11 +7,17 @@ import Footer from "@/components/footer"
 import { auth } from '@/lib/api'
 import { toast } from 'sonner'
 
+interface DashboardLayoutClientProps {
+  children: React.ReactNode;
+  showHeader?: boolean;
+  showFooter?: boolean;
+}
+
 export default function DashboardLayoutClient({
   children,
-}: {
-  children: React.ReactNode
-}) {
+  showHeader = true,
+  showFooter = true,
+}: DashboardLayoutClientProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -65,11 +71,11 @@ export default function DashboardLayoutClient({
   // Only render content if authenticated
   return isAuthenticated ? (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      {showHeader && <Header />}
       <main className="flex-grow">
         {children}
       </main>
-      <Footer />
+      {showFooter && <Footer />}
     </div>
   ) : null
 } 

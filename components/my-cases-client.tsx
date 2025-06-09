@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { arbitrationApi } from "@/lib/api"
+import { api, arbitrationApi } from "@/lib/api"
 import { toast } from "sonner"
 
 export default function MyCasesClient() {
@@ -15,19 +15,28 @@ export default function MyCasesClient() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const fetchCases = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true)
         
-        // Fetch all cases
-        const allCases = await arbitrationApi.getAll()
+        // Fetch active cases and drafts separately
+        const [allCases, draftsList] = await Promise.all([
+          arbitrationApi.getAll(),
+          arbitrationApi.getDrafts()
+        ]).catch(error => {
+          console.error("Error in Promise.all:", error);
+          // Return default values if fetch fails
+          return [[], []];
+        });
         
-        // Separate into drafts and submitted cases
-        const draftCases = allCases.filter((c: any) => c.status === 'DRAFT')
-        const submittedCases = allCases.filter((c: any) => c.status !== 'DRAFT')
+        console.log("Fetched cases:", allCases?.length || 0);
+        console.log("Fetched drafts:", draftsList?.length || 0);
         
-        setDrafts(draftCases)
-        setCases(submittedCases)
+        // Filter out drafts from regular cases
+        const submittedCases = allCases.filter((c: any) => c.status !== 'DRAFT');
+        
+        setDrafts(draftsList || []);
+        setCases(submittedCases || []);
       } catch (error) {
         console.error("Error fetching cases:", error)
         toast.error("Failed to load your cases")
@@ -36,7 +45,7 @@ export default function MyCasesClient() {
       }
     }
 
-    fetchCases()
+    fetchData()
   }, [])
 
   const handleViewCase = (id: string) => {
@@ -122,8 +131,8 @@ export default function MyCasesClient() {
                       <div>
                         <h3 className="font-medium">{draft.name || 'Untitled Draft'}</h3>
                         <div className="flex gap-6 text-sm text-muted-foreground mt-1">
-                          <div>Draft #{draft.caseNumber}</div>
-                          <div>Last saved: {new Date(draft.updatedAt).toLocaleDateString()}</div>
+                          <div>Draft #{draft.caseNumber || draft.id.substring(0,8)}</div>
+                          <div>Last saved: {new Date(draft.updatedAt || draft.createdAt).toLocaleDateString()}</div>
                         </div>
                       </div>
                       <Button 

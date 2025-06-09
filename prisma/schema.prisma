@@ -20,6 +20,12 @@ enum UserRole {
   ADMIN
 }
 
+enum ArbitratorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -27,16 +33,55 @@ model User {
   name         String
   role         UserRole @default(CLAIMANT)
   organization String?
+  phone        String?  // Phone number
+  
   // Fields specific to arbitrators
-  expertise    String?
-  qualifications String?
-  experience   Int?     // Years of experience
-  bio          String?  // Professional bio
+  expertise         String?  // Subject Matter Expertise
+  qualifications    String?  // Professional Qualification
+  experience        Int?     // Years of Experience
+  bio               String?  // Professional bio/Profile Summary
+  pastExperience    String?  // Past Arbitration Experience
+  languages         String?  // Languages known (comma-separated)
+  location          String?  // Location/Address
+  hourlyRate        Float?   // Fee per case/session
+  availabilityInfo  String?  // General availability info
+  status            String?  // active, inactive, pending
+  
+  // Document uploads for arbitrators
+  documentUrls      Json?    // URLs of uploaded proofs, CVs, certificates
+  
+  // Calendar/Availability
+  blockoutDates     Json?    // Dates when arbitrator is not available
+  hearingPreference String?  // In-person or Virtual preference
+  
+  // Disclosure form fields
+  conflictOfInterest Json?   // Conflict declarations for cases
+  
+  // Auto-tracked fields
+  rating            Float?   // Average rating from feedback
+  scoreMetrics      Json?    // System-calculated arbitrator score metrics
+  
   // Common fields
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  
   // Add relation to arbitrations
   arbitrations Arbitration[]
+  
+  // Add relation to feedback
+  receivedFeedback ArbitratorFeedback[]
+}
+
+model ArbitratorFeedback {
+  id            String   @id @default(uuid())
+  arbitratorId  String
+  arbitrator    User     @relation(fields: [arbitratorId], references: [id])
+  caseId        String?
+  rating        Float    // 1-5 rating
+  feedback      String?  // Textual feedback
+  submittedBy   String?  // User ID of who submitted feedback
+  submitterRole String?  // CLAIMANT or RESPONDENT
+  createdAt     DateTime @default(now())
 }
 
 model Arbitration {
@@ -75,6 +120,8 @@ model Arbitration {
   // Add relation to user
   userId            String
   user              User     @relation(fields: [userId], references: [id])
+  // Add relation to assigned arbitrator
+  arbitratorId      String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

@@ -13,6 +13,7 @@ import { PrismaService } from './services/prisma.service';
 import { HealthModule } from './health/health.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PaymentModule } from './payments/payment.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PaymentModule } from './payments/payment.module';
     HealthModule,
     PaymentsModule,
     PaymentModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

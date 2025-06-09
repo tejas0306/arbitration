@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -55,11 +56,21 @@ const priorityColors = {
 }
 
 export default function CasesManagement() {
+  const router = useRouter()
   const [cases, setCases] = useState<Case[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
+
+  // Extract search term from URL on initial load
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const searchParam = url.searchParams.get('search')
+    if (searchParam) {
+      setSearchTerm(searchParam)
+    }
+  }, [])
 
   useEffect(() => {
     fetchCases()
@@ -77,7 +88,43 @@ export default function CasesManagement() {
       
       if (response.ok) {
         const data = await response.json()
-        setCases(data.cases || [])
+        // Map the cases to ensure proper amount from disputeDetails
+        const mappedCases = (data.cases || []).map((caseItem: any) => {
+          // Extract respondent name from the first respondent if it exists
+          const respondent = caseItem.respondents && caseItem.respondents.length > 0
+            ? caseItem.respondents[0].name || 'Unknown'
+            : caseItem.respondent || 'Unknown';
+          
+          // Get claimant name either from user.name or name field
+          const claimant = caseItem.user?.name || caseItem.name || caseItem.claimant || 'Unknown';
+          
+          // Determine title based on available data
+          const title = caseItem.title || 
+                       (caseItem.disputeDetails?.disputeType ? 
+                        `${caseItem.disputeDetails.disputeType} Dispute` : 
+                        'Arbitration Case');
+          
+          return {
+            id: caseItem.id,
+            caseNumber: caseItem.caseNumber || `ADDS/ARB/${new Date().getFullYear()}/000000`,
+            title: title,
+            claimant: claimant,
+            respondent: respondent,
+            arbitrator: caseItem.arbitrator || 'Not assigned',
+            status: caseItem.status || 'pending',
+            amount: caseItem.disputeDetails?.disputeAmount ? 
+                    parseFloat(caseItem.disputeDetails.disputeAmount) : 
+                    (caseItem.amount || 0),
+            filedDate: caseItem.createdAt ? 
+                      new Date(caseItem.createdAt).toISOString().split('T')[0] : 
+                      (caseItem.filedDate || new Date().toISOString().split('T')[0]),
+            lastActivity: caseItem.updatedAt ? 
+                          new Date(caseItem.updatedAt).toISOString().split('T')[0] : 
+                          (caseItem.lastActivity || new Date().toISOString().split('T')[0]),
+            priority: caseItem.priority || 'medium'
+          };
+        });
+        setCases(mappedCases)
       } else {
         // Mock data for development
         setCases([
@@ -142,15 +189,29 @@ export default function CasesManagement() {
   }
 
   const filteredCases = cases.filter(case_ => {
-    const matchesSearch = case_.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         case_.claimant.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         case_.respondent.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || case_.status === statusFilter
-    const matchesPriority = priorityFilter === 'all' || case_.priority === priorityFilter
+    // Convert search term to lowercase for case-insensitive comparison
+    const search = searchTerm.toLowerCase().trim();
     
-    return matchesSearch && matchesStatus && matchesPriority
-  })
+    // Skip filtering if search term is empty
+    if (!search) return true;
+    
+    // Handle possible undefined/null values
+    const caseNumber = case_.caseNumber?.toLowerCase() || '';
+    const title = case_.title?.toLowerCase() || '';
+    const claimant = case_.claimant?.toLowerCase() || '';
+    const respondent = case_.respondent?.toLowerCase() || '';
+    
+    const matchesSearch = 
+      caseNumber.includes(search) ||
+      title.includes(search) ||
+      claimant.includes(search) ||
+      respondent.includes(search);
+    
+    const matchesStatus = statusFilter === 'all' || case_.status === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || case_.priority === priorityFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
 
   const getStats = () => {
     const stats = cases.reduce((acc, case_) => {
@@ -170,12 +231,15 @@ export default function CasesManagement() {
   const stats = getStats()
 
   const formatCurrency = (amount: number) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '$0';
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(amount)
+    }).format(amount);
   }
 
   if (loading) {
@@ -269,16 +333,10 @@ export default function CasesManagement() {
               </CardDescription>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Case
-              </Button>
-            </div>
+            <Button onClick={() => router.push('/admin/cases/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Case
+            </Button>
           </div>
           
           {/* Filters */}
@@ -363,15 +421,20 @@ export default function CasesManagement() {
                   <TableCell>{formatCurrency(case_.amount)}</TableCell>
                   <TableCell>{case_.filedDate}</TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/admin/cases/${case_.id}`)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm" 
+                        onClick={() => router.push(`/admin/cases/edit/${case_.id}`)}
+                      >
                         <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>

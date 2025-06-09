@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import DashboardLayoutClient from '@/components/dashboard-layout-client'
 
 export default function MyCasesLayout({
   children,
@@ -8,9 +7,7 @@ export default function MyCasesLayout({
 }) {
   return (
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
-      <DashboardLayoutClient>
-        {children}
-      </DashboardLayoutClient>
+      {children}
     </Suspense>
   )
 } 

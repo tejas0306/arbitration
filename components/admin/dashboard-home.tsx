@@ -29,6 +29,7 @@ import {
   User,
   Settings
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface DashboardStats {
   totalCases: number
@@ -66,6 +67,7 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const router = useRouter()
 
   useEffect(() => {
     fetchDashboardData()
@@ -99,39 +101,152 @@ export default function DashboardHome() {
         setRecentCases(casesData.cases || [])
       }
 
-      // Mock activity data (would come from audit logs API)
-      setActivity([
-        {
-          id: '1',
-          action: 'assigned',
-          user: 'Admin User',
-          target: 'Case ARB/2024/001',
-          timestamp: '2 minutes ago',
-          type: 'case'
-        },
-        {
-          id: '2',
-          action: 'approved',
-          user: 'System',
-          target: 'Arbitrator John Doe',
-          timestamp: '15 minutes ago',
-          type: 'arbitrator'
-        },
-        {
-          id: '3',
-          action: 'created',
-          user: 'Case Manager',
-          target: 'User Jane Smith',
-          timestamp: '1 hour ago',
-          type: 'user'
+      // Fetch real activity data from audit logs
+      try {
+        const activityResponse = await fetch(getApiUrl('api/admin/audit-logs?limit=10'), {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        })
+        
+        if (activityResponse.ok) {
+          const auditLogs = await activityResponse.json()
+          
+          // Transform audit logs into activity items
+          const activityItems = auditLogs.map(log => {
+            // Format the timestamp as relative time
+            const timestamp = formatTimeAgo(new Date(log.createdAt))
+            
+            // Determine the entity type
+            const type = getEntityType(log.entityType)
+            
+            // Format action and target based on log data
+            const { action, target } = formatActionAndTarget(log)
+            
+            // Get user name (or 'System' for automated actions)
+            const user = log.userDetails?.name || 'System'
+            
+            return {
+              id: log.id,
+              action,
+              user,
+              target,
+              timestamp,
+              type
+            }
+          })
+          
+          setActivity(activityItems)
+        } else {
+          // If API fails, fallback to mock data
+          setActivity([
+            {
+              id: '1',
+              action: 'assigned',
+              user: 'Admin User',
+              target: 'Case ARB/2024/001',
+              timestamp: '2 minutes ago',
+              type: 'case'
+            },
+            {
+              id: '2',
+              action: 'approved',
+              user: 'System',
+              target: 'Arbitrator John Doe',
+              timestamp: '15 minutes ago',
+              type: 'arbitrator'
+            },
+            {
+              id: '3',
+              action: 'created',
+              user: 'Case Manager',
+              target: 'User Jane Smith',
+              timestamp: '1 hour ago',
+              type: 'user'
+            }
+          ])
         }
-      ])
+      } catch (error) {
+        console.error('Error fetching activity logs:', error)
+        // Fallback to mock data if real data fetch fails
+        setActivity([
+          {
+            id: '1',
+            action: 'assigned',
+            user: 'Admin User',
+            target: 'Case ARB/2024/001',
+            timestamp: '2 minutes ago',
+            type: 'case'
+          },
+          {
+            id: '2',
+            action: 'approved',
+            user: 'System',
+            target: 'Arbitrator John Doe',
+            timestamp: '15 minutes ago',
+            type: 'arbitrator'
+          },
+          {
+            id: '3',
+            action: 'created',
+            user: 'Case Manager',
+            target: 'User Jane Smith',
+            timestamp: '1 hour ago',
+            type: 'user'
+          }
+        ])
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Helper function to format timestamp as relative time
+  const formatTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffSecs = Math.floor(diffMs / 1000)
+    const diffMins = Math.floor(diffSecs / 60)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffSecs < 60) return `${diffSecs} seconds ago`
+    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`
+    if (diffDays < 30) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`
+    
+    return date.toLocaleDateString()
+  }
+
+  // Helper function to determine entity type from log data
+  const getEntityType = (entityType: string): 'case' | 'user' | 'arbitrator' | 'system' => {
+    switch (entityType) {
+      case 'case':
+        return 'case'
+      case 'user':
+        return 'user'
+      case 'arbitrator':
+        return 'arbitrator'
+      default:
+        return 'system'
+    }
+  }
+
+  // Helper function to format action and target from log data
+  const formatActionAndTarget = (log: any) => {
+    let action = log.action.replace(/_/g, ' ')
+    let target = log.entityType === 'case' 
+      ? `Case ${log.details?.caseNumber || log.entityId.substring(0, 8)}`
+      : log.entityType === 'user'
+        ? `User ${log.details?.userName || log.details?.email || log.entityId.substring(0, 8)}`
+        : log.entityType === 'arbitrator'
+          ? `Arbitrator ${log.details?.arbitratorName || log.entityId.substring(0, 8)}`
+          : log.entityType
+    
+    return { action, target }
   }
 
   const getStatusColor = (status: string) => {
@@ -161,6 +276,36 @@ export default function DashboardHome() {
       default:
         return <AlertCircle className="h-4 w-4" />
     }
+  }
+
+  // Handle case editing
+  const handleEditCase = (caseId: string) => {
+    router.push(`/dashboard/petition/edit/${caseId}`)
+  }
+
+  // Handle case viewing
+  const handleViewCase = (caseId: string) => {
+    router.push(`/dashboard/case/${caseId}`)
+  }
+
+  // Handle new case creation
+  const handleNewCase = () => {
+    router.push('/admin/cases/new')
+  }
+
+  // Handle adding an arbitrator
+  const handleAddArbitrator = () => {
+    router.push('/dashboard/arbitrators/new')
+  }
+
+  // Handle creating a user
+  const handleCreateUser = () => {
+    router.push('/dashboard/users/new')
+  }
+
+  // Handle configuration
+  const handleConfiguration = () => {
+    router.push('/dashboard/settings')
   }
 
   if (loading) {
@@ -240,19 +385,19 @@ export default function DashboardHome() {
 
       {/* Quick Actions Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Button className="h-20 flex flex-col items-center justify-center space-y-2">
+        <Button className="h-20 flex flex-col items-center justify-center space-y-2" onClick={handleNewCase}>
           <Plus className="h-6 w-6" />
           <span>New Case</span>
         </Button>
-        <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+        <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2" onClick={handleAddArbitrator}>
           <Users className="h-6 w-6" />
           <span>Add Arbitrator</span>
         </Button>
-        <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+        <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2" onClick={handleCreateUser}>
           <User className="h-6 w-6" />
           <span>Create User</span>
         </Button>
-        <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+        <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2" onClick={handleConfiguration}>
           <Settings className="h-6 w-6" />
           <span>Configuration</span>
         </Button>
@@ -315,10 +460,10 @@ export default function DashboardHome() {
                     <TableCell>{case_.nextHearing || 'Not scheduled'}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewCase(case_.id)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditCase(case_.id)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>

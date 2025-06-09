@@ -63,10 +63,16 @@ export const authOptions = {
     },
     async session({ session, token }) {
       // Add access token and role to the session
-      if (token) {
+      if (session && token) {
+        // Make sure session.user exists before trying to add properties to it
+        if (!session.user) {
+          session.user = {};
+        }
+        
         session.accessToken = token.accessToken;
-        session.user.role = token.role;
-        session.user.id = token.userId;
+        // Only set these properties if they exist
+        if (token.role) session.user.role = token.role;
+        if (token.userId) session.user.id = token.userId;
       }
       return session;
     }

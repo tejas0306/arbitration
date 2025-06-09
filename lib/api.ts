@@ -107,34 +107,46 @@ export interface ArbitrationFormData {
 export const arbitrationApi = {
   create: async (formData: FormData) => {
     try {
+      // Validate formData
+      if (!formData) {
+        throw new Error('No form data provided');
+      }
+      
+      // Validate authentication
       const token = localStorage.getItem('auth_token');
       if (!token) {
         throw new Error('Authentication required. Please log in first.');
       }
 
-      console.log('Sending request to:', `/api/arbitration/submit`);
+      console.log('Starting arbitration submission to:', `/api/arbitration/submit`);
       
-      // Log formData entries in a more user-friendly way
-      const formDataLog: Record<string, any> = {};
+      // Check if formData has required fields
+      const hasData = formData.has('data');
+      if (!hasData) {
+        console.error('FormData missing required data field');
+        throw new Error('Form data is incomplete');
+      }
+      
+      // Log FormData entries for debugging
+      const formDataEntries: string[] = [];
       formData.forEach((value, key) => {
-        // Don't log file contents, just file names for files
         if (value instanceof File) {
-          formDataLog[key] = `File: ${value.name} (${value.type}, ${value.size} bytes)`;
-        } else if (typeof value === 'string' && value.startsWith('{')) {
-          // Try to parse JSON strings for better logging
-          try {
-            formDataLog[key] = JSON.parse(value);
-          } catch (e) {
-            formDataLog[key] = value;
-          }
+          formDataEntries.push(`${key}: File(${value.name}, ${value.size} bytes)`);
         } else {
-          formDataLog[key] = value;
+          formDataEntries.push(`${key}: ${typeof value === 'string' && value.length > 100 ? value.substring(0, 100) + '...' : value}`);
         }
       });
+      console.log('FormData entries:', formDataEntries);
       
-      console.log('FormData contents:', formDataLog);
+      // Create a new FormData to ensure it's clean
+      const cleanFormData = new FormData();
+      formData.forEach((value, key) => {
+        cleanFormData.append(key, value);
+      });
       
-      const response = await apiClient.post('/api/arbitration/submit', formData, {
+      console.log('Sending arbitration request...');
+      
+      const response = await apiClient.post('/api/arbitration/submit', cleanFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
@@ -143,35 +155,43 @@ export const arbitrationApi = {
         timeout: 60000, // 60 seconds
       });
       
-      console.log('Case created successfully:', response.data);
-      const caseId = response.data.caseId;
-      if (caseId) {
-        console.log('Generated case ID:', caseId);
+      console.log('Arbitration created successfully:', response.data);
+      
+      // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers,
-        }
-      });
+      console.error('Error creating arbitration:', error.message);
       
-      // Add more specific error messaging
-      if (error.response?.status === 500) {
-        console.error('Server error. This might be due to issues with file uploads or data format.');
-      } else if (error.response?.status === 413) {
-        console.error('File upload too large. Try reducing file sizes or uploading fewer files.');
-      } else if (error.response?.status === 400) {
-        console.error('Invalid data format. Check that all required fields are completed correctly.');
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle specific error codes
+        if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 413) {
+          throw new Error('File size too large. Please reduce the size of your uploads.');
+        } else if (error.response.status === 400) {
+          const message = error.response.data?.message || 'Invalid form data';
+          throw new Error(`Bad request: ${message}`);
+        } else if (error.response.status === 500) {
+          throw new Error('Server error. Please try again later.');
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
       }
       
+      // Rethrow the original error if no specific handling
       throw error;
     }
   },
@@ -363,36 +383,66 @@ export const arbitrationApi = {
   },
 
   submitDraft: async (draftId: string) => {
+    if (!draftId) {
+      throw new Error('Draft ID is required');
+    }
+    
     try {
       console.log(`Attempting to submit draft with ID: ${draftId}`);
-      const response = await apiClient.post(`/api/arbitration/draft/${draftId}/submit`);
+      
+      // Validate authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+      
+      console.log(`Sending draft submission request to: /api/arbitration/draft/${draftId}/submit`);
+      
+      const response = await apiClient.post(`/api/arbitration/draft/${draftId}/submit`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 second timeout
+      });
+      
       console.log('Draft submission response:', response.data);
       
-      const caseId = response.data.caseId;
-      if (caseId) {
-        console.log('Generated case ID:', caseId);
+      // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('Error submitting draft:', error);
+      console.error(`Error submitting draft ${draftId}:`, error.message);
       
-      // More detailed error logging
+      // Enhanced error logging
       if (error.response) {
-        console.error('Server error details:', {
+        console.error('Server response error:', {
           status: error.response.status,
           data: error.response.data,
           headers: error.response.headers
         });
         
-        // Show specific error message based on status code
+        // Handle specific error codes
         if (error.response.status === 404) {
           throw new Error(`Draft with ID ${draftId} not found`);
+        } else if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 403) {
+          throw new Error('You do not have permission to submit this draft.');
         } else if (error.response.status === 500) {
-          throw new Error(`Server error: ${error.response.data?.message || 'Unknown server error'}`);
+          const message = error.response.data?.message || 'Unknown server error';
+          throw new Error(`Server error: ${message}`);
         }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
       }
       
+      // Rethrow the original error if no specific handling
       throw error;
     }
   },

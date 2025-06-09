@@ -114,7 +114,7 @@ export default function RecentActivity() {
     if (activity.type === 'USER_REGISTRATION' && activity.meta.userId) {
       router.push(`/dashboard/users/${activity.meta.userId}`)
     } else if (['CASE_CREATION', 'CASE_STATUS_CHANGE'].includes(activity.type) && activity.meta.caseId) {
-      router.push(`/dashboard/case/${activity.meta.caseId}`)
+      router.push(`/admin/cases/${activity.meta.caseId}`)
     }
   }
 

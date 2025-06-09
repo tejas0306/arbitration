@@ -116,20 +116,47 @@ export default function CaseForm() {
       }
       
       const data = await response.json()
+      console.log('Fetched case data:', data)
+      
+      // Extract claimant information
+      const claimantName = data.name || 
+                       data.claimant?.name || 
+                       (data.claimants && data.claimants.length > 0 ? data.claimants[0].name : '');
+      
+      const claimantEmail = data.claimantEmail || 
+                         data.claimant?.email || 
+                         (data.claimants && data.claimants.length > 0 ? data.claimants[0].email : '');
+      
+      // Extract respondent information
+      const respondentName = data.respondent?.name || 
+                          (data.respondents && data.respondents.length > 0 ? data.respondents[0].name : '');
+      
+      const respondentEmail = data.respondent?.email || 
+                           (data.respondents && data.respondents.length > 0 ? data.respondents[0].email : '');
+      
+      // Extract dispute amount
+      const amount = data.amount || 
+                  data.disputeAmount || 
+                  (data.disputeDetails?.disputeAmount ? parseFloat(data.disputeDetails.disputeAmount) : 0);
+      
+      // Extract case category
+      const category = data.category || 
+                    data.type || 
+                    (data.disputeDetails?.disputeType ? mapDisputeTypeToCategory(data.disputeDetails.disputeType) : 'commercial');
       
       setFormData({
         id: data.id,
-        title: data.title || '',
+        title: data.title || data.name || '',
         caseNumber: data.caseNumber || '',
-        description: data.description || '',
-        claimant: data.claimant || '',
-        claimantEmail: data.claimantEmail || '',
-        respondent: data.respondent || '',
-        respondentEmail: data.respondentEmail || '',
-        amount: data.amount || 0,
-        category: data.category || 'commercial',
-        priority: data.priority || 'medium',
-        status: data.status || 'draft',
+        description: data.description || data.disputeDetails?.disputeDescription || '',
+        claimant: claimantName,
+        claimantEmail: claimantEmail,
+        respondent: respondentName,
+        respondentEmail: respondentEmail,
+        amount: amount,
+        category: category,
+        priority: data.priority?.toLowerCase() || 'medium',
+        status: data.status?.toLowerCase() || 'draft',
         arbitratorId: data.arbitratorId || 'none'
       })
     } catch (error) {
@@ -138,6 +165,21 @@ export default function CaseForm() {
     } finally {
       setLoading(false)
     }
+  }
+  
+  // Helper function to map dispute types to categories
+  const mapDisputeTypeToCategory = (disputeType: string): string => {
+    const typeMap: Record<string, string> = {
+      'commercial': 'commercial',
+      'employment': 'employment',
+      'construction': 'construction',
+      'intellectual_property': 'ip',
+      'insurance': 'insurance',
+      'corporate': 'corporate',
+      'real_estate': 'real_estate'
+    };
+    
+    return typeMap[disputeType.toLowerCase()] || 'other';
   }
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

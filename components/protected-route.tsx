@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { auth } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/auth-context'
+import { useSession } from 'next-auth/react'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -14,6 +15,7 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const router = useRouter()
   const { user, isLoading: authLoading, isAuthenticated } = useAuth()
+  const { data: session, status: sessionStatus } = useSession()
   const [isLoading, setIsLoading] = useState(true)
   const [hasAccess, setHasAccess] = useState(false)
 
@@ -23,7 +25,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         setIsLoading(true)
         
         // Wait for auth context to finish loading
-        if (authLoading) {
+        if (authLoading || sessionStatus === 'loading') {
           return
         }
         
@@ -34,8 +36,11 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
           return
         }
         
-        // Check if user is authenticated
-        if (!isAuthenticated || !user) {
+        // Check if user is authenticated - use either custom auth or NextAuth
+        const isUserAuthenticated = isAuthenticated || sessionStatus === 'authenticated'
+        const currentUser = user || session?.user
+        
+        if (!isUserAuthenticated || !currentUser) {
           toast.error('Please log in to access this feature')
           router.push('/auth/login')
           return
@@ -43,7 +48,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         
         // Check role-based access if required
         if (requiredRole) {
-          const userRole = user.role?.toLowerCase()
+          const userRole = (currentUser.role as string)?.toLowerCase()
           const required = requiredRole.toLowerCase()
           
           if (userRole !== required && userRole !== 'admin') {
@@ -64,9 +69,9 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     }
 
     checkAccess()
-  }, [router, requiredRole, authLoading, isAuthenticated, user])
+  }, [router, requiredRole, authLoading, isAuthenticated, user, session, sessionStatus])
 
-  if (isLoading || authLoading) {
+  if (isLoading || authLoading || sessionStatus === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>

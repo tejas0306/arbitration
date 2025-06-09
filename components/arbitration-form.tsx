@@ -1097,8 +1097,8 @@ function ArbitrationForm() {
     const isStepValid = await validateCurrentStep();
     
     if (isStepValid) {
-    if (activeStep < steps.length - 1) {
-      setActiveStep(activeStep + 1);
+      if (activeStep < steps.length - 1) {
+        setActiveStep(activeStep + 1);
         
         // Focus the first input in the next step
         setTimeout(() => {
@@ -1108,9 +1108,10 @@ function ArbitrationForm() {
             firstInput.focus();
           }
         }, 50);
-    } else {
-        // On the last step, submit the form
-        handleSubmit(onSubmit)();
+      } else {
+        // We're on the last step, but we don't submit here
+        // Instead, the Submit button will directly call onSubmit
+        console.log('On last step, ready to submit via Submit button...');
       }
     }
   };
@@ -1136,9 +1137,12 @@ function ArbitrationForm() {
   
   // Form submission handler
   const onSubmit = async (data: FormData) => {
+    console.log('Starting form submission process...', { isSubmitting });
+    
     try {
       // Check authentication
       if (!isAuthenticated) {
+        console.log('Authentication check failed');
         toast.error('Please log in to submit your petition');
         router.push('/auth/login');
         return;
@@ -1153,18 +1157,20 @@ function ArbitrationForm() {
       
       if (Object.keys(fileErrors).length > 0) {
         // Show error for missing files
+        console.log('File validation failed:', fileErrors);
         toast.error('Please upload all required files');
         return;
       }
       
-      setIsSubmitting(true);
-
+      console.log('Files validated, preparing FormData...');
+      
       // Create FormData for submission
       const formData = new FormData();
       
       // Add the draft ID if editing
       if (currentDraftId) {
         formData.append('id', currentDraftId);
+        console.log('Adding draft ID to formData:', currentDraftId);
       }
       
       // Restructure data to match backend expectations
@@ -1200,11 +1206,13 @@ function ArbitrationForm() {
       
       // Add structured data as JSON
       formData.append('data', JSON.stringify(restructuredData));
+      console.log('Added structured data to formData');
       
       // Add files
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
           formData.append(key, file);
+          console.log(`Added file ${key} to formData: ${file.name}`);
         }
       });
       
@@ -1212,12 +1220,14 @@ function ArbitrationForm() {
       const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
       
       if (supportingDocuments.length > 0) {
+        console.log(`Adding ${supportingDocuments.length} supporting documents`);
         supportingDocuments.forEach((file, index) => {
           formData.append(`supportingDocuments_${index}`, file);
         });
       }
       
       if (evidenceFiles.length > 0) {
+        console.log(`Adding ${evidenceFiles.length} evidence files`);
         evidenceFiles.forEach((file, index) => {
           formData.append(`evidenceFiles_${index}`, file);
         });
@@ -1226,42 +1236,67 @@ function ArbitrationForm() {
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
+      console.log('FormData prepared, submitting to API...');
+      
       // Submit the form
       if (currentDraftId) {
         // If editing a draft, submit it
-        const response = await arbitrationApi.submitDraft(currentDraftId);
-        const caseId = response.caseId;
-        if (caseId) {
-          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-        } else {
-          toast.success('Arbitration request submitted successfully!');
-        }
-      
-        // Reload drafts
-        const drafts = await arbitrationApi.getDrafts();
-        setDraftList(drafts);
-        setCurrentDraftId(null);
-        reset();
+        console.log('Submitting existing draft with ID:', currentDraftId);
         
-        // Redirect to dashboard after successful submission
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1500); // Delay to allow toast to be seen
+        // Directly try the API call
+        try {
+          const response = await arbitrationApi.submitDraft(currentDraftId);
+          console.log('Draft submission successful:', response);
+          
+          const caseId = response.caseId;
+          if (caseId) {
+            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+          } else {
+            toast.success('Arbitration request submitted successfully!');
+          }
+          
+          // Reload drafts
+          const drafts = await arbitrationApi.getDrafts();
+          setDraftList(drafts);
+          setCurrentDraftId(null);
+          reset();
+          
+          // Redirect to dashboard after successful submission
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 1500); // Delay to allow toast to be seen
+        } catch (submitError) {
+          console.error('Error submitting draft:', submitError);
+          toast.error(`Failed to submit draft: ${submitError.message || 'Unknown error'}`);
+          throw submitError; // Re-throw to be caught by the outer catch
+        }
       } else {
         // New submission
-        const response = await arbitrationApi.create(formData);
-        const caseId = response.caseId;
-        if (caseId) {
-          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-        } else {
-          toast.success('Arbitration request submitted successfully!');
-        }
-        reset();
+        console.log('Creating new arbitration submission...');
         
-        // Redirect to dashboard after successful submission
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1500); // Delay to allow toast to be seen
+        // Directly try the API call
+        try {
+          const response = await arbitrationApi.create(formData);
+          console.log('Submission successful:', response);
+          
+          const caseId = response.caseId;
+          if (caseId) {
+            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+          } else {
+            toast.success('Arbitration request submitted successfully!');
+          }
+          
+          reset();
+          
+          // Redirect to dashboard after successful submission
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 1500); // Delay to allow toast to be seen
+        } catch (createError) {
+          console.error('Error creating submission:', createError);
+          toast.error(`Failed to submit: ${createError.message || 'Unknown error'}`);
+          throw createError; // Re-throw to be caught by the outer catch
+        }
       }
       
       // Reset form and files
@@ -1275,10 +1310,21 @@ function ArbitrationForm() {
       // Reset to first step
       setActiveStep(0);
       
+      console.log('Submission completed successfully');
+      return true;
+      
     } catch (error: any) {
       console.error('Submission error:', error);
-      toast.error(`Error: ${error.message}`);
+      
+      // Display appropriate error message
+      if (error.message) {
+        toast.error(`Error: ${error.message}`);
+      } else {
+        toast.error('An unexpected error occurred during submission. Please try again.');
+      }
+      return false;
     } finally {
+      console.log('Resetting submission state in finally block');
       setIsSubmitting(false);
     }
   };
@@ -2812,15 +2858,40 @@ function ArbitrationForm() {
                 {isSavingDraft ? 'Saving...' : 'Save Draft'}
               </Button>
               
-              <Button
-                variant={activeStep === steps.length - 1 ? "default" : "outline"}
-                onClick={handleNext}
-                disabled={isSubmitting}
-              >
-                {activeStep === steps.length - 1 
-                  ? (isSubmitting ? 'Submitting...' : 'Submit') 
-                  : 'Next'}
-              </Button>
+              {activeStep === steps.length - 1 ? (
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    if (!isSubmitting) {
+                      setIsSubmitting(true);
+                      // Get the current form values directly
+                      const currentFormValues = watch();
+                      // Call onSubmit directly
+                      onSubmit(currentFormValues as any)
+                        .catch(error => {
+                          console.error('Submission error:', error);
+                          toast.error(`Error: ${error?.message || 'An unexpected error occurred'}`);
+                        })
+                        .finally(() => {
+                          // This should be redundant as onSubmit also sets it false in finally,
+                          // but we'll keep it as a safety measure
+                          setIsSubmitting(false);
+                        });
+                    }
+                  }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                >
+                  Next
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

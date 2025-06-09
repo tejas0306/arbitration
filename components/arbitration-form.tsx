@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import DocumentsTabs from './evidence/DocumentsTabs';
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -716,9 +717,62 @@ const formSchema = z.object({
   documents: z.object({
     supportingDocuments: z
       .array(z.instanceof(File))
-      .min(1, "Please upload at least one supporting document"),
+      .optional(),
     evidenceFiles: z.array(z.instanceof(File)).optional(),
     documentTypes: z.record(z.string(), z.string()).optional(),
+    
+    // Add the new document fields
+    scannedDocuments: z.array(
+      z.object({
+        file: z.any(),
+        description: z.string().min(1, "Description is required").optional(),
+        isOCREnabled: z.boolean().default(false),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional(),
+        admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
+        crossExaminationRef: z.string().optional()
+      })
+    ).optional().default([]),
+    
+    affidavits: z.array(
+      z.object({
+        type: z.enum(["claimant", "respondent", "officer", "witness"]),
+        file: z.any(),
+        date: z.string().min(1, "Date is required").optional(),
+        place: z.string().min(1, "Place is required").optional(),
+        event: z.string().min(1, "Event is required").optional(),
+        hasVerificationClause: z.boolean().default(false),
+        deponentName: z.string().min(1, "Deponent name is required").optional(),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional()
+      })
+    ).optional().default([]),
+    
+    electronicEvidence: z.array(
+      z.object({
+        certificateFile: z.any(),
+        supportingFiles: z.array(z.any()).default([]),
+        description: z.string().min(1, "Description is required").optional(),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional(),
+        tabulatedList: z.string().min(1, "Tabulated list is required").optional()
+      })
+    ).optional().default([]),
+    
+    lawsReliedUpon: z.array(
+      z.object({
+        category: z.enum(["act", "rule", "regulation", "case", "other"]),
+        reference: z.string().min(1, "Reference is required").optional(),
+        citation: z.string().min(1, "Citation is required").optional(),
+        paragraphNumbers: z.string().optional(),
+        linkedIssue: z.string().min(1, "Linked issue is required").optional()
+      })
+    ).optional().default([]),
+    
+    issueDocumentMap: z.record(
+      z.object({
+        affidavits: z.array(z.string()).default([]),
+        documents: z.array(z.string()).default([]),
+        laws: z.array(z.string()).default([])
+      })
+    ).optional().default({})
   }),
 });
 
@@ -1225,12 +1279,74 @@ function ArbitrationForm() {
         fieldsToValidate = ['prayers.prayers'];
         break;
       case 6: // Documents
-        await trigger('documents.supportingDocuments' as any);
-        if (!watch('documents.supportingDocuments')?.length) {
-          toast.error('Please upload at least one supporting document');
+        // Check at least one of the document types has been uploaded
+        const scannedDocs = watch('documents.scannedDocuments') || [];
+        const affidavits = watch('documents.affidavits') || [];
+        const electronicEvidence = watch('documents.electronicEvidence') || [];
+        const oldSupportingDocs = watch('documents.supportingDocuments') || [];
+        
+        // Ensure at least one document of any type exists
+        if (
+          scannedDocs.length === 0 &&
+          affidavits.length === 0 &&
+          electronicEvidence.length === 0 &&
+          oldSupportingDocs.length === 0
+        ) {
+          toast.error('Please upload at least one document or affidavit');
           return false;
         }
-        break;
+        
+        // Validate any scanned documents that exist
+        if (scannedDocs.length > 0) {
+          for (let i = 0; i < scannedDocs.length; i++) {
+            const fieldPaths = [
+              `documents.scannedDocuments.${i}.file`,
+              `documents.scannedDocuments.${i}.description`,
+              `documents.scannedDocuments.${i}.linkedIssue`,
+              `documents.scannedDocuments.${i}.date`
+            ];
+            const result = await trigger(fieldPaths as any);
+            if (!result) return false;
+          }
+        }
+        
+        // Validate any affidavits that exist
+        if (affidavits.length > 0) {
+          for (let i = 0; i < affidavits.length; i++) {
+            const fieldPaths = [
+              `documents.affidavits.${i}.file`,
+              `documents.affidavits.${i}.type`,
+              `documents.affidavits.${i}.deponentName`,
+              `documents.affidavits.${i}.date`,
+              `documents.affidavits.${i}.place`,
+              `documents.affidavits.${i}.event`,
+              `documents.affidavits.${i}.linkedIssue`
+            ];
+            const result = await trigger(fieldPaths as any);
+            if (!result) return false;
+          }
+        }
+        
+        // Validate any electronic evidence that exist
+        if (electronicEvidence.length > 0) {
+          for (let i = 0; i < electronicEvidence.length; i++) {
+            const fieldPaths = [
+              `documents.electronicEvidence.${i}.certificateFile`,
+              `documents.electronicEvidence.${i}.description`,
+              `documents.electronicEvidence.${i}.linkedIssue`,
+              `documents.electronicEvidence.${i}.tabulatedList`
+            ];
+            const result = await trigger(fieldPaths as any);
+            if (!result) return false;
+          }
+        }
+        
+        // For backward compatibility, check old supporting documents field
+        if (oldSupportingDocs.length > 0) {
+          await trigger('documents.supportingDocuments' as any);
+        }
+        
+        return true;
       case 7: // Payment
         fieldsToValidate = [
           'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
@@ -2736,115 +2852,27 @@ function ArbitrationForm() {
           </div>
         )
       case 6: // Documents
+        // Create default issues in case arguments don't exist yet
+        const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
+          (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
+            value: `issue_${index + 1}`,
+            label: `Issue ${index + 1}${arg ? ` - ${arg.substring(0, 30)}...` : ''}`
+          })) : 
+          [
+            { value: "issue_default_1", label: "Issue 1 - Breach of Contract" },
+            { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
+            { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
+          ];
+          
+        console.log("Rendering Documents section with issues:", disputeIssues);
+        
         return (
           <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Documents</h3>
-
-            {/* Supporting Documents */}
-            <Controller
-              control={control}
-              name="documents.supportingDocuments"
-              render={({ field, fieldState }) => (
-                <div>
-                  <FileField
-                    label="Supporting Documents"
-                    name="supportingDocuments"
-                    multiple={true}
-                    onChange={(files) => {
-                      if (Array.isArray(files)) {
-                        field.onChange(files);
-                        setFormChanged(true);
-                      }
-                    }}
-                    error={fieldState.error?.message}
-                    required
-                  />
-                  {Array.isArray(field.value) && field.value.map((file: File, idx: number) => (
-                    <div key={idx} className="flex items-center space-x-2 mt-2">
-                      <span>{file.name}</span>
-                      <Controller
-                        control={control}
-                        name={`documents.documentTypes.supporting_${idx}`}
-                        defaultValue=""
-                        render={({ field: typeField }) => (
-                          <select
-                            className="border rounded px-1 py-1"
-                            value={typeField.value || ""}
-                            onChange={typeField.onChange}
-                          >
-                            <option value="">Select type</option>
-                            <option value="contract">Contract</option>
-                            <option value="invoice">Invoice</option>
-                            <option value="correspondence">Correspondence</option>
-                            <option value="legal">Legal Document</option>
-                            <option value="other">Other</option>
-                          </select>
-                        )}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+            <DocumentsTabs 
+              control={control} 
+              watch={watch}
+              disputeIssues={disputeIssues}
             />
-
-            {/* Evidence Files */}
-            <Controller
-              control={control}
-              name="documents.evidenceFiles"
-              render={({ field, fieldState }) => (
-                <div>
-                  <FileField
-                    label="Evidence Files"
-                    name="evidenceFiles"
-                    multiple={true}
-                    onChange={(files) => {
-                      if (Array.isArray(files)) {
-                        field.onChange(files);
-                        setFormChanged(true);
-                      }
-                    }}
-                    error={fieldState.error?.message}
-                  />
-                  {Array.isArray(field.value) && field.value.map((file: File, idx: number) => (
-                    <div key={idx} className="flex items-center space-x-2 mt-2">
-                      <span>{file.name}</span>
-                      <Controller
-                        control={control}
-                        name={`documents.documentTypes.evidence_${idx}`}
-                        defaultValue=""
-                        render={({ field: typeField }) => (
-                          <select
-                            className="border rounded px-1 py-1"
-                            value={typeField.value || ""}
-                            onChange={typeField.onChange}
-                          >
-                            <option value="">Select type</option>
-                            <option value="photo">Photo</option>
-                            <option value="video">Video</option>
-                            <option value="audio">Audio</option>
-                            <option value="statement">Statement</option>
-                            <option value="expert">Expert Opinion</option>
-                            <option value="other">Other</option>
-                          </select>
-                        )}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            />
-
-            <div>
-              <div className="text-xs text-gray-500 mt-4">
-                <p>Tips for document uploads:</p>
-                <ul className="list-disc pl-5 mt-1 space-y-1">
-                  <li>Ensure all documents are clear and legible</li>
-                  <li>Supported formats: PDF, DOCX, JPG, PNG (max 10MB per file)</li>
-                  <li>For large documents, consider splitting them into smaller files</li>
-                  <li>Always categorize your documents accurately for easier reference</li>
-                </ul>
-              </div>
-            </div>
           </div>
         )
       case 7: // Payment

@@ -221,6 +221,64 @@ export const documentsSchema = z.object({
   supportingDocuments: z.array(z.any()).optional(),
   evidenceFiles: z.array(z.any()).optional(),
   documentTypes: z.record(z.string()).optional(),
+  
+  // Scanned Documents validation
+  scannedDocuments: z.array(
+    z.object({
+      file: z.any(),
+      description: z.string().min(1, "Description is required").optional(),
+      isOCREnabled: z.boolean().default(false),
+      linkedIssue: z.string().min(1, "Linked issue is required").optional(),
+      admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
+      crossExaminationRef: z.string().optional(),
+      date: z.string().min(1, "Document date is required").optional()
+    })
+  ).optional().default([]),
+  
+  // Affidavits validation
+  affidavits: z.array(
+    z.object({
+      type: z.enum(["claimant", "respondent", "officer", "witness"]),
+      file: z.any(),
+      date: z.string().min(1, "Date is required"),
+      place: z.string().min(1, "Place is required"),
+      event: z.string().min(1, "Event is required"),
+      hasVerificationClause: z.boolean().default(false),
+      deponentName: z.string().min(1, "Deponent name is required"),
+      linkedIssue: z.string().min(1, "Linked issue is required")
+    })
+  ).optional().default([]),
+  
+  // Electronic Evidence validation
+  electronicEvidence: z.array(
+    z.object({
+      certificateFile: z.any(),
+      supportingFiles: z.array(z.any()).default([]),
+      description: z.string().min(1, "Description is required"),
+      linkedIssue: z.string().min(1, "Linked issue is required"),
+      tabulatedList: z.string().min(1, "Tabulated list is required")
+    })
+  ).optional().default([]),
+  
+  // Laws Relied Upon validation
+  lawsReliedUpon: z.array(
+    z.object({
+      category: z.enum(["act", "rule", "regulation", "case", "other"]),
+      reference: z.string().min(1, "Reference is required"),
+      citation: z.string().min(1, "Citation is required"),
+      paragraphNumbers: z.string().optional(),
+      linkedIssue: z.string().min(1, "Linked issue is required")
+    })
+  ).optional().default([]),
+  
+  // Document indexing by issue
+  issueDocumentMap: z.record(
+    z.object({
+      affidavits: z.array(z.string()).default([]),
+      documents: z.array(z.string()).default([]),
+      laws: z.array(z.string()).default([])
+    })
+  ).optional().default({})
 });
 
 // Payment schema

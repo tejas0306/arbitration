@@ -109,6 +109,49 @@ export const initialDocuments = {
   supportingDocuments: [] as File[],
   evidenceFiles: [] as File[],
   documentTypes: {} as Record<string, string>,
+  
+  scannedDocuments: [] as Array<{
+    file: File | null,
+    description: string,
+    isOCREnabled: boolean,
+    linkedIssue: string,
+    admissionStatus: "pending" | "admitted" | "denied",
+    crossExaminationRef: string,
+    date: string
+  }>,
+  
+  affidavits: [] as Array<{
+    type: "claimant" | "respondent" | "officer" | "witness",
+    file: File | null,
+    date: string,
+    place: string,
+    event: string,
+    hasVerificationClause: boolean,
+    deponentName: string,
+    linkedIssue: string
+  }>,
+  
+  electronicEvidence: [] as Array<{
+    certificateFile: File | null,
+    supportingFiles: File[],
+    description: string,
+    linkedIssue: string,
+    tabulatedList: string
+  }>,
+  
+  lawsReliedUpon: [] as Array<{
+    category: "act" | "rule" | "regulation" | "case" | "other",
+    reference: string,
+    citation: string,
+    paragraphNumbers: string,
+    linkedIssue: string
+  }>,
+  
+  issueDocumentMap: {} as Record<string, {
+    affidavits: string[],
+    documents: string[],
+    laws: string[]
+  }>
 };
 
 export const initialPayment = {

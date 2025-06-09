@@ -7,11 +7,31 @@ import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { CasesDataTable, ArbitrationCase } from '@/components/cases-data-table'
 
-export default function DashboardWorklist() {
+interface DashboardWorklistProps {
+  userData: any | null;
+  drafts: any[];
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => Promise<void>;
+}
+
+export default function DashboardWorklist({
+  userData,
+  drafts,
+  loading: externalLoading,
+  error: externalError,
+  onRefresh
+}: DashboardWorklistProps = {
+  userData: null,
+  drafts: [],
+  loading: false,
+  error: null,
+  onRefresh: async () => {}
+}) {
   const router = useRouter()
   const [cases, setCases] = useState<ArbitrationCase[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(externalLoading)
+  const [error, setError] = useState<string | null>(externalError)
 
   const fetchCases = async () => {
     try {
@@ -23,7 +43,7 @@ export default function DashboardWorklist() {
       console.log('🐛 DEBUG: Received cases data:', {
         count: casesData.length,
         firstCaseUserId: casesData[0]?.userId,
-        allUserIds: [...new Set(casesData.map(c => c.userId))]
+        allUserIds: [...new Set(casesData.map((c: any) => c.userId))]
       })
       
       // Transform data to match our required format if needed
@@ -95,12 +115,20 @@ export default function DashboardWorklist() {
     fetchCases()
   }, [])
   
+  useEffect(() => {
+    setLoading(externalLoading);
+    setError(externalError);
+  }, [externalLoading, externalError]);
+  
   if (error) {
     return (
       <div className="w-full p-6 bg-red-50 border border-red-200 rounded-md">
         <p className="text-red-700">{error}</p>
         <button 
-          onClick={fetchCases}
+          onClick={() => {
+            onRefresh();
+            fetchCases();
+          }}
           className="text-indigo-600 hover:underline mt-2 inline-block"
         >
           Try Again
@@ -125,7 +153,10 @@ export default function DashboardWorklist() {
       <CasesDataTable 
         data={cases} 
         loading={loading}
-        onRefresh={fetchCases}
+        onRefresh={() => {
+          onRefresh();
+          fetchCases();
+        }}
       />
     </div>
   )

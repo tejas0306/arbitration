@@ -24,8 +24,10 @@ import {
   Shield,
   Mail,
   Phone,
-  MoreHorizontal
+  MoreHorizontal,
+  CheckCircle
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface User {
   id: string
@@ -67,6 +69,7 @@ export default function UsersManagement() {
     role: 'claimant',
     phone: ''
   })
+  const router = useRouter()
 
   useEffect(() => {
     fetchUsers()
@@ -349,81 +352,10 @@ export default function UsersManagement() {
               </CardDescription>
             </div>
             
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New User</DialogTitle>
-                  <DialogDescription>
-                    Add a new user to the arbitration system
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={newUser.name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Enter full name"
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="Enter email address"
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="claimant">Claimant</SelectItem>
-                        <SelectItem value="respondent">Respondent</SelectItem>
-                        <SelectItem value="arbitrator">Arbitrator</SelectItem>
-                        <SelectItem value="case_manager">Case Manager</SelectItem>
-                        <SelectItem value="team_member">Team Member</SelectItem>
-                        <SelectItem value="admin">Administrator</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone (Optional)</Label>
-                    <Input
-                      id="phone"
-                      value={newUser.phone}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                </div>
-                
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleCreateUser}>
-                    Create User
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => router.push('/admin/users/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
           </div>
           
           {/* Filters */}
@@ -504,31 +436,43 @@ export default function UsersManagement() {
                   </TableCell>
                   <TableCell>
                     <Badge className={roleColors[user.role]}>
-                      {user.role.replace('_', ' ').toUpperCase()}
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge className={statusColors[user.status]}>
-                      {user.status.toUpperCase()}
+                      {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                     </Badge>
                   </TableCell>
                   <TableCell>{user.createdAt}</TableCell>
-                  <TableCell>{user.lastLogin || 'Never'}</TableCell>
+                  <TableCell>{user.lastLogin || '-'}</TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/admin/users/${user.id}`)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm" 
+                        onClick={() => router.push(`/admin/users/edit/${user.id}`)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={user.status === 'active'}
-                          onCheckedChange={() => toggleUserStatus(user.id, user.status)}
-                          disabled={user.status === 'pending'}
-                        />
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleUserStatus(user.id, user.status)}
+                      >
+                        {user.status === 'active' ? (
+                          <Trash className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import Header from '@/components/header';
-import Footer from '@/components/footer';
 import ProtectedRoute from '@/components/protected-route';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -11,11 +9,21 @@ import DashboardWorklist from '@/components/dashboard-worklist';
 import { User, Settings, FileText, PlusCircle, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+// Define types for our state
+interface UserData {
+  name?: string;
+  [key: string]: any;
+}
+
+interface Draft {
+  [key: string]: any;
+}
+
 export default function DashboardPage() {
-  const [userData, setUserData] = useState(null);
-  const [drafts, setDrafts] = useState([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('cases');
 
   // Define fetchData at the component level so it can be used by multiple functions
@@ -43,22 +51,27 @@ export default function DashboardPage() {
         const draftsData = await api.arbitration.getDrafts();
         setDrafts(draftsData || []);
         console.log(`Fetched ${draftsData?.length || 0} drafts`);
-      } catch (draftErr) {
+      } catch (draftErr: unknown) {
         console.error('Error fetching drafts:', draftErr);
-        console.error('Drafts error details:', {
-          message: draftErr.message,
-          response: draftErr.response?.data,
-          status: draftErr.response?.status,
-          url: draftErr.config?.url,
-          baseURL: draftErr.config?.baseURL
-        });
+        
+        // Safely log error details
+        if (draftErr && typeof draftErr === 'object') {
+          const err = draftErr as any;
+          console.error('Drafts error details:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status,
+            url: err.config?.url,
+            baseURL: err.config?.baseURL
+          });
+        }
         
         toast.error('Unable to load your saved drafts');
         setDrafts([]);
       }
 
-    } catch (error) {
-      console.error('Dashboard error:', error);
+    } catch (err: unknown) {
+      console.error('Dashboard error:', err);
       setError('Failed to load dashboard data');
       toast.error('Failed to load dashboard data');
     } finally {
@@ -72,7 +85,6 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
-      <Header />
       <main className="container mx-auto py-8 px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -150,7 +162,6 @@ export default function DashboardPage() {
           onRefresh={fetchData}
         />
       </main>
-      <Footer />
     </ProtectedRoute>
   );
 }

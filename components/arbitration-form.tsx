@@ -81,7 +81,13 @@ const initialAdditionalClaimant = {
   email: "",
   phoneCountryCode: "+91",
   phone: "",
-  address: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
 }
 
 const initialManagerDetails = {
@@ -97,7 +103,13 @@ const initialManagerDetails = {
 const initialRespondent = {
   type: "",
   name: "",
-  address: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
   email: "",
   phoneCountryCode: "+91",
   phone: "",
@@ -572,8 +584,8 @@ const formSchema = z.object({
     phoneCountryCode: z.string().default("+91"),
   })).default([]),
   
-  // Manager details
-  managerDetails: z.object({
+  // Manager details - change to array
+  managerDetails: z.array(z.object({
     name: z.string().max(MAX_NAME_LENGTH),
     email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH).optional(),
     phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
@@ -581,13 +593,24 @@ const formSchema = z.object({
     designation: z.string().max(MAX_NAME_LENGTH).optional(),
     authority: z.string().max(MAX_NAME_LENGTH).optional(),
     phoneCountryCode: z.string().default("+91"),
-  }).optional(),
+  })).default([]),
   
   // Respondent details
   respondents: z.array(z.object({
     type: z.string().min(1, "Type is required"),
     name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
-    address: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH),
+    pincode: z.string()
+      .min(6, "Pincode must be 6 digits")
+      .max(6, "Pincode must be 6 digits")
+      .regex(/^\d{6}$/, "Must be a valid 6-digit pincode"),
+    address1: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters"),
+    address2: z.string().max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters").optional(),
+    city: z.string().min(1, "City is required").max(MAX_CITY_LENGTH),
+    district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
+    state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
+    country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
     email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
       .email("Must be a valid email address"),
     phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
@@ -804,6 +827,9 @@ function ArbitrationForm() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [formChanged, setFormChanged] = useState(false);
   
+  // Keep track of processed pincodes to avoid infinite loading
+  const processedPincodes = useRef<Record<string, boolean>>({});
+  
   // Location lookup state
   const [stateOptions, setStateOptions] = useState<Array<{ value: string, label: string }>>([]);
   const [districtOptions, setDistrictOptions] = useState<Array<{ value: string, label: string }>>([]);
@@ -884,7 +910,7 @@ function ArbitrationForm() {
     defaultValues: {
       claimant: initialClaimant,
       additionalClaimants: [initialAdditionalClaimant],
-      managerDetails: initialManagerDetails,
+      managerDetails: [initialManagerDetails],
       respondents: [initialRespondent],
       arbitrationAgreement: initialArbitrationAgreement,
       disputeDetails: initialDisputeDetails,
@@ -910,12 +936,21 @@ function ArbitrationForm() {
   });
   
   const { 
+    fields: managerFields, 
+    append: appendManager,
+    remove: removeManagerField
+  } = useFieldArray({
+    control,
+    name: "managerDetails",
+  });
+  
+  const { 
     fields: respondentFields, 
     append: appendRespondent,
     remove: removeRespondentField
   } = useFieldArray({
-    control,
     name: "respondents",
+    control,
   });
   
   const { 
@@ -932,6 +967,14 @@ function ArbitrationForm() {
   
   // Watch for pincode changes and fetch location data
   const pincode = watch('claimant.pincode');
+  
+  // Initialize processedPincodes when component mounts
+  useEffect(() => {
+    processedPincodes.current = {};
+  }, []);
+  
+  // Track all respondent pincodes
+  const respondentPincodes = watch('respondents')?.map(r => r.pincode) || [];
   
   useEffect(() => {
     if (pincode && pincode.length === 6) {
@@ -973,6 +1016,51 @@ function ArbitrationForm() {
     }
   }, [pincode, setValue]);
   
+  // Watch for respondent pincode changes
+  useEffect(() => {
+    // Check if we have any respondent with a valid pincode
+    if (respondentPincodes && respondentPincodes.length > 0) {
+      respondentPincodes.forEach((respPincode, index) => {
+        // Keep track of processed pincodes to avoid infinite loading
+        const processedPincodeKey = `respondent_${index}_${respPincode}`;
+        if (respPincode && respPincode.length === 6 && !processedPincodes.current[processedPincodeKey]) {
+          // Mark this pincode as processed
+          processedPincodes.current[processedPincodeKey] = true;
+          
+          const fetchRespondentLocationData = async () => {
+            try {
+              // Use the actual Indian postal pincode API
+              const response = await fetch(`https://api.postalpincode.in/pincode/${respPincode}`);
+              const data = await response.json() as PincodeResponse[];
+              
+              if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
+                const postOffice = data[0].PostOffice[0];
+                
+                // Extract unique cities from all post offices
+                const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
+                
+                // Update form fields with new values
+                setValue(`respondents.${index}.country`, postOffice.Country);
+                setValue(`respondents.${index}.state`, postOffice.State);
+                setValue(`respondents.${index}.district`, postOffice.District);
+                setValue(`respondents.${index}.city`, cities[0] || "");
+                
+                toast.success(`Respondent ${index + 1}: Pincode ${respPincode} found, location details loaded.`);
+              } else {
+                toast.error(`No data found for respondent ${index + 1} pincode ${respPincode}`);
+              }
+            } catch (error) {
+              console.error(`Error fetching location data for respondent ${index + 1}:`, error);
+              toast.error(`Error fetching location data for respondent ${index + 1} pincode ${respPincode}`);
+            }
+          };
+          
+          fetchRespondentLocationData();
+        }
+      });
+    }
+  }, [respondentPincodes, setValue]);
+  
   // Watch for identifier changes and validate them
   const gstNumber = watch('claimant.gst');
   const panNumber = watch('claimant.pan');
@@ -983,8 +1071,29 @@ function ArbitrationForm() {
     appendAdditionalClaimant(initialAdditionalClaimant);
   };
   
+  const addManager = () => {
+    appendManager(initialManagerDetails);
+  };
+  
   const addRespondent = () => {
-    appendRespondent(initialRespondent);
+    // Use the updated initialRespondent structure from form-initial-state.ts
+    appendRespondent({
+      type: "",
+      name: "",
+      pincode: "",
+      address1: "",
+      address2: "",
+      city: "",
+      district: "",
+      state: "",
+      country: "",
+      email: "",
+      phoneCountryCode: "+91",
+      phone: "",
+      gst: "",
+      pan: "",
+      cin: "",
+    });
   };
   
   const addArgument = () => {
@@ -1005,17 +1114,40 @@ function ArbitrationForm() {
         ];
         break;
       case 1: // Additional Claimants & Manager
-        // Only validate if manager details are provided
-        if (formValues.managerDetails?.name) {
-          fieldsToValidate = ['managerDetails.name', 'managerDetails.designation'];
-        }
+        // Validate managers if any exist
+        managerFields.forEach((_, index) => {
+          // If name is provided, validate required fields
+          if (formValues.managerDetails?.[index]?.name) {
+            fieldsToValidate.push(
+              `managerDetails.${index}.name`,
+              `managerDetails.${index}.designation`,
+              `managerDetails.${index}.authority`
+            );
+            
+            // If email is provided, validate it's in correct format
+            if (formValues.managerDetails?.[index]?.email) {
+              fieldsToValidate.push(`managerDetails.${index}.email`);
+            }
+            
+            // If phone is provided, validate it's in correct format
+            if (formValues.managerDetails?.[index]?.phone) {
+              fieldsToValidate.push(`managerDetails.${index}.phone`);
+            }
+          }
+        });
+        
         // Validate additional claimants if any exist
         additionalClaimantFields.forEach((_, index) => {
           fieldsToValidate.push(
             `additionalClaimants.${index}.name`,
             `additionalClaimants.${index}.email`,
             `additionalClaimants.${index}.phone`,
-            `additionalClaimants.${index}.address`
+            `additionalClaimants.${index}.pincode`,
+            `additionalClaimants.${index}.address1`,
+            `additionalClaimants.${index}.city`,
+            `additionalClaimants.${index}.district`,
+            `additionalClaimants.${index}.state`,
+            `additionalClaimants.${index}.country`
           );
         });
         break;
@@ -1025,7 +1157,12 @@ function ArbitrationForm() {
             `respondents.${index}.type`,
             `respondents.${index}.name`, 
             `respondents.${index}.email`,
-            `respondents.${index}.address`
+            `respondents.${index}.pincode`,
+            `respondents.${index}.address1`,
+            `respondents.${index}.city`,
+            `respondents.${index}.district`,
+            `respondents.${index}.state`,
+            `respondents.${index}.country`
           );
         });
         break;
@@ -1175,6 +1312,7 @@ function ArbitrationForm() {
       
       // Restructure data to match backend expectations
       // Backend expects claimant fields at the top level, not nested under 'claimant'
+      // All data will be properly saved to the NestJS backend database
       const restructuredData = {
         // Add claimant fields at the top level
         type: data.claimant.type,
@@ -1265,7 +1403,7 @@ function ArbitrationForm() {
           setTimeout(() => {
             router.push('/dashboard');
           }, 1500); // Delay to allow toast to be seen
-        } catch (submitError) {
+        } catch (submitError: any) {
           console.error('Error submitting draft:', submitError);
           toast.error(`Failed to submit draft: ${submitError.message || 'Unknown error'}`);
           throw submitError; // Re-throw to be caught by the outer catch
@@ -1292,7 +1430,7 @@ function ArbitrationForm() {
           setTimeout(() => {
             router.push('/dashboard');
           }, 1500); // Delay to allow toast to be seen
-        } catch (createError) {
+        } catch (createError: any) {
           console.error('Error creating submission:', createError);
           toast.error(`Failed to submit: ${createError.message || 'Unknown error'}`);
           throw createError; // Re-throw to be caught by the outer catch
@@ -1451,10 +1589,17 @@ function ArbitrationForm() {
           console.log("🔥 DRAFT LOADING: No claimant data in formData");
         }
         
+        // Ensure managerDetails is an array
+        const managerDetails = Array.isArray(draft.formData.managerDetails) 
+          ? draft.formData.managerDetails 
+          : draft.formData.managerDetails 
+            ? [draft.formData.managerDetails] 
+            : [initialManagerDetails];
+        
         completeFormData = {
           claimant: draft.formData.claimant || initialClaimant,
           additionalClaimants: draft.formData.additionalClaimants || [initialAdditionalClaimant],
-          managerDetails: draft.formData.managerDetails || initialManagerDetails,
+          managerDetails: managerDetails,
           respondents: draft.formData.respondents || [initialRespondent],
           arbitrationAgreement: draft.formData.arbitrationAgreement || initialArbitrationAgreement,
           disputeDetails: draft.formData.disputeDetails || initialDisputeDetails,
@@ -1467,6 +1612,13 @@ function ArbitrationForm() {
         // Fallback: reconstruct from flattened data (old format)
         console.log("🔥 DRAFT LOADING: Reconstructing from flattened data structure");
         console.log("🔥 DRAFT LOADING: Available fields:", Object.keys(draft));
+        
+        // Ensure managerDetails is an array
+        const managerDetails = Array.isArray(draft.managerDetails) 
+          ? draft.managerDetails 
+          : draft.managerDetails 
+            ? [draft.managerDetails] 
+            : [initialManagerDetails];
         
         const reconstructedFormData = {
           claimant: {
@@ -1487,7 +1639,7 @@ function ArbitrationForm() {
             cin: draft.cin || initialClaimant.cin,
           },
           additionalClaimants: draft.additionalClaimants || [initialAdditionalClaimant],
-          managerDetails: draft.managerDetails || initialManagerDetails,
+          managerDetails: managerDetails,
           respondents: draft.respondents || [initialRespondent],
           arbitrationAgreement: draft.arbitrationAgreement || initialArbitrationAgreement,
           disputeDetails: draft.disputeDetails || initialDisputeDetails,
@@ -1772,10 +1924,63 @@ function ArbitrationForm() {
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="Address"
-                        name={`additionalClaimants.${index}.address`}
+                      label="Pincode"
+                        name={`additionalClaimants.${index}.pincode`}
+                      required
+                      maxLength={MAX_PINCODE_LENGTH}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 1"
+                        name={`additionalClaimants.${index}.address1`}
                       required
                       maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 2"
+                        name={`additionalClaimants.${index}.address2`}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="City"
+                        name={`additionalClaimants.${index}.city`}
+                      required
+                      maxLength={MAX_CITY_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="District"
+                        name={`additionalClaimants.${index}.district`}
+                      required
+                      maxLength={MAX_DISTRICT_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="State"
+                        name={`additionalClaimants.${index}.state`}
+                      required
+                      maxLength={MAX_STATE_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="Country"
+                        name={`additionalClaimants.${index}.country`}
+                      required
+                      maxLength={MAX_COUNTRY_LENGTH}
                     />
                   </div>
                 </div>
@@ -1791,57 +1996,74 @@ function ArbitrationForm() {
             
             <div className="mt-8">
               <h3 className="font-medium text-lg mb-4">Manager Details</h3>
-              <div className="border p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <ControlledFormField
-                      control={control}
-                      label="Name"
-                      name="managerDetails.name"
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Designation"
-                      name="managerDetails.designation"
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Email"
-                      name="managerDetails.email"
-                    maxLength={MAX_EMAIL_LENGTH}
-                  />
-                </div>
-                <div>
-                    <PhoneField
-                      control={control}
-                      phoneFieldName="managerDetails.phone"
-                      countryCodeFieldName="managerDetails.phoneCountryCode"
-                    label="Phone"
-                    />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Address"
-                      name="managerDetails.address"
-                    maxLength={MAX_ADDRESS_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Authority"
-                      name="managerDetails.authority"
-                    maxLength={MAX_NAME_LENGTH}
-                  />
+              {managerFields.map((field, index) => (
+                <div key={field.id} className="border p-4 rounded-lg mb-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium">Manager {index + 1}</h4>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeManagerField(index)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Name"
+                        name={`managerDetails.${index}.name`}
+                        maxLength={MAX_NAME_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Designation"
+                        name={`managerDetails.${index}.designation`}
+                        maxLength={MAX_NAME_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Email"
+                        name={`managerDetails.${index}.email`}
+                        maxLength={MAX_EMAIL_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <PhoneField
+                        control={control}
+                        phoneFieldName={`managerDetails.${index}.phone`}
+                        countryCodeFieldName={`managerDetails.${index}.phoneCountryCode`}
+                        label="Phone"
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Address"
+                        name={`managerDetails.${index}.address`}
+                        maxLength={MAX_ADDRESS_LENGTH}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Authority"
+                        name={`managerDetails.${index}.authority`}
+                        maxLength={MAX_NAME_LENGTH}
+                      />
+                    </div>
                   </div>
                 </div>
+              ))}
+              <div className="flex justify-end">
+                <Button onClick={addManager} variant="outline">
+                  Add Another Manager
+                </Button>
               </div>
             </div>
           </div>
@@ -1907,13 +2129,67 @@ function ArbitrationForm() {
                       label="Phone"
                       />
                   </div>
-                    <div className="col-span-2">
+                  <div>
                       <ControlledFormField
                         control={control}
-                      label="Address"
-                        name={`respondents.${index}.address`}
+                      label="Pincode"
+                        name={`respondents.${index}.pincode`}
+                      required
+                      maxLength={MAX_PINCODE_LENGTH}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 1"
+                        name={`respondents.${index}.address1`}
                       required
                       maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                      <ControlledFormField
+                        control={control}
+                      label="Address Line 2"
+                        name={`respondents.${index}.address2`}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="City"
+                        name={`respondents.${index}.city`}
+                      required
+                      maxLength={MAX_CITY_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="District"
+                        name={`respondents.${index}.district`}
+                      required
+                      maxLength={MAX_DISTRICT_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="State"
+                        name={`respondents.${index}.state`}
+                      required
+                      maxLength={MAX_STATE_LENGTH}
+                    />
+                  </div>
+                  <div>
+                      <ControlledFormField
+                        control={control}
+                      label="Country"
+                        name={`respondents.${index}.country`}
+                      required
+                      maxLength={MAX_COUNTRY_LENGTH}
                     />
                   </div>
                   <div>
@@ -1945,7 +2221,7 @@ function ArbitrationForm() {
                         maxLength={MAX_CIN_LENGTH}
                       />
                       <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                        </div>
+                    </div>
                 </div>
               </div>
             ))}
@@ -2543,21 +2819,24 @@ function ArbitrationForm() {
                   <h4 className="font-medium mb-2">Additional Claimants</h4>
                   {additionalClaimants.length > 0 ? (
                     additionalClaimants.map((claimant, index) => (
-                      <div key={index} className="mb-2 text-sm">
-                        <div>
-                          <span className="font-medium">Name:</span> {claimant.name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Email:</span> {claimant.email}
-                        </div>
-                        <div>
-                          <PhoneField
-                            control={control}
-                            phoneFieldName={`additionalClaimants.${index}.phone`}
-                            countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
-                            label="Phone"
-                            required
-                          />
+                      <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="font-medium">Name:</span> {claimant.name}
+                          </div>
+                          <div>
+                            <span className="font-medium">Email:</span> {claimant.email}
+                          </div>
+                          <div>
+                            <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                          </div>
+                          <div>
+                            <span className="font-medium">Pincode:</span> {claimant.pincode}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="font-medium">Address:</span> {claimant.address1}
+                            {claimant.address2 && `, ${claimant.address2}`}, {claimant.city}, {claimant.district}, {claimant.state}, {claimant.country}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -2568,47 +2847,68 @@ function ArbitrationForm() {
                 
                 <div>
                   <h4 className="font-medium mb-2">Manager Details</h4>
-                  {managerDetails?.name ? (
-                    <div className="text-sm">
-                      <div>
-                        <span className="font-medium">Name:</span> {managerDetails?.name}
+                  {managerDetails.length > 0 ? (
+                    managerDetails.map((manager, index) => (
+                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
+                        <p className="font-medium">Manager {index + 1}</p>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <span className="font-medium">Name:</span> {manager.name}
+                          </div>
+                          <div>
+                            <span className="font-medium">Designation:</span> {manager.designation}
+                          </div>
+                          <div>
+                            <span className="font-medium">Email:</span> {manager.email}
+                          </div>
+                          <div>
+                            <span className="font-medium">Authority:</span> {manager.authority}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-medium">Designation:</span> {managerDetails?.designation}
-                      </div>
-                      <div>
-                        <span className="font-medium">Email:</span> {managerDetails?.email}
-                      </div>
-                      <div>
-                        <span className="font-medium">Authority:</span> {managerDetails?.authority}
-                      </div>
-                    </div>
+                    ))
                   ) : (
                     <div className="text-sm text-gray-500">No manager details provided</div>
                   )}
                 </div>
 
+                {/* Respondents */}
                 <div>
                   <h4 className="font-medium mb-2">Respondents</h4>
                   {respondents.map((respondent, index) => (
-                    <div key={index} className="mb-2 text-sm">
-                      <div>
-                        <span className="font-medium">Type:</span> {respondent.type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Name:</span> {respondent.name}
-                      </div>
-                      <div>
-                        <span className="font-medium">Email:</span> {respondent.email}
-                      </div>
-                      <div>
-                        <PhoneField
-                          control={control}
-                          phoneFieldName={`respondents.${index}.phone`}
-                          countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
-                          label="Phone"
-                          required
-                        />
+                    <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="font-medium">Type:</span> {respondent.type}
+                        </div>
+                        <div>
+                          <span className="font-medium">Name:</span> {respondent.name}
+                        </div>
+                        <div>
+                          <span className="font-medium">Email:</span> {respondent.email}
+                        </div>
+                        <div>
+                          <span className="font-medium">Phone:</span> {respondent.phoneCountryCode} {respondent.phone}
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium">Address:</span> {respondent.address1}
+                          {respondent.address2 && `, ${respondent.address2}`}, {respondent.city}, {respondent.district}, {respondent.state}, {respondent.country} - {respondent.pincode}
+                        </div>
+                        {respondent.gst && (
+                          <div>
+                            <span className="font-medium">GST:</span> {respondent.gst}
+                          </div>
+                        )}
+                        {respondent.pan && (
+                          <div>
+                            <span className="font-medium">PAN:</span> {respondent.pan}
+                          </div>
+                        )}
+                        {respondent.cin && (
+                          <div>
+                            <span className="font-medium">CIN:</span> {respondent.cin}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

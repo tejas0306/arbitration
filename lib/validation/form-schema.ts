@@ -88,9 +88,29 @@ export const claimantSchema = z.object({
 
 // Additional claimant schema
 export const additionalClaimantSchema = contactSchema.extend({
-  address: z.string()
-    .max(MAX_ADDRESS_LENGTH, `Address cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+  pincode: z.string()
+    .length(MAX_PINCODE_LENGTH, "Pincode must be exactly 6 digits")
+    .regex(/^\d{6}$/, "Pincode must contain only digits"),
+  address1: z.string()
+    .min(1, "Address Line 1 is required")
+    .max(MAX_ADDRESS_LENGTH, `Address Line 1 cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
     .regex(addressRegex, "Address contains invalid characters"),
+  address2: z.string()
+    .max(MAX_ADDRESS_LENGTH, `Address Line 2 cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters")
+    .optional(),
+  city: z.string()
+    .min(1, "City is required")
+    .max(MAX_CITY_LENGTH, `City cannot exceed ${MAX_CITY_LENGTH} characters`),
+  district: z.string()
+    .min(1, "District is required")
+    .max(MAX_DISTRICT_LENGTH, `District cannot exceed ${MAX_DISTRICT_LENGTH} characters`),
+  state: z.string()
+    .min(1, "State is required")
+    .max(MAX_STATE_LENGTH, `State cannot exceed ${MAX_STATE_LENGTH} characters`),
+  country: z.string()
+    .min(1, "Country is required")
+    .max(MAX_COUNTRY_LENGTH, `Country cannot exceed ${MAX_COUNTRY_LENGTH} characters`),
 });
 
 // Manager details schema
@@ -106,13 +126,33 @@ export const managerSchema = contactSchema.extend({
 export const respondentSchema = z.object({
   type: z.string().min(1, "Type is required"),
   name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
-  address: z.string()
-    .max(MAX_ADDRESS_LENGTH, `Address cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+  pincode: z.string()
+    .length(MAX_PINCODE_LENGTH, "Pincode must be exactly 6 digits")
+    .regex(/^\d{6}$/, "Pincode must contain only digits"),
+  address1: z.string()
+    .min(1, "Address Line 1 is required")
+    .max(MAX_ADDRESS_LENGTH, `Address Line 1 cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
     .regex(addressRegex, "Address contains invalid characters"),
+  address2: z.string()
+    .max(MAX_ADDRESS_LENGTH, `Address Line 2 cannot exceed ${MAX_ADDRESS_LENGTH} characters`)
+    .regex(addressRegex, "Address contains invalid characters")
+    .optional(),
+  city: z.string()
+    .min(1, "City is required")
+    .max(MAX_CITY_LENGTH, `City cannot exceed ${MAX_CITY_LENGTH} characters`),
+  district: z.string()
+    .min(1, "District is required")
+    .max(MAX_DISTRICT_LENGTH, `District cannot exceed ${MAX_DISTRICT_LENGTH} characters`),
+  state: z.string()
+    .min(1, "State is required")
+    .max(MAX_STATE_LENGTH, `State cannot exceed ${MAX_STATE_LENGTH} characters`),
+  country: z.string()
+    .min(1, "Country is required")
+    .max(MAX_COUNTRY_LENGTH, `Country cannot exceed ${MAX_COUNTRY_LENGTH} characters`),
   email: z.string()
     .min(1, "Email is required")
     .email("Invalid email format")
-    .max(MAX_EMAIL_LENGTH),
+    .max(MAX_EMAIL_LENGTH, `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`),
   phoneCountryCode: z.string().default("+91"),
   phone: z.string()
     .regex(/^\d{10}$/, "Phone number must contain only digits")
@@ -186,7 +226,7 @@ export const argumentsSchema = z.object({
 export const formSchema = z.object({
   claimant: claimantSchema,
   additionalClaimants: z.array(additionalClaimantSchema),
-  managerDetails: managerSchema,
+  managerDetails: z.array(managerSchema),
   respondents: z.array(respondentSchema).min(1, "At least one respondent is required"),
   arbitrationAgreement: arbitrationAgreementSchema,
   disputeDetails: disputeDetailsSchema,

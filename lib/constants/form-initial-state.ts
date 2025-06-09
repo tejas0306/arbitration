@@ -26,7 +26,13 @@ export const initialAdditionalClaimant = {
   email: "",
   phoneCountryCode: "+91",
   phone: "",
-  address: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
 };
 
 export const initialManagerDetails = {
@@ -42,7 +48,13 @@ export const initialManagerDetails = {
 export const initialRespondent = {
   type: "",
   name: "",
-  address: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
   email: "",
   phoneCountryCode: "+91",
   phone: "",
@@ -99,7 +111,7 @@ export const initialArguments = {
 export const initialFormState = {
   claimant: initialClaimant,
   additionalClaimants: [initialAdditionalClaimant],
-  managerDetails: initialManagerDetails,
+  managerDetails: [initialManagerDetails],
   respondents: [initialRespondent],
   arbitrationAgreement: initialArbitrationAgreement,
   disputeDetails: initialDisputeDetails,

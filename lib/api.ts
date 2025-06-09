@@ -74,7 +74,13 @@ export interface ArbitrationFormData {
     email: string;
     phoneCountryCode: string;
     phone: string;
-    address?: string;
+    pincode: string;
+    address1: string;
+    address2?: string;
+    city: string;
+    district: string;
+    state: string;
+    country: string;
   }>;
   respondents: Array<{
     type: string;

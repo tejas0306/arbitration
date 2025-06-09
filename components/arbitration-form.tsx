@@ -1407,6 +1407,9 @@ function ArbitrationForm() {
       
       console.log('FormData prepared, submitting to API...');
       
+      // Show submission toast
+      toast.loading('Submitting your petition...');
+      
       // Submit the form
       if (currentDraftId) {
         // If editing a draft, submit it
@@ -1416,6 +1419,9 @@ function ArbitrationForm() {
         try {
           const response = await arbitrationApi.submitDraft(currentDraftId);
           console.log('Draft submission successful:', response);
+          
+          // Dismiss the loading toast
+          toast.dismiss();
           
           const caseId = response.caseId;
           if (caseId) {
@@ -1431,10 +1437,11 @@ function ArbitrationForm() {
           reset();
           
           // Redirect to dashboard after successful submission
-          setTimeout(() => {
-            router.push('/dashboard');
-          }, 1500); // Delay to allow toast to be seen
+          router.push('/dashboard');
         } catch (submitError: any) {
+          // Dismiss the loading toast
+          toast.dismiss();
+          
           console.error('Error submitting draft:', submitError);
           toast.error(`Failed to submit draft: ${submitError.message || 'Unknown error'}`);
           throw submitError; // Re-throw to be caught by the outer catch
@@ -1448,6 +1455,9 @@ function ArbitrationForm() {
           const response = await arbitrationApi.create(formData);
           console.log('Submission successful:', response);
           
+          // Dismiss the loading toast
+          toast.dismiss();
+          
           const caseId = response.caseId;
           if (caseId) {
             toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
@@ -1458,10 +1468,11 @@ function ArbitrationForm() {
           reset();
           
           // Redirect to dashboard after successful submission
-          setTimeout(() => {
-            router.push('/dashboard');
-          }, 1500); // Delay to allow toast to be seen
+          router.push('/dashboard');
         } catch (createError: any) {
+          // Dismiss the loading toast
+          toast.dismiss();
+          
           console.error('Error creating submission:', createError);
           toast.error(`Failed to submit: ${createError.message || 'Unknown error'}`);
           throw createError; // Re-throw to be caught by the outer catch
@@ -1484,6 +1495,9 @@ function ArbitrationForm() {
       
     } catch (error: any) {
       console.error('Submission error:', error);
+      
+      // Dismiss any existing toasts
+      toast.dismiss();
       
       // Display appropriate error message
       if (error.message) {

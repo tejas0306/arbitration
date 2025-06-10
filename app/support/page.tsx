@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
-import Header from '@/components/header'
-import Footer from '@/components/footer'
+//import Header from '@/components/header'
+//import Footer from '@/components/footer'
 import ProtectedRoute from '@/components/protected-route'
 import SupportPortal from '@/components/support-portal'
 
@@ -13,11 +13,11 @@ export default function SupportPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen flex flex-col">
-        <Header />
+      
         <main className="flex-grow">
           <SupportPortal />
         </main>
-        <Footer />
+       
       </div>
     </ProtectedRoute>
   )

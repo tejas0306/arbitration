@@ -3,7 +3,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react'
 import { auth } from '@/lib/api'
 import { useRouter } from 'next/navigation'
-import Cookies from 'js-cookie'
 
 interface User {
   id: string
@@ -23,91 +22,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Helper function to set token in both localStorage and cookie
-const setAuthToken = (token: string) => {
-  // Store in localStorage
-  localStorage.setItem('auth_token', token)
-  localStorage.setItem('token_expiry', JSON.stringify(Date.now() + (24 * 60 * 60 * 1000)))
-  
-  // Store in cookie for middleware access
-  document.cookie = `auth_token=${token}; path=/; max-age=${60*60*24}; SameSite=Lax;`
-  
-  try {
-    Cookies.set('auth_token', token, {
-      expires: 1, // 1 day
-      path: '/',
-      sameSite: 'lax'
-    })
-  } catch (e) {
-    console.error('Error setting auth token cookie:', e)
-  }
-  
-  console.log('Auth token stored in cookie and localStorage', {
-    tokenLength: token.length,
-    cookieSet: document.cookie.includes('auth_token')
-  })
-}
-
-// Helper function to clear token from both storage locations
-const clearAuthToken = () => {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('token_expiry')
-  
-  // Clear cookies
-  document.cookie = 'auth_token=; path=/; max-age=0;'
-  try {
-    Cookies.remove('auth_token', { path: '/' })
-  } catch (e) {
-    console.error('Error removing auth token cookie:', e)
-  }
-}
-
-// Helper function to set user data in both localStorage and cookie
-const setUserData = (user: User) => {
-  // Store in localStorage for the app
-  localStorage.setItem('user', JSON.stringify(user))
-  
-  // Store in cookie for middleware access (limit to essential fields for security)
-  const cookieData = {
-    id: user.id,
-    email: user.email,
-    role: user.role
-  }
-  
-  // Set cookie with proper attributes to ensure it's accessible to middleware
-  document.cookie = `user_data=${encodeURIComponent(JSON.stringify(cookieData))}; path=/; max-age=${60*60*24}; SameSite=Lax;`
-  
-  // Also try with js-cookie as a backup
-  try {
-    Cookies.set('user_data', JSON.stringify(cookieData), { 
-      expires: 1, // 1 day
-      path: '/',
-      sameSite: 'lax'
-    })
-  } catch (e) {
-    console.error('Error setting cookie with js-cookie:', e)
-  }
-  
-  console.log('User data stored in cookie and localStorage', {
-    id: user.id,
-    role: user.role,
-    cookieSet: document.cookie.includes('user_data')
-  })
-}
-
-// Helper function to clear user data from both storage locations
-const clearUserData = () => {
-  localStorage.removeItem('user')
-  
-  // Clear cookies using both methods
-  document.cookie = 'user_data=; path=/; max-age=0;'
-  try {
-    Cookies.remove('user_data', { path: '/' })
-  } catch (e) {
-    console.error('Error removing cookie with js-cookie:', e)
-  }
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -132,21 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
-        
-        // Debug the user role before setting state
-        console.log('Auth Context - Refreshing user state:', {
-          name: parsedUser.name,
-          email: parsedUser.email,
-          role: parsedUser.role,
-          isAdmin: parsedUser.role === 'ADMIN'
-        })
-        
         setUser(parsedUser)
-        
-        // Update the cookie with the latest user data
-        setUserData(parsedUser)
-        
         refreshedRef.current = true
+        // No console.log here to prevent excessive logging
       } catch (e) {
         console.error('Error parsing stored user:', e)
       }
@@ -182,7 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (!token) {
           setUser(null)
-          clearUserData()
           setIsLoading(false)
           return
         }
@@ -194,17 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const userData = await auth.getCurrentUser()
           if (userData) {
-            console.log('Auth Context - User data from API:', {
-              name: userData.name,
-              email: userData.email,
-              role: userData.role,
-              isAdmin: userData.role === 'ADMIN'
-            })
-            
             setUser(userData)
-            
-            // Update both localStorage and cookie with latest user data
-            setUserData(userData)
+            // Update localStorage with latest user data
+            localStorage.setItem('user', JSON.stringify(userData))
           }
         } catch (error) {
           console.error('User verification failed:', error)
@@ -213,21 +106,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!user) {
             setUser(null)
             localStorage.removeItem('auth_token')
-            clearUserData()
+            localStorage.removeItem('user')
           }
         }
       } catch (error) {
         console.error('Authentication error:', error)
         setUser(null)
+        // Clear invalid token
         localStorage.removeItem('auth_token')
-        clearUserData()
+        localStorage.removeItem('user')
       } finally {
         setIsLoading(false)
       }
     }
     
     checkAuth()
-  }, [mounted, user])
+  }, [mounted])
   
   // Login function
   const login = async (email: string, password: string) => {
@@ -237,22 +131,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await auth.login({email, password})
       
-      // Debug the response
-      console.log('Auth Context - Login response:', {
-        user: {
-          name: response.user.name,
-          email: response.user.email,
-          role: response.user.role,
-          isAdmin: response.user.role === 'ADMIN'
-        },
-        hasToken: !!response.token
-      })
-      
-      // Store token in both localStorage and cookie
-      setAuthToken(response.token)
-      
-      // Store user data in both localStorage and cookie
-      setUserData(response.user)
+      // Store token and user data
+      localStorage.setItem('auth_token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
       
       // Set user state directly - no need for a second refresh
       setUser(response.user)
@@ -274,8 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     auth.logout()
     setUser(null)
-    clearUserData()
-    clearAuthToken()
     router.push('/auth/login')
   }
   
@@ -287,21 +166,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await auth.register(userData)
       
-      // Debug the response
-      console.log('Auth Context - Register response:', {
-        user: {
-          name: response.user.name,
-          email: response.user.email,
-          role: response.user.role
-        },
-        hasToken: !!response.token
-      })
-      
-      // Store token in both localStorage and cookie
-      setAuthToken(response.token)
-      
-      // Store user data in both localStorage and cookie
-      setUserData(response.user)
+      // Store token and user data
+      localStorage.setItem('auth_token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
       
       // Set user state directly - no need for a second refresh
       setUser(response.user)

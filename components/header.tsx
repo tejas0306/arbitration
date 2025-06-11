@@ -2,10 +2,18 @@ import { Scale, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useEffect } from "react"
 
 export default function Header() {
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, logout, refreshUserState } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
+  
+  // Force refresh user state when component mounts
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshUserState()
+    }
+  }, [isAuthenticated, refreshUserState])
 
   return (
     <header className="bg-purple-700 text-white py-3 px-6 shadow-md">

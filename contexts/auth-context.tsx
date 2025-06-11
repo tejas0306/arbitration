@@ -18,6 +18,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   register: (userData: any) => Promise<void>
+  refreshUserState: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -33,6 +34,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMounted(true)
   }, [])
   
+  // Function to refresh user state from localStorage
+  const refreshUserState = () => {
+    if (!mounted) return
+    
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        setUser(parsedUser)
+        console.log('User state refreshed:', parsedUser)
+      } catch (e) {
+        console.error('Error parsing stored user:', e)
+      }
+    }
+  }
+  
   // Check if user is authenticated on initial load
   useEffect(() => {
     if (!mounted) return // Don't run until mounted on client
@@ -45,21 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
           console.log('Skipping auth verification in development')
           // Even when skipping verification, try to load user from localStorage
-          const storedUser = localStorage.getItem('user')
-          if (storedUser) {
-            try {
-              setUser(JSON.parse(storedUser))
-            } catch (e) {
-              console.error('Error parsing stored user:', e)
-            }
-          }
+          refreshUserState()
           setIsLoading(false)
           return
         }
         
         // Get token from localStorage
         const token = localStorage.getItem('auth_token')
-        const storedUser = localStorage.getItem('user')
         
         if (!token) {
           setUser(null)
@@ -68,13 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         // Try to use stored user first
-        if (storedUser) {
-          try {
-            setUser(JSON.parse(storedUser))
-          } catch (e) {
-            console.error('Error parsing stored user:', e)
-          }
-        }
+        refreshUserState()
         
         // Verify token by getting current user from API
         try {
@@ -88,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('User verification failed:', error)
           // If API call fails but we have stored user, keep using that
           // Only clear if we couldn't parse stored user earlier
-          if (!storedUser) {
+          if (!user) {
             setUser(null)
             localStorage.removeItem('auth_token')
             localStorage.removeItem('user')
@@ -120,8 +123,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('auth_token', response.token)
       localStorage.setItem('user', JSON.stringify(response.user))
       
+      // Set user state
       setUser(response.user)
-      router.push('/dashboard')
+      
+      // Force a refresh of the user state to ensure role is properly recognized
+      setTimeout(() => {
+        refreshUserState()
+      }, 100)
+      
+      // Force a full page reload by using window.location instead of router.push
+      window.location.href = '/dashboard'
     } catch (error) {
       console.error('Login error:', error)
       throw error
@@ -151,8 +162,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('auth_token', response.token)
       localStorage.setItem('user', JSON.stringify(response.user))
       
+      // Set user state
       setUser(response.user)
-      router.push('/dashboard')
+      
+      // Force a refresh of the user state
+      setTimeout(() => {
+        refreshUserState()
+      }, 100)
+      
+      // Force a full page reload by using window.location instead of router.push
+      window.location.href = '/dashboard'
     } catch (error) {
       console.error('Registration error:', error)
       throw error
@@ -169,7 +188,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: mounted && !!user, // Only consider authenticated if mounted and user exists
         login,
         logout,
-        register
+        register,
+        refreshUserState
       }}
     >
       {children}

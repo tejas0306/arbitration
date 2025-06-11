@@ -102,7 +102,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUserState } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
   const searchInputRef = useCallback((inputElement: HTMLInputElement) => {
@@ -124,6 +124,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed)
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode)
+
+  // Refresh user state when component mounts
+  useEffect(() => {
+    refreshUserState()
+  }, [refreshUserState])
 
   // Handle global search
   const handleSearch = (e: FormEvent) => {

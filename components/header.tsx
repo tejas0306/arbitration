@@ -2,16 +2,22 @@ import { Scale, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export default function Header() {
   const { user, isAuthenticated, logout, refreshUserState } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
+  const refreshedRef = useRef(false)
   
-  // Force refresh user state when component mounts
+  // Force refresh user state when component mounts, but only once
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !refreshedRef.current) {
       refreshUserState()
+      refreshedRef.current = true
+    }
+    
+    return () => {
+      refreshedRef.current = false
     }
   }, [isAuthenticated, refreshUserState])
 

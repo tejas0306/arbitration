@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, FormEvent } from 'react'
+import { useState, useEffect, useCallback, FormEvent, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -121,13 +121,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       }
     }
   }, [])
+  const refreshedRef = useRef(false)
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed)
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode)
 
-  // Refresh user state when component mounts
+  // Refresh user state when component mounts, but only once
   useEffect(() => {
-    refreshUserState()
+    if (!refreshedRef.current) {
+      refreshUserState()
+      refreshedRef.current = true
+    }
+    
+    return () => {
+      refreshedRef.current = false
+    }
   }, [refreshUserState])
 
   // Handle global search

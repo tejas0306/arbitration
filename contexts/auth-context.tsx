@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useState, useContext, useEffect } from 'react'
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react'
 import { auth } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const refreshedRef = useRef(false)
   const router = useRouter()
   
   // Ensure we're on the client side before accessing localStorage
@@ -38,17 +39,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUserState = () => {
     if (!mounted) return
     
+    // Skip if we've already refreshed in this component lifecycle
+    if (refreshedRef.current) return
+    
     const storedUser = localStorage.getItem('user')
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
         setUser(parsedUser)
-        console.log('User state refreshed:', parsedUser)
+        refreshedRef.current = true
+        // No console.log here to prevent excessive logging
       } catch (e) {
         console.error('Error parsing stored user:', e)
       }
     }
   }
+  
+  // Reset the refreshed flag when component unmounts
+  useEffect(() => {
+    return () => {
+      refreshedRef.current = false
+    }
+  }, [])
   
   // Check if user is authenticated on initial load
   useEffect(() => {
@@ -123,13 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('auth_token', response.token)
       localStorage.setItem('user', JSON.stringify(response.user))
       
-      // Set user state
+      // Set user state directly - no need for a second refresh
       setUser(response.user)
-      
-      // Force a refresh of the user state to ensure role is properly recognized
-      setTimeout(() => {
-        refreshUserState()
-      }, 100)
+      refreshedRef.current = true
       
       // Force a full page reload by using window.location instead of router.push
       window.location.href = '/dashboard'
@@ -162,13 +170,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('auth_token', response.token)
       localStorage.setItem('user', JSON.stringify(response.user))
       
-      // Set user state
+      // Set user state directly - no need for a second refresh
       setUser(response.user)
-      
-      // Force a refresh of the user state
-      setTimeout(() => {
-        refreshUserState()
-      }, 100)
+      refreshedRef.current = true
       
       // Force a full page reload by using window.location instead of router.push
       window.location.href = '/dashboard'

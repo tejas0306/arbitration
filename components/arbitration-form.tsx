@@ -1381,8 +1381,8 @@ function ArbitrationForm() {
     const isStepValid = await validateCurrentStep();
     
     if (isStepValid) {
-      if (activeStep < steps.length - 1) {
-        setActiveStep(activeStep + 1);
+    if (activeStep < steps.length - 1) {
+      setActiveStep(activeStep + 1);
         
         // Focus the first input in the next step
         setTimeout(() => {
@@ -1392,7 +1392,7 @@ function ArbitrationForm() {
             firstInput.focus();
           }
         }, 50);
-      } else {
+    } else {
         // We're on the last step, but we don't submit here
         // Instead, the Submit button will directly call onSubmit
         console.log('On last step, ready to submit via Submit button...');
@@ -1447,7 +1447,7 @@ function ArbitrationForm() {
       }
       
       console.log('Files validated, preparing FormData...');
-      
+
       // Create FormData for submission
       const formData = new FormData();
       
@@ -1533,26 +1533,26 @@ function ArbitrationForm() {
         
         // Directly try the API call
         try {
-          const response = await arbitrationApi.submitDraft(currentDraftId);
+        const response = await arbitrationApi.submitDraft(currentDraftId);
           console.log('Draft submission successful:', response);
           
           // Dismiss the loading toast
           toast.dismiss();
           
-          const caseId = response.caseId;
-          if (caseId) {
-            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-          } else {
-            toast.success('Arbitration request submitted successfully!');
-          }
-          
-          // Reload drafts
-          const drafts = await arbitrationApi.getDrafts();
-          setDraftList(drafts);
-          setCurrentDraftId(null);
-          reset();
-          
-          // Redirect to dashboard after successful submission
+        const caseId = response.caseId;
+        if (caseId) {
+          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+        } else {
+          toast.success('Arbitration request submitted successfully!');
+        }
+      
+        // Reload drafts
+        const drafts = await arbitrationApi.getDrafts();
+        setDraftList(drafts);
+        setCurrentDraftId(null);
+        reset();
+        
+        // Redirect to dashboard after successful submission
           router.push('/dashboard');
         } catch (submitError: any) {
           // Dismiss the loading toast
@@ -1568,22 +1568,22 @@ function ArbitrationForm() {
         
         // Directly try the API call
         try {
-          const response = await arbitrationApi.create(formData);
+        const response = await arbitrationApi.create(formData);
           console.log('Submission successful:', response);
           
           // Dismiss the loading toast
           toast.dismiss();
           
-          const caseId = response.caseId;
-          if (caseId) {
-            toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-          } else {
-            toast.success('Arbitration request submitted successfully!');
-          }
+        const caseId = response.caseId;
+        if (caseId) {
+          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+        } else {
+          toast.success('Arbitration request submitted successfully!');
+        }
           
-          reset();
-          
-          // Redirect to dashboard after successful submission
+        reset();
+        
+        // Redirect to dashboard after successful submission
           router.push('/dashboard');
         } catch (createError: any) {
           // Dismiss the loading toast
@@ -1617,7 +1617,7 @@ function ArbitrationForm() {
       
       // Display appropriate error message
       if (error.message) {
-        toast.error(`Error: ${error.message}`);
+      toast.error(`Error: ${error.message}`);
       } else {
         toast.error('An unexpected error occurred during submission. Please try again.');
       }
@@ -2169,56 +2169,56 @@ function ArbitrationForm() {
                       Remove
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Name"
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <ControlledFormField
+                      control={control}
+                      label="Name"
                         name={`managerDetails.${index}.name`}
-                        maxLength={MAX_NAME_LENGTH}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Designation"
+                    maxLength={MAX_NAME_LENGTH}
+                  />
+                </div>
+                <div>
+                    <ControlledFormField
+                      control={control}
+                    label="Designation"
                         name={`managerDetails.${index}.designation`}
-                        maxLength={MAX_NAME_LENGTH}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Email"
+                    maxLength={MAX_NAME_LENGTH}
+                  />
+                </div>
+                <div>
+                    <ControlledFormField
+                      control={control}
+                    label="Email"
                         name={`managerDetails.${index}.email`}
-                        maxLength={MAX_EMAIL_LENGTH}
-                      />
-                    </div>
-                    <div>
-                      <PhoneField
-                        control={control}
+                    maxLength={MAX_EMAIL_LENGTH}
+                  />
+                </div>
+                <div>
+                    <PhoneField
+                      control={control}
                         phoneFieldName={`managerDetails.${index}.phone`}
                         countryCodeFieldName={`managerDetails.${index}.phoneCountryCode`}
-                        label="Phone"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Address"
+                    label="Phone"
+                    />
+                </div>
+                <div>
+                    <ControlledFormField
+                      control={control}
+                    label="Address"
                         name={`managerDetails.${index}.address`}
-                        maxLength={MAX_ADDRESS_LENGTH}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Authority"
+                    maxLength={MAX_ADDRESS_LENGTH}
+                  />
+                </div>
+                <div>
+                    <ControlledFormField
+                      control={control}
+                    label="Authority"
                         name={`managerDetails.${index}.authority`}
-                        maxLength={MAX_NAME_LENGTH}
-                      />
-                    </div>
+                    maxLength={MAX_NAME_LENGTH}
+                  />
                   </div>
+                </div>
                 </div>
               ))}
               <div className="flex justify-end">
@@ -2300,7 +2300,7 @@ function ArbitrationForm() {
                     />
                     <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
                   </div>
-                  <div className="col-span-2">
+                    <div className="col-span-2">
                       <ControlledFormField
                         control={control}
                       label="Address Line 1"
@@ -2382,7 +2382,7 @@ function ArbitrationForm() {
                         maxLength={MAX_CIN_LENGTH}
                       />
                       <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                    </div>
+                        </div>
                 </div>
               </div>
             ))}
@@ -2869,7 +2869,7 @@ function ArbitrationForm() {
         return (
           <div className="space-y-4">
             <DocumentsTabs 
-              control={control} 
+              control={control}
               watch={watch}
               disputeIssues={disputeIssues}
             />
@@ -3040,13 +3040,13 @@ function ArbitrationForm() {
                     additionalClaimants.map((claimant, index) => (
                       <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
                         <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="font-medium">Name:</span> {claimant.name}
-                          </div>
-                          <div>
-                            <span className="font-medium">Email:</span> {claimant.email}
-                          </div>
-                          <div>
+                        <div>
+                          <span className="font-medium">Name:</span> {claimant.name}
+                        </div>
+                        <div>
+                          <span className="font-medium">Email:</span> {claimant.email}
+                        </div>
+                        <div>
                             <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
                           </div>
                           <div>
@@ -3071,19 +3071,19 @@ function ArbitrationForm() {
                       <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
                         <p className="font-medium">Manager {index + 1}</p>
                         <div className="grid grid-cols-2 gap-2 mt-1">
-                          <div>
+                      <div>
                             <span className="font-medium">Name:</span> {manager.name}
-                          </div>
-                          <div>
+                      </div>
+                      <div>
                             <span className="font-medium">Designation:</span> {manager.designation}
-                          </div>
-                          <div>
+                      </div>
+                      <div>
                             <span className="font-medium">Email:</span> {manager.email}
-                          </div>
-                          <div>
+                      </div>
+                      <div>
                             <span className="font-medium">Authority:</span> {manager.authority}
-                          </div>
-                        </div>
+                      </div>
+                    </div>
                       </div>
                     ))
                   ) : (
@@ -3097,16 +3097,16 @@ function ArbitrationForm() {
                   {respondents.map((respondent, index) => (
                     <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
                       <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="font-medium">Type:</span> {respondent.type}
-                        </div>
-                        <div>
-                          <span className="font-medium">Name:</span> {respondent.name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Email:</span> {respondent.email}
-                        </div>
-                        <div>
+                      <div>
+                        <span className="font-medium">Type:</span> {respondent.type}
+                      </div>
+                      <div>
+                        <span className="font-medium">Name:</span> {respondent.name}
+                      </div>
+                      <div>
+                        <span className="font-medium">Email:</span> {respondent.email}
+                      </div>
+                      <div>
                           <span className="font-medium">Phone:</span> {respondent.phoneCountryCode} {respondent.phone}
                         </div>
                         <div className="col-span-2">
@@ -3427,7 +3427,7 @@ function ArbitrationForm() {
               </Button>
               
               {activeStep === steps.length - 1 ? (
-                <Button
+              <Button
                   variant="default"
                   onClick={() => {
                     if (!isSubmitting) {
@@ -3454,11 +3454,11 @@ function ArbitrationForm() {
               ) : (
                 <Button
                   variant="outline"
-                  onClick={handleNext}
-                  disabled={isSubmitting}
-                >
+                onClick={handleNext}
+                disabled={isSubmitting}
+              >
                   Next
-                </Button>
+              </Button>
               )}
             </div>
           </div>

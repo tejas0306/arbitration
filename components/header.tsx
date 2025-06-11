@@ -14,12 +14,30 @@ export default function Header() {
     if (isAuthenticated && !refreshedRef.current) {
       refreshUserState()
       refreshedRef.current = true
+      
+      // Debug info for admin role
+      console.log('Header - User state after refresh:', {
+        name: user?.name,
+        email: user?.email,
+        role: user?.role,
+        isAdmin: user?.role === 'ADMIN'
+      })
     }
     
     return () => {
       refreshedRef.current = false
     }
-  }, [isAuthenticated, refreshUserState])
+  }, [isAuthenticated, refreshUserState, user])
+
+  // Add another effect to log whenever the role changes
+  useEffect(() => {
+    if (user) {
+      console.log('Header - User role changed:', {
+        role: user.role,
+        isAdmin: user.role === 'ADMIN'
+      })
+    }
+  }, [user?.role])
 
   return (
     <header className="bg-purple-700 text-white py-3 px-6 shadow-md">
@@ -83,10 +101,15 @@ export default function Header() {
                 </Link>
               )}
               
-              {isAdmin && (
-                <Link href="/admin" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
-                  Admin
-                </Link>
+              {/* Debug the admin button rendering */}
+              {isAdmin ? (
+                <>
+                  <Link href="/admin" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
+                    Admin
+                  </Link>
+                </>
+              ) : (
+                <span className="hidden">Not admin: {user?.role}</span>
               )}
               
               <Link href="/profile" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm flex items-center space-x-1">

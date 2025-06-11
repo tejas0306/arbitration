@@ -578,6 +578,11 @@ export const auth = {
         expires: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
       };
       
+      // Ensure role is uppercase if it's 'admin'
+      if (user && user.role && user.role.toLowerCase() === 'admin') {
+        user.role = 'ADMIN';
+      }
+      
       localStorage.setItem('auth_token', token);
       localStorage.setItem('token_expiry', JSON.stringify(tokenData.expires));
       
@@ -689,6 +694,14 @@ export const auth = {
         });
         
         console.log('⚠️ User data received:', response.data ? 'SUCCESS' : 'EMPTY');
+        
+        // Ensure role is uppercase if it's 'admin'
+        if (response.data && response.data.role && response.data.role.toLowerCase() === 'admin') {
+          response.data.role = 'ADMIN';
+          // Update localStorage with the corrected role
+          localStorage.setItem('user', JSON.stringify(response.data));
+        }
+        
         return response.data;
       } catch (requestError: any) {
         // Add detailed error logging specifically for the request

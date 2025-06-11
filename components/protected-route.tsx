@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const router = useRouter()
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth()
+  const { user, isLoading: authLoading, isAuthenticated, refreshUserState } = useAuth()
   const { data: session, status: sessionStatus } = useSession()
   const [isLoading, setIsLoading] = useState(true)
   const [hasAccess, setHasAccess] = useState(false)
@@ -29,8 +29,12 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
           return
         }
         
+        // Force refresh user state to ensure we have the latest role info
+        refreshUserState()
+        
         // Enable bypassing auth check in development/preview
         if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
+          console.log('Skipping auth verification in development');
           setHasAccess(true)
           setIsLoading(false)
           return
@@ -41,6 +45,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         const currentUser = user || session?.user
         
         if (!isUserAuthenticated || !currentUser) {
+          console.log('Not authenticated, redirecting to login');
           toast.error('Please log in to access this feature')
           router.push('/auth/login')
           return
@@ -48,16 +53,29 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         
         // Check role-based access if required
         if (requiredRole) {
-          const userRole = (currentUser.role as string)?.toLowerCase()
-          const required = requiredRole.toLowerCase()
+          // Case-sensitive role check
+          const userRole = currentUser.role || ''
           
-          if (userRole !== required && userRole !== 'admin') {
+          // For admin routes, strictly check for ADMIN role
+          if (requiredRole.toLowerCase() === 'admin' && userRole !== 'ADMIN') {
+            console.log(`Access denied. User role: ${userRole}, Required: ADMIN`);
+            toast.error('Access denied. This section requires administrator privileges.')
+            router.push('/dashboard')
+            return
+          }
+          
+          // For other role checks
+          if (requiredRole.toLowerCase() !== 'admin' && 
+              userRole !== requiredRole && 
+              userRole !== 'ADMIN') {
+            console.log(`Access denied. User role: ${userRole}, Required: ${requiredRole}`);
             toast.error(`Access denied. This section requires ${requiredRole} privileges.`)
             router.push('/dashboard')
             return
           }
         }
         
+        console.log('Access granted to protected route');
         setHasAccess(true)
       } catch (error: any) {
         console.error('Access check error:', error)
@@ -69,7 +87,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     }
 
     checkAccess()
-  }, [router, requiredRole, authLoading, isAuthenticated, user, session, sessionStatus])
+  }, [router, requiredRole, authLoading, isAuthenticated, user, session, sessionStatus, refreshUserState])
 
   if (isLoading || authLoading || sessionStatus === 'loading') {
     return (

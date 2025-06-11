@@ -46,6 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
+        
+        // Debug the user role before setting state
+        console.log('Auth Context - Refreshing user state:', {
+          name: parsedUser.name,
+          email: parsedUser.email,
+          role: parsedUser.role,
+          isAdmin: parsedUser.role === 'ADMIN'
+        })
+        
         setUser(parsedUser)
         refreshedRef.current = true
         // No console.log here to prevent excessive logging
@@ -95,6 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const userData = await auth.getCurrentUser()
           if (userData) {
+            console.log('Auth Context - User data from API:', {
+              name: userData.name,
+              email: userData.email,
+              role: userData.role,
+              isAdmin: userData.role === 'ADMIN'
+            })
+            
             setUser(userData)
             // Update localStorage with latest user data
             localStorage.setItem('user', JSON.stringify(userData))
@@ -121,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     checkAuth()
-  }, [mounted])
+  }, [mounted, user])
   
   // Login function
   const login = async (email: string, password: string) => {
@@ -130,6 +146,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     try {
       const response = await auth.login({email, password})
+      
+      // Debug the response
+      console.log('Auth Context - Login response:', {
+        user: {
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role,
+          isAdmin: response.user.role === 'ADMIN'
+        },
+        hasToken: !!response.token
+      })
       
       // Store token and user data
       localStorage.setItem('auth_token', response.token)
@@ -165,6 +192,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     try {
       const response = await auth.register(userData)
+      
+      // Debug the response
+      console.log('Auth Context - Register response:', {
+        user: {
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role
+        },
+        hasToken: !!response.token
+      })
       
       // Store token and user data
       localStorage.setItem('auth_token', response.token)

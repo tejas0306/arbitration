@@ -16,6 +16,37 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
+  // Protect admin routes
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    const token = request.cookies.get('auth_token')?.value;
+    
+    // If no token, redirect to login
+    if (!token) {
+      console.log('No auth token found, redirecting to login');
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+    
+    // Try to get user data from token to check role
+    try {
+      // This is a basic check - a more robust solution would verify the token
+      // against your backend API using the getCurrentUser endpoint
+      
+      // For now, check if user data exists in localStorage
+      // Note: This is client-side and we can't access it in middleware
+      // You'd need to implement a server-side token verification solution
+      
+      // Since we can't do this fully in middleware, we'll let the ProtectedRoute
+      // component handle the detailed role check, but this gives basic protection
+      
+      console.log('Allowing admin route access, role will be checked by component');
+      return NextResponse.next();
+      
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+  }
+
   // Handle the incorrect upload path format
   if (request.nextUrl.pathname.startsWith('/upload/arbtation')) {
     console.log('Intercepting incorrect upload path:', request.nextUrl.pathname);
@@ -43,5 +74,7 @@ export const config = {
     '/api/auth/session',
     // Also include the incorrect upload path
     '/upload/arbtation/:path*',
+    // Protect admin routes
+    '/admin/:path*',
   ],
 } 

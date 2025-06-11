@@ -3,6 +3,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react'
 import { auth } from '@/lib/api'
 import { useRouter } from 'next/navigation'
+import Cookies from 'js-cookie'
 
 interface User {
   id: string
@@ -22,6 +23,31 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+// Helper function to set user data in both localStorage and cookie
+const setUserData = (user: User) => {
+  // Store in localStorage for the app
+  localStorage.setItem('user', JSON.stringify(user))
+  
+  // Store in cookie for middleware access (limit to essential fields for security)
+  const cookieData = {
+    id: user.id,
+    email: user.email,
+    role: user.role
+  }
+  Cookies.set('user_data', JSON.stringify(cookieData), { expires: 1, path: '/' }) // 1 day expiry
+  
+  console.log('User data stored in cookie and localStorage', {
+    id: user.id,
+    role: user.role
+  })
+}
+
+// Helper function to clear user data from both storage locations
+const clearUserData = () => {
+  localStorage.removeItem('user')
+  Cookies.remove('user_data', { path: '/' })
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -56,8 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         
         setUser(parsedUser)
+        
+        // Update the cookie with the latest user data
+        setUserData(parsedUser)
+        
         refreshedRef.current = true
-        // No console.log here to prevent excessive logging
       } catch (e) {
         console.error('Error parsing stored user:', e)
       }
@@ -93,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (!token) {
           setUser(null)
+          clearUserData()
           setIsLoading(false)
           return
         }
@@ -112,8 +142,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
             
             setUser(userData)
-            // Update localStorage with latest user data
-            localStorage.setItem('user', JSON.stringify(userData))
+            
+            // Update both localStorage and cookie with latest user data
+            setUserData(userData)
           }
         } catch (error) {
           console.error('User verification failed:', error)
@@ -122,15 +153,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!user) {
             setUser(null)
             localStorage.removeItem('auth_token')
-            localStorage.removeItem('user')
+            clearUserData()
           }
         }
       } catch (error) {
         console.error('Authentication error:', error)
         setUser(null)
-        // Clear invalid token
         localStorage.removeItem('auth_token')
-        localStorage.removeItem('user')
+        clearUserData()
       } finally {
         setIsLoading(false)
       }
@@ -158,9 +188,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasToken: !!response.token
       })
       
-      // Store token and user data
+      // Store token
       localStorage.setItem('auth_token', response.token)
-      localStorage.setItem('user', JSON.stringify(response.user))
+      localStorage.setItem('token_expiry', JSON.stringify(Date.now() + (24 * 60 * 60 * 1000)))
+      
+      // Store user data in both localStorage and cookie
+      setUserData(response.user)
       
       // Set user state directly - no need for a second refresh
       setUser(response.user)
@@ -182,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     auth.logout()
     setUser(null)
+    clearUserData()
     router.push('/auth/login')
   }
   
@@ -203,9 +237,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasToken: !!response.token
       })
       
-      // Store token and user data
+      // Store token
       localStorage.setItem('auth_token', response.token)
-      localStorage.setItem('user', JSON.stringify(response.user))
+      localStorage.setItem('token_expiry', JSON.stringify(Date.now() + (24 * 60 * 60 * 1000)))
+      
+      // Store user data in both localStorage and cookie
+      setUserData(response.user)
       
       // Set user state directly - no need for a second refresh
       setUser(response.user)

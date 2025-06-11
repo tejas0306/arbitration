@@ -60,6 +60,9 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
           if (requiredRole.toLowerCase() === 'admin' && userRole !== 'ADMIN') {
             console.log(`Access denied. User role: ${userRole}, Required: ADMIN`);
             toast.error('Access denied. This section requires administrator privileges.')
+            
+            // If the user is authenticated but not an admin, redirect to dashboard
+            // instead of login page
             router.push('/dashboard')
             return
           }
@@ -70,6 +73,9 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
               userRole !== 'ADMIN') {
             console.log(`Access denied. User role: ${userRole}, Required: ${requiredRole}`);
             toast.error(`Access denied. This section requires ${requiredRole} privileges.`)
+            
+            // If user is authenticated but doesn't have the required role,
+            // redirect to dashboard instead of login
             router.push('/dashboard')
             return
           }
@@ -80,7 +86,13 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
       } catch (error: any) {
         console.error('Access check error:', error)
         toast.error('Access verification failed')
-        router.push('/auth/login')
+        
+        // Check if user is authenticated but there was an error with role verification
+        if (isAuthenticated) {
+          router.push('/dashboard')
+        } else {
+          router.push('/auth/login')
+        }
       } finally {
         setIsLoading(false)
       }

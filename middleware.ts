@@ -26,25 +26,26 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     
-    // Try to get user data from token to check role
-    try {
-      // This is a basic check - a more robust solution would verify the token
-      // against your backend API using the getCurrentUser endpoint
-      
-      // For now, check if user data exists in localStorage
-      // Note: This is client-side and we can't access it in middleware
-      // You'd need to implement a server-side token verification solution
-      
-      // Since we can't do this fully in middleware, we'll let the ProtectedRoute
-      // component handle the detailed role check, but this gives basic protection
-      
-      console.log('Allowing admin route access, role will be checked by component');
-      return NextResponse.next();
-      
-    } catch (error) {
-      console.error('Error checking admin access:', error);
-      return NextResponse.redirect(new URL('/auth/login', request.url));
+    // Check if user data exists in localStorage via cookies
+    const userCookie = request.cookies.get('user_data')?.value;
+    
+    // If we have user data and they're not an admin, redirect to dashboard
+    if (userCookie) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(userCookie));
+        if (userData.role !== 'ADMIN') {
+          console.log('User is not an admin, redirecting to dashboard');
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+      } catch (error) {
+        console.error('Error parsing user cookie:', error);
+        // If we can't parse the cookie, let the protected route component handle it
+      }
     }
+    
+    // For authenticated users, let the ProtectedRoute component handle the detailed role check
+    console.log('Allowing admin route access, role will be checked by component');
+    return NextResponse.next();
   }
 
   // Handle the incorrect upload path format

@@ -1,10 +1,10 @@
 "use client"
 
-import { AuthProvider } from "@/contexts/auth-context"
+import { AuthProvider } from "../contexts/auth-context"
 import "./globals.css"
 import { Toaster } from 'sonner'
 import NextTopLoader from 'nextjs-toploader'
-import { ApiProgressBar } from "@/components/ui/api-progress-bar"
+import { ApiProgressBar } from "../components/ui/api-progress-bar"
 import { SessionProvider } from "next-auth/react"
 
 export default function RootLayout({
@@ -14,6 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Arbitration Portal</title>
+      </head>
       <body>
         <NextTopLoader 
           color="#2563eb" // Blue color matching the UI theme

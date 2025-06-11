@@ -4,10 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma generate && next build",
-    "build:full": "npx prisma generate && cd backend && npx @nestjs/cli build && cd .. && next build",
-    "start": "next start",
-    "lint": "next lint"
+    "build": "npx next build",
+    "build:with-prisma": "npx prisma generate && npx next build",
+    "build:full": "npx prisma generate && cd backend && npx @nestjs/cli build && cd .. && npx next build",
+    "start": "NODE_ENV=production node server.js",
+    "start:next": "npx next start -p ${PORT:-3000} -H 0.0.0.0",
+    "start:static": "node static-server.js",
+    "export": "node export.js",
+    "fix-assets": "node fix-assets.js",
+    "lint": "npx next lint"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
@@ -53,6 +58,7 @@
     "critters": "^0.0.23",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
+    "express": "^4.21.2",
     "http-proxy-middleware": "^3.0.5",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",

@@ -18,14 +18,24 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   const { data: session, status: sessionStatus } = useSession()
   const [isLoading, setIsLoading] = useState(true)
   const [hasAccess, setHasAccess] = useState(false)
+  const [redirected, setRedirected] = useState(false)
 
   useEffect(() => {
     const checkAccess = async () => {
       try {
         setIsLoading(true)
         
+        console.log('ProtectedRoute - Starting access check:', {
+          requiredRole,
+          currentUserRole: user?.role,
+          isAuthenticated,
+          sessionStatus,
+          authLoading
+        })
+        
         // Wait for auth context to finish loading
         if (authLoading || sessionStatus === 'loading') {
+          console.log('ProtectedRoute - Still loading auth state')
           return
         }
         
@@ -34,7 +44,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         
         // Enable bypassing auth check in development/preview
         if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
-          console.log('Skipping auth verification in development');
+          console.log('Skipping auth verification in development')
           setHasAccess(true)
           setIsLoading(false)
           return
@@ -45,9 +55,12 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         const currentUser = user || session?.user
         
         if (!isUserAuthenticated || !currentUser) {
-          console.log('Not authenticated, redirecting to login');
+          console.log('Not authenticated, redirecting to login')
           toast.error('Please log in to access this feature')
-          router.push('/auth/login')
+          if (!redirected) {
+            setRedirected(true)
+            router.push('/auth/login')
+          }
           return
         }
         
@@ -56,14 +69,25 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
           // Case-sensitive role check
           const userRole = currentUser.role || ''
           
+          console.log('ProtectedRoute - Checking role access:', {
+            userRole,
+            requiredRole,
+            isAdmin: userRole === 'ADMIN'
+          })
+          
           // For admin routes, strictly check for ADMIN role
           if (requiredRole.toLowerCase() === 'admin' && userRole !== 'ADMIN') {
-            console.log(`Access denied. User role: ${userRole}, Required: ADMIN`);
+            console.log(`Access denied. User role: ${userRole}, Required: ADMIN`)
             toast.error('Access denied. This section requires administrator privileges.')
             
             // If the user is authenticated but not an admin, redirect to dashboard
             // instead of login page
-            router.push('/dashboard')
+            if (!redirected) {
+              setRedirected(true)
+              console.log('Redirecting non-admin user to dashboard')
+              window.location.href = '/dashboard'
+              return
+            }
             return
           }
           
@@ -71,27 +95,36 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
           if (requiredRole.toLowerCase() !== 'admin' && 
               userRole !== requiredRole && 
               userRole !== 'ADMIN') {
-            console.log(`Access denied. User role: ${userRole}, Required: ${requiredRole}`);
+            console.log(`Access denied. User role: ${userRole}, Required: ${requiredRole}`)
             toast.error(`Access denied. This section requires ${requiredRole} privileges.`)
             
             // If user is authenticated but doesn't have the required role,
             // redirect to dashboard instead of login
-            router.push('/dashboard')
+            if (!redirected) {
+              setRedirected(true)
+              console.log('Redirecting to dashboard due to insufficient privileges')
+              window.location.href = '/dashboard'
+              return
+            }
             return
           }
         }
         
-        console.log('Access granted to protected route');
+        console.log('Access granted to protected route')
         setHasAccess(true)
       } catch (error: any) {
         console.error('Access check error:', error)
         toast.error('Access verification failed')
         
         // Check if user is authenticated but there was an error with role verification
-        if (isAuthenticated) {
-          router.push('/dashboard')
-        } else {
-          router.push('/auth/login')
+        if (isAuthenticated && !redirected) {
+          setRedirected(true)
+          console.log('Error during access check, redirecting to dashboard')
+          window.location.href = '/dashboard'
+        } else if (!isAuthenticated && !redirected) {
+          setRedirected(true)
+          console.log('Not authenticated, redirecting to login after error')
+          window.location.href = '/auth/login'
         }
       } finally {
         setIsLoading(false)
@@ -99,7 +132,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     }
 
     checkAccess()
-  }, [router, requiredRole, authLoading, isAuthenticated, user, session, sessionStatus, refreshUserState])
+  }, [router, requiredRole, authLoading, isAuthenticated, user, session, sessionStatus, refreshUserState, redirected])
 
   if (isLoading || authLoading || sessionStatus === 'loading') {
     return (

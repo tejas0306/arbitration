@@ -24,6 +24,45 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Helper function to set token in both localStorage and cookie
+const setAuthToken = (token: string) => {
+  // Store in localStorage
+  localStorage.setItem('auth_token', token)
+  localStorage.setItem('token_expiry', JSON.stringify(Date.now() + (24 * 60 * 60 * 1000)))
+  
+  // Store in cookie for middleware access
+  document.cookie = `auth_token=${token}; path=/; max-age=${60*60*24}; SameSite=Lax;`
+  
+  try {
+    Cookies.set('auth_token', token, {
+      expires: 1, // 1 day
+      path: '/',
+      sameSite: 'lax'
+    })
+  } catch (e) {
+    console.error('Error setting auth token cookie:', e)
+  }
+  
+  console.log('Auth token stored in cookie and localStorage', {
+    tokenLength: token.length,
+    cookieSet: document.cookie.includes('auth_token')
+  })
+}
+
+// Helper function to clear token from both storage locations
+const clearAuthToken = () => {
+  localStorage.removeItem('auth_token')
+  localStorage.removeItem('token_expiry')
+  
+  // Clear cookies
+  document.cookie = 'auth_token=; path=/; max-age=0;'
+  try {
+    Cookies.remove('auth_token', { path: '/' })
+  } catch (e) {
+    console.error('Error removing auth token cookie:', e)
+  }
+}
+
 // Helper function to set user data in both localStorage and cookie
 const setUserData = (user: User) => {
   // Store in localStorage for the app
@@ -35,18 +74,39 @@ const setUserData = (user: User) => {
     email: user.email,
     role: user.role
   }
-  Cookies.set('user_data', JSON.stringify(cookieData), { expires: 1, path: '/' }) // 1 day expiry
+  
+  // Set cookie with proper attributes to ensure it's accessible to middleware
+  document.cookie = `user_data=${encodeURIComponent(JSON.stringify(cookieData))}; path=/; max-age=${60*60*24}; SameSite=Lax;`
+  
+  // Also try with js-cookie as a backup
+  try {
+    Cookies.set('user_data', JSON.stringify(cookieData), { 
+      expires: 1, // 1 day
+      path: '/',
+      sameSite: 'lax'
+    })
+  } catch (e) {
+    console.error('Error setting cookie with js-cookie:', e)
+  }
   
   console.log('User data stored in cookie and localStorage', {
     id: user.id,
-    role: user.role
+    role: user.role,
+    cookieSet: document.cookie.includes('user_data')
   })
 }
 
 // Helper function to clear user data from both storage locations
 const clearUserData = () => {
   localStorage.removeItem('user')
-  Cookies.remove('user_data', { path: '/' })
+  
+  // Clear cookies using both methods
+  document.cookie = 'user_data=; path=/; max-age=0;'
+  try {
+    Cookies.remove('user_data', { path: '/' })
+  } catch (e) {
+    console.error('Error removing cookie with js-cookie:', e)
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -188,9 +248,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasToken: !!response.token
       })
       
-      // Store token
-      localStorage.setItem('auth_token', response.token)
-      localStorage.setItem('token_expiry', JSON.stringify(Date.now() + (24 * 60 * 60 * 1000)))
+      // Store token in both localStorage and cookie
+      setAuthToken(response.token)
       
       // Store user data in both localStorage and cookie
       setUserData(response.user)
@@ -216,6 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     auth.logout()
     setUser(null)
     clearUserData()
+    clearAuthToken()
     router.push('/auth/login')
   }
   
@@ -237,9 +297,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasToken: !!response.token
       })
       
-      // Store token
-      localStorage.setItem('auth_token', response.token)
-      localStorage.setItem('token_expiry', JSON.stringify(Date.now() + (24 * 60 * 60 * 1000)))
+      // Store token in both localStorage and cookie
+      setAuthToken(response.token)
       
       // Store user data in both localStorage and cookie
       setUserData(response.user)

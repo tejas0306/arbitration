@@ -55,7 +55,16 @@ export class ArbitrationAgreement {
   agreementDate: Date;
 
   @Prop({ required: true })
-  agreementType: string;
+  placeOfSigning: string;
+
+  @Prop({ required: true })
+  arbitrationText: string;
+
+  @Prop({ required: true })
+  stampDutyPercentage: string;
+
+  @Prop({ required: true })
+  numberOfArbitrators: string;
 
   @Prop({ required: true })
   agreementFile: string;

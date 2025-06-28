@@ -145,6 +145,15 @@ export class ArbitrationService {
         evidenceFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('evidenceFiles_'))
           .map(key => fileReferences[key]),
+        // Documents evidence files
+        documentsEvidenceFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('documentsEvidence_'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Store all file references for easy access
+        allFiles: fileReferences,
         // Include any existing documents from form
         ...(data.documents || {})
       };
@@ -212,6 +221,10 @@ export class ArbitrationService {
             respondents: data.respondents,
             arbitrationAgreement: data.arbitrationAgreement,
             disputeDetails: data.disputeDetails,
+            // Include new dispute structure fields
+            natureOfDispute: data.natureOfDispute,
+            disputeDescriptions: data.disputeDescriptions,
+            documentsEvidence: data.documentsEvidence,
             prayers: data.prayers,
             documents: data.documents,
             payment: data.payment,
@@ -268,6 +281,10 @@ export class ArbitrationService {
             respondents: data.respondents,
             arbitrationAgreement: data.arbitrationAgreement,
             disputeDetails: data.disputeDetails,
+            // Include new dispute structure fields
+            natureOfDispute: data.natureOfDispute,
+            disputeDescriptions: data.disputeDescriptions,
+            documentsEvidence: data.documentsEvidence,
             prayers: data.prayers,
             documents: data.documents,
             payment: data.payment,

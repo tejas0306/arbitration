@@ -88,6 +88,20 @@ export const DISPUTE_NATURES = [
   { value: "other", label: "Other" },
 ];
 
+export const RELIEF_SOUGHT_OPTIONS = [
+  { value: "monetary_compensation", label: "Monetary Compensation" },
+  { value: "specific_performance", label: "Specific Performance" },
+  { value: "declaratory_relief", label: "Declaratory Relief" },
+  { value: "injunctive_relief", label: "Injunctive Relief" },
+  { value: "restitution", label: "Restitution" },
+  { value: "rescission", label: "Rescission of Contract" },
+  { value: "rectification", label: "Rectification" },
+  { value: "damages_costs", label: "Damages and Costs" },
+  { value: "interest_penalty", label: "Interest and Penalty" },
+  { value: "termination", label: "Contract Termination" },
+  { value: "other", label: "Other" },
+];
+
 export const PAYMENT_HEADS = [
   { value: "filing_fee", label: "Filing Fee" },
   { value: "arbitrator_fee", label: "Arbitrator Fee" },

@@ -65,40 +65,38 @@ export const initialRespondent = {
 
 export const initialArbitrationAgreement = {
   agreementDate: "",
-  agreementType: "",
-  agreementFile: null,
-  resolutionMode: "",
-  seatOfArbitration: "",
-  signedOnPlace: "",
-  agreementParties: "",
-  arbitratorSelection: "",
   placeOfSigning: "",
   arbitrationText: "",
   stampDutyPercentage: "",
-  stampDutyAmount: "",
   numberOfArbitrators: "",
 };
 
-export const initialDisputeDetails = {
-  disputeType: "",
-  disputeAmount: "",
-  disputeDescription: "",
-  disputeDate: "",
-  serviceType: "",
-  applicableActs: [] as string[],
-  disputeCategory: "",
-  disputeSubCategory: "",
+export const initialNatureOfDispute = {
+  category: "",
+  subCategory: "",
   natureOfDispute: "",
-  factsOfCase: "",
-  clauseReferences: "",
+  dateWhenRightToClaimArose: "",
+  standardisedPrayerClauses: "",
+};
+
+export const initialDisputeDescription = {
   claimType: "",
   claimReason: "",
-  lawsReliedUpon: "",
-  clauseNumber: "",
+  lawReliedUpon: "",
+  relevantClauseNumber: "",
   clauseSupportingClaim: "",
   clause: "",
   documentSupportingClaim: "",
   reliefSought: "",
+};
+
+export const initialDocumentEvidence = {
+  documentType: "",
+  documentId: "",
+  relevantClauseNumber: "",
+  supportingClaimNumber: "",
+  dateOfIssueSign: "",
+  attachedDocuments: [],
 };
 
 export const initialPrayers = {

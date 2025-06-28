@@ -194,9 +194,19 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
               {caseDetails ? `Filed on ${new Date(caseDetails.createdAt).toLocaleDateString()}` : ''}
             </p>
           </div>
-          <Button variant="outline" onClick={() => router.push('/dashboard')}>
-            Back to Dashboard
-          </Button>
+          <div className="flex gap-2">
+            {caseDetails && (
+              <Button 
+                variant="default" 
+                onClick={() => router.push(`/dashboard/petition/edit/${caseDetails.id}`)}
+              >
+                Edit Case
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => router.push('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
 
         {/* Case Summary Card */}

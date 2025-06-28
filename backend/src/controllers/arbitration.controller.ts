@@ -72,6 +72,22 @@ export class ArbitrationController {
         { name: 'evidenceFiles_2', maxCount: 1 },
         { name: 'evidenceFiles_3', maxCount: 1 },
         { name: 'evidenceFiles_4', maxCount: 1 },
+        // Documents Evidence files
+        { name: 'documentsEvidence_0_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_0_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_0_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_1_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_1_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_1_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_2_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_2_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_2_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_3_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_3_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_3_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_4_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_4_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_4_attachedDocuments_2', maxCount: 1 },
       ],
       { storage }
     )
@@ -138,6 +154,22 @@ export class ArbitrationController {
         { name: 'evidenceFiles_2', maxCount: 1 },
         { name: 'evidenceFiles_3', maxCount: 1 },
         { name: 'evidenceFiles_4', maxCount: 1 },
+        // Documents Evidence files
+        { name: 'documentsEvidence_0_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_0_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_0_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_1_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_1_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_1_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_2_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_2_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_2_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_3_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_3_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_3_attachedDocuments_2', maxCount: 1 },
+        { name: 'documentsEvidence_4_attachedDocuments_0', maxCount: 1 },
+        { name: 'documentsEvidence_4_attachedDocuments_1', maxCount: 1 },
+        { name: 'documentsEvidence_4_attachedDocuments_2', maxCount: 1 },
       ],
       { storage }
     )
@@ -160,6 +192,21 @@ export class ArbitrationController {
       let arbitrationData;
       try {
         arbitrationData = JSON.parse(arbitrationDataString);
+        
+        // Log the parsed data for debugging
+        this.logger.log('🔥 BACKEND: Parsed arbitration data keys:', Object.keys(arbitrationData));
+        this.logger.log('🔥 BACKEND: natureOfDispute:', JSON.stringify(arbitrationData.natureOfDispute));
+        this.logger.log('🔥 BACKEND: disputeDescriptions:', JSON.stringify(arbitrationData.disputeDescriptions));
+        this.logger.log('🔥 BACKEND: documentsEvidence:', JSON.stringify(arbitrationData.documentsEvidence));
+        
+        // Log uploaded files for debugging
+        this.logger.log('🔥 BACKEND: Uploaded files keys:', files ? Object.keys(files) : 'No files');
+        if (files) {
+          Object.keys(files).forEach(key => {
+            const file = files[key][0];
+            this.logger.log(`🔥 BACKEND: File ${key}: ${file.filename} (${file.originalname})`);
+          });
+        }
       } catch (e) {
         this.logger.error(`Failed to parse arbitration data: ${e.message}`);
         throw new Error('Invalid form data format');
@@ -168,6 +215,7 @@ export class ArbitrationController {
       // Map file paths
       const fileData = {};
       if (files) {
+        this.logger.log('🔥 BACKEND: Processing files:', Object.keys(files));
         Object.keys(files).forEach(key => {
           const file = files[key][0];
           fileData[key] = {
@@ -177,6 +225,7 @@ export class ArbitrationController {
             mimetype: file.mimetype,
             size: file.size
           };
+          this.logger.log(`🔥 BACKEND: Processed file ${key}: ${file.originalname}`);
         });
       }
       

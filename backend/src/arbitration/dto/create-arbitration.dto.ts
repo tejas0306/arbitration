@@ -160,26 +160,26 @@ class RespondentDetailsDto {
 
 // Arbitration agreement details
 class ArbitrationAgreementDto {
-  // Date of agreement (ISO string)
+  // Date of Arbitration Agreement / Agreement containing the arbitration clause
   @IsNotEmpty()
   @IsString()
-  date: string;
-  // Place where agreement was signed
+  agreementDate: string;
+  // Place where the Arbitration Agreement / Agreement containing the arbitration clause was signed
   @IsNotEmpty()
   @IsString()
-  place: string;
-  // Text of arbitration agreement/clause
+  placeOfSigning: string;
+  // Text of arbitration Agreement/clause
   @IsNotEmpty()
   @IsString()
-  text: string;
-  // Percentage value or stamp duty (optional)
-  @IsOptional()
+  arbitrationText: string;
+  // Percentage of the Agreement value / Amount of stamp duty paid on the Arbitration Agreement / Agreement containing the arbitration clause
+  @IsNotEmpty()
   @IsString()
-  percentage?: string;
-  // Number of arbitrators (optional)
-  @IsOptional()
+  stampDutyPercentage: string;
+  // Number of Arbitrators as per Agreement
+  @IsNotEmpty()
   @IsString()
-  numberOfArbitrators?: string;
+  numberOfArbitrators: string;
 }
 
 // Dispute details

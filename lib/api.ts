@@ -95,7 +95,10 @@ export interface ArbitrationFormData {
   }>;
   arbitrationAgreement: {
     agreementDate: string;
-    agreementType: string;
+    placeOfSigning: string;
+    arbitrationText: string;
+    stampDutyPercentage: string;
+    numberOfArbitrators: string;
     agreementFile: File;
   };
   disputeDetails: {
@@ -237,6 +240,24 @@ export const arbitrationApi = {
       
       console.log('Draft FormData contents:', formDataLog);
       console.log('FormData has files:', hasFiles);
+      console.log('FormData entries count:', Array.from(formData.entries()).length);
+      
+      // Log the actual data structure being sent
+      const dataString = formData.get('data');
+      if (dataString && typeof dataString === 'string') {
+        try {
+          const parsedData = JSON.parse(dataString);
+          console.log('Parsed form data structure:', {
+            hasClaimant: !!parsedData.claimant,
+            hasRespondents: !!parsedData.respondents,
+            hasArbitrationAgreement: !!parsedData.arbitrationAgreement,
+            claimantKeys: parsedData.claimant ? Object.keys(parsedData.claimant) : [],
+            topLevelKeys: Object.keys(parsedData)
+          });
+        } catch (e) {
+          console.log('Could not parse data field:', e.message);
+        }
+      }
       
       const response = await apiClient.post('/api/arbitration/draft', formData, {
         headers: {
@@ -264,6 +285,20 @@ export const arbitrationApi = {
           fullUrl: error.config.baseURL + error.config.url,
         } : 'No config available'
       });
+      
+      // Log detailed error information for debugging
+      if (error.response) {
+        console.error('Response Error Details:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+      } else if (error.request) {
+        console.error('Request Error - No Response:', error.request);
+      } else {
+        console.error('Error Message:', error.message);
+      }
       
       if (error.response?.status === 404) {
         console.error('404 Error: API endpoint not found. Check that the backend controller has the correct route defined.');

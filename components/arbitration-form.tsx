@@ -48,7 +48,9 @@ const steps = [
   "Additional Claimants & Manager",
   "Respondent Details",
   "Arbitration Agreement",
-  "Dispute Details",
+  "Nature of Dispute",
+  "Dispute Description",
+  "Documents/Evidence",
   "Prayers & Reliefs",
   "Documents",
   "Payment",
@@ -121,41 +123,39 @@ const initialRespondent = {
 
 const initialArbitrationAgreement = {
   agreementDate: "",
-  agreementType: "",
-  agreementFile: null,
-  resolutionMode: "",
-  seatOfArbitration: "",
-  signedOnPlace: "",
-  agreementParties: "",
-  arbitratorSelection: "",
   placeOfSigning: "",
   arbitrationText: "",
   stampDutyPercentage: "",
-  stampDutyAmount: "",
   numberOfArbitrators: "",
 }
 
-const initialDisputeDetails = {
-  disputeType: "",
-  disputeAmount: "",
-  disputeDescription: "",
-  disputeDate: "",
-  serviceType: "",
-  applicableActs: [] as string[],
-  disputeCategory: "",
-  disputeSubCategory: "",
+const initialNatureOfDispute = {
+  category: "",
+  subCategory: "",
   natureOfDispute: "",
-  factsOfCase: "",
-  clauseReferences: "",
+  dateWhenRightToClaimArose: "",
+  standardisedPrayerClauses: "",
+};
+
+const initialDisputeDescription = {
   claimType: "",
   claimReason: "",
-  lawsReliedUpon: "",
-  clauseNumber: "",
+  lawReliedUpon: "",
+  relevantClauseNumber: "",
   clauseSupportingClaim: "",
   clause: "",
   documentSupportingClaim: "",
   reliefSought: "",
-}
+};
+
+const initialDocumentEvidence = {
+  documentType: "",
+  documentId: "",
+  relevantClauseNumber: "",
+  supportingClaimNumber: "",
+  dateOfIssueSign: "",
+  attachedDocuments: [],
+};
 
 const initialPrayers = {
   prayers: "",
@@ -594,8 +594,19 @@ const formSchema = z.object({
     name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
     email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH),
     phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
-    address: z.string().max(MAX_ADDRESS_LENGTH),
     phoneCountryCode: z.string().default("+91"),
+    pincode: z.string()
+      .min(6, "Pincode must be 6 digits")
+      .max(6, "Pincode must be 6 digits")
+      .regex(/^\d{6}$/, "Must be a valid 6-digit pincode"),
+    address1: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters"),
+    address2: z.string().max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters").optional(),
+    city: z.string().min(1, "City is required").max(MAX_CITY_LENGTH),
+    district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
+    state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
+    country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
   })).default([]),
   
   // Manager details - change to array
@@ -644,52 +655,50 @@ const formSchema = z.object({
         selected.setHours(0, 0, 0, 0);
         return selected <= today;
       }, "Agreement date cannot be in the future"),
-    agreementType: z.string().min(1, "Agreement type is required"),
-    resolutionMode: z.string().min(1, "Resolution mode is required"),
-    seatOfArbitration: z.string().min(1, "Seat of arbitration is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
-    signedOnPlace: z.string().min(1, "Signed-on place is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
-    agreementParties: z.string().min(1, "Agreement parties is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
-    arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
     placeOfSigning: z.string().min(1, "Place of signing is required").max(MAX_ARBITRATION_FIELD_LENGTH, `Must be at most ${MAX_ARBITRATION_FIELD_LENGTH} characters`),
     arbitrationText: z.string().min(1, "Text of Arbitration Agreement/clause is required").max(2000, "Text cannot exceed 2000 characters"),
-    stampDutyPercentage: z.string().optional(),
-    stampDutyAmount: z.string().optional(),
+    stampDutyPercentage: z.string().min(1, "Stamp duty percentage/amount is required"),
     numberOfArbitrators: z.string().min(1, "Number of Arbitrators is required"),
     // agreementFile handled separately
   }),
   
-  // Dispute Details
-  disputeDetails: z.object({
-    disputeType: z.string().min(1, "Dispute type is required"),
-    disputeAmount: z.string().min(1, "Dispute amount is required")
-      .max(MAX_DISPUTE_AMOUNT_LENGTH, `Must be at most ${MAX_DISPUTE_AMOUNT_LENGTH} digits`)
-      .regex(/^\d+$/, "Must contain only digits")
-      .refine(val => parseInt(val) <= MAX_DISPUTE_AMOUNT, `Amount cannot exceed ${MAX_DISPUTE_AMOUNT.toLocaleString()}`),
-    disputeDescription: z.string().min(1, "Dispute description is required").max(2000),
-    disputeDate: z.string().min(1, "Dispute date is required")
+  // Nature of Dispute
+  natureOfDispute: z.object({
+    category: z.string().min(1, "Category is required"),
+    subCategory: z.string().min(1, "Sub Category is required"),
+    natureOfDispute: z.string().min(1, "Nature of Dispute is required"),
+    dateWhenRightToClaimArose: z.string().min(1, "Date when right to claim arose is required")
       .refine(val => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const selected = new Date(val);
         selected.setHours(0, 0, 0, 0);
         return selected <= today;
-      }, "Dispute date cannot be in the future"),
-    serviceType: z.string().min(1, "Service type is required"),
-    applicableActs: z.array(z.string()).min(1, "At least one applicable act is required"),
-    disputeCategory: z.string().min(1, "Dispute category is required"),
-    disputeSubCategory: z.string().min(1, "Dispute sub-category is required"),
-    natureOfDispute: z.string().min(1, "Nature of dispute is required"),
-    factsOfCase: z.string().min(1, "Facts of the case is required").max(2000),
-    clauseReferences: z.string().min(1, "Clause references is required").max(500),
-    claimType: z.string().min(1, "Claim type is required"),
-    claimReason: z.string().min(1, "Claim reason is required").max(1000),
-    lawsReliedUpon: z.string().min(1, "Laws relied upon is required").max(1000),
-    clauseNumber: z.string().min(1, "Clause number/page number is required"),
-    clauseSupportingClaim: z.string().min(1, "Clause supporting claim is required").max(1000),
-    clause: z.string().min(1, "Clause is required").max(1000),
-    documentSupportingClaim: z.string().min(1, "Document supporting claim is required"),
-    reliefSought: z.string().min(1, "Relief sought is required").max(1000),
+      }, "Date cannot be in the future"),
+    standardisedPrayerClauses: z.string().min(1, "Standardised prayer clauses is required"),
   }),
+
+  // Dispute Description (can be multiple)
+  disputeDescriptions: z.array(z.object({
+    claimType: z.string().min(1, "Claim Type is required"),
+    claimReason: z.string().min(1, "Claim Reason is required"),
+    lawReliedUpon: z.string().min(1, "Law relied upon by Claimant is required"),
+    relevantClauseNumber: z.string().min(1, "Relevant Clause Number/Page Number is required"),
+    clauseSupportingClaim: z.string().min(1, "Clause Supporting Claim is required"),
+    clause: z.string().min(1, "Clause is required"),
+    documentSupportingClaim: z.string().min(1, "Document Supporting Claim is required"),
+    reliefSought: z.string().min(1, "Relief Sought is required"),
+  })).min(1, "At least one dispute description is required"),
+
+  // Documents/Evidence (can be multiple)
+  documentsEvidence: z.array(z.object({
+    documentType: z.string().min(1, "Document Type is required"),
+    documentId: z.string().optional(), // Auto generated
+    relevantClauseNumber: z.string().min(1, "Relevant Clause Number/Page Number is required"),
+    supportingClaimNumber: z.string().min(1, "Supporting Claim Number is required"),
+    dateOfIssueSign: z.string().min(1, "Date of Issue/Sign of the document is required"),
+    attachedDocuments: z.array(z.any()).min(1, "At least one document must be attached"),
+  })).min(1, "At least one document/evidence is required"),
   
   // Prayers & Reliefs
   prayers: z.object({
@@ -889,7 +898,12 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
   );
 };
 
-function ArbitrationForm() {
+interface ArbitrationFormProps {
+  initialData?: any;
+  petitionId?: string;
+}
+
+function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {}) {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   
@@ -964,6 +978,8 @@ function ArbitrationForm() {
       fetchDrafts();
     }
   }, [isAuthenticated]); // Only depends on authentication state
+
+
   
   // File state for document uploads (not managed by react-hook-form)
   const [files, setFiles] = useState<Record<string, File | null>>({
@@ -972,6 +988,30 @@ function ArbitrationForm() {
     gstCert: null,
     agreementFile: null,
   });
+
+  // Verification states
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  
+  // Additional claimant verification states (arrays to track each claimant)
+  const [additionalClaimantEmailVerified, setAdditionalClaimantEmailVerified] = useState<boolean[]>([]);
+  const [additionalClaimantPhoneVerified, setAdditionalClaimantPhoneVerified] = useState<boolean[]>([]);
+  
+  // Main claimant verification states
+  const [showEmailOTP, setShowEmailOTP] = useState(false);
+  const [showPhoneOTP, setShowPhoneOTP] = useState(false);
+  const [emailOTP, setEmailOTP] = useState("");
+  const [phoneOTP, setPhoneOTP] = useState("");
+  const [sentEmailOTP, setSentEmailOTP] = useState("");
+  const [sentPhoneOTP, setSentPhoneOTP] = useState("");
+  
+  // Additional claimant modal states
+  const [showAdditionalEmailOTP, setShowAdditionalEmailOTP] = useState<boolean[]>([]);
+  const [showAdditionalPhoneOTP, setShowAdditionalPhoneOTP] = useState<boolean[]>([]);
+  const [additionalEmailOTP, setAdditionalEmailOTP] = useState<string[]>([]);
+  const [additionalPhoneOTP, setAdditionalPhoneOTP] = useState<string[]>([]);
+  const [sentAdditionalEmailOTP, setSentAdditionalEmailOTP] = useState<string[]>([]);
+  const [sentAdditionalPhoneOTP, setSentAdditionalPhoneOTP] = useState<string[]>([]);
   
   const stepRefs = useRef<(HTMLElement | null)[]>(Array(steps.length).fill(null));
   
@@ -993,7 +1033,9 @@ function ArbitrationForm() {
       managerDetails: [initialManagerDetails],
       respondents: [initialRespondent],
       arbitrationAgreement: initialArbitrationAgreement,
-      disputeDetails: initialDisputeDetails,
+      natureOfDispute: initialNatureOfDispute,
+      disputeDescriptions: [initialDisputeDescription],
+      documentsEvidence: [initialDocumentEvidence],
       prayers: initialPrayers,
       payment: initialPayment,
       arguments: initialArguments,
@@ -1041,9 +1083,135 @@ function ArbitrationForm() {
     control,
     name: "arguments.argumentsPerIssue" as any, // Type assertion to work around TypeScript error
   });
+
+  // Field arrays for new dispute structure
+  const { 
+    fields: disputeDescriptionFields, 
+    append: appendDisputeDescription,
+    remove: removeDisputeDescription
+  } = useFieldArray({
+    control,
+    name: "disputeDescriptions",
+  });
+
+  const { 
+    fields: documentsEvidenceFields, 
+    append: appendDocumentEvidence,
+    remove: removeDocumentEvidence
+  } = useFieldArray({
+    control,
+    name: "documentsEvidence",
+  });
   
   // Watch form values
   const formValues = watch();
+
+  // Effect to load initial data when in edit mode (after useForm is defined)
+  useEffect(() => {
+    if (initialData && petitionId) {
+      console.log("🔥 EDIT MODE: Loading initial data:", initialData);
+      
+      // Set edit mode and current draft ID
+      setEditMode(true);
+      setCurrentDraftId(petitionId);
+      
+      // Transform the data to match the form structure
+      const loadInitialData = () => {
+        try {
+          let completeFormData;
+          
+          // Check if we have the new formData structure, otherwise fallback to reconstruction
+          if (initialData.formData && typeof initialData.formData === 'object') {
+            console.log("🔥 EDIT MODE: Using stored formData structure");
+            completeFormData = {
+              claimant: initialData.formData.claimant || initialClaimant,
+              additionalClaimants: initialData.formData.additionalClaimants || [initialAdditionalClaimant],
+              managerDetails: Array.isArray(initialData.formData.managerDetails) 
+                ? initialData.formData.managerDetails 
+                : initialData.formData.managerDetails 
+                  ? [initialData.formData.managerDetails] 
+                  : [initialManagerDetails],
+              respondents: initialData.formData.respondents || [initialRespondent],
+              arbitrationAgreement: initialData.formData.arbitrationAgreement || initialArbitrationAgreement,
+              natureOfDispute: initialData.formData.natureOfDispute || initialNatureOfDispute,
+              disputeDescriptions: initialData.formData.disputeDescriptions || [initialDisputeDescription],
+              documentsEvidence: initialData.formData.documentsEvidence || [initialDocumentEvidence],
+              prayers: initialData.formData.prayers || initialPrayers,
+              documents: initialData.formData.documents || initialDocuments,
+              payment: initialData.formData.payment || initialPayment,
+              arguments: initialData.formData.arguments || initialArguments,
+            };
+          } else {
+            console.log("🔥 EDIT MODE: Reconstructing from flattened data structure");
+            // Fallback: reconstruct from flattened data (old format)
+            const managerDetails = Array.isArray(initialData.managerDetails) 
+              ? initialData.managerDetails 
+              : initialData.managerDetails 
+                ? [initialData.managerDetails] 
+                : [initialManagerDetails];
+            
+            completeFormData = {
+              claimant: {
+                type: initialData.type || initialClaimant.type,
+                name: initialData.name || initialClaimant.name,
+                pincode: initialData.pincode || initialClaimant.pincode,
+                address1: initialData.address1 || initialClaimant.address1,
+                address2: initialData.address2 || initialClaimant.address2,
+                city: initialData.city || initialClaimant.city,
+                district: initialData.district || initialClaimant.district,
+                state: initialData.state || initialClaimant.state,
+                country: initialData.country || initialClaimant.country,
+                email: initialData.email || initialClaimant.email,
+                phoneCountryCode: initialData.phoneCountryCode || initialClaimant.phoneCountryCode,
+                phone: initialData.phone || initialClaimant.phone,
+                gst: initialData.gst || initialClaimant.gst,
+                pan: initialData.pan || initialClaimant.pan,
+                cin: initialData.cin || initialClaimant.cin,
+              },
+              additionalClaimants: initialData.additionalClaimants || [initialAdditionalClaimant],
+              managerDetails: managerDetails,
+              respondents: initialData.respondents || [initialRespondent],
+              arbitrationAgreement: initialData.arbitrationAgreement || initialArbitrationAgreement,
+              natureOfDispute: initialData.natureOfDispute || initialNatureOfDispute,
+              disputeDescriptions: initialData.disputeDescriptions || [initialDisputeDescription],
+              documentsEvidence: initialData.documentsEvidence || [initialDocumentEvidence],
+              prayers: initialData.prayers || initialPrayers,
+              documents: initialData.documents || initialDocuments,
+              payment: initialData.payment || initialPayment,
+              arguments: initialData.arguments || initialArguments,
+            };
+          }
+          
+          console.log("🔥 EDIT MODE: Final form data structure:", completeFormData);
+          
+          // Reset the form with the loaded data
+          reset(completeFormData);
+          
+          // Update field arrays
+          if (completeFormData.disputeDescriptions && completeFormData.disputeDescriptions.length > 0) {
+            setValue('disputeDescriptions', completeFormData.disputeDescriptions);
+          }
+          
+          if (completeFormData.documentsEvidence && completeFormData.documentsEvidence.length > 0) {
+            setValue('documentsEvidence', completeFormData.documentsEvidence);
+          }
+          
+          // Set files if available
+          if (initialData.files) {
+            console.log("🔥 EDIT MODE: Setting files:", initialData.files);
+            setFiles(initialData.files);
+          }
+          
+          toast.success('Case data loaded successfully');
+        } catch (error: any) {
+          console.error('🔥 EDIT MODE: Error loading initial data:', error);
+          toast.error(`Error loading case data: ${error.message}`);
+        }
+      };
+      
+      loadInitialData();
+    }
+  }, [initialData, petitionId]); // Removed reset and setValue from dependencies to avoid circular dependency
   
   // Watch for pincode changes and fetch location data
   const pincode = watch('claimant.pincode');
@@ -1055,6 +1223,9 @@ function ArbitrationForm() {
   
   // Track all respondent pincodes
   const respondentPincodes = watch('respondents')?.map(r => r.pincode) || [];
+  
+  // Track all additional claimant pincodes
+  const additionalClaimantPincodes = watch('additionalClaimants')?.map(ac => ac.pincode) || [];
   
   useEffect(() => {
     if (pincode && pincode.length === 6) {
@@ -1140,6 +1311,51 @@ function ArbitrationForm() {
       });
     }
   }, [respondentPincodes, setValue]);
+
+  // Watch for additional claimant pincode changes
+  useEffect(() => {
+    // Check if we have any additional claimant with a valid pincode
+    if (additionalClaimantPincodes && additionalClaimantPincodes.length > 0) {
+      additionalClaimantPincodes.forEach((acPincode, index) => {
+        // Keep track of processed pincodes to avoid infinite loading
+        const processedPincodeKey = `additional_claimant_${index}_${acPincode}`;
+        if (acPincode && acPincode.length === 6 && !processedPincodes.current[processedPincodeKey]) {
+          // Mark this pincode as processed
+          processedPincodes.current[processedPincodeKey] = true;
+          
+          const fetchAdditionalClaimantLocationData = async () => {
+            try {
+              // Use the actual Indian postal pincode API
+              const response = await fetch(`https://api.postalpincode.in/pincode/${acPincode}`);
+              const data = await response.json() as PincodeResponse[];
+              
+              if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
+                const postOffice = data[0].PostOffice[0];
+                
+                // Extract unique cities from all post offices
+                const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
+                
+                // Update form fields with new values
+                setValue(`additionalClaimants.${index}.country`, postOffice.Country);
+                setValue(`additionalClaimants.${index}.state`, postOffice.State);
+                setValue(`additionalClaimants.${index}.district`, postOffice.District);
+                setValue(`additionalClaimants.${index}.city`, cities[0] || "");
+                
+                toast.success(`Additional Claimant ${index + 1}: Pincode ${acPincode} found, location details loaded.`);
+              } else {
+                toast.error(`No data found for Additional Claimant ${index + 1} pincode ${acPincode}`);
+              }
+            } catch (error) {
+              console.error(`Error fetching location data for Additional Claimant ${index + 1}:`, error);
+              toast.error(`Error fetching location data for Additional Claimant ${index + 1} pincode ${acPincode}`);
+            }
+          };
+          
+          fetchAdditionalClaimantLocationData();
+        }
+      });
+    }
+  }, [additionalClaimantPincodes, setValue]);
   
   // Watch for identifier changes and validate them
   const gstNumber = watch('claimant.gst');
@@ -1149,6 +1365,30 @@ function ArbitrationForm() {
   // Helper functions for field arrays
   const addAdditionalClaimant = () => {
     appendAdditionalClaimant(initialAdditionalClaimant);
+    // Add verification states for the new claimant
+    setAdditionalClaimantEmailVerified(prev => [...prev, false]);
+    setAdditionalClaimantPhoneVerified(prev => [...prev, false]);
+    // Add modal states for the new claimant
+    setShowAdditionalEmailOTP(prev => [...prev, false]);
+    setShowAdditionalPhoneOTP(prev => [...prev, false]);
+    setAdditionalEmailOTP(prev => [...prev, ""]);
+    setAdditionalPhoneOTP(prev => [...prev, ""]);
+    setSentAdditionalEmailOTP(prev => [...prev, ""]);
+    setSentAdditionalPhoneOTP(prev => [...prev, ""]);
+  };
+
+  const removeAdditionalClaimant = (index: number) => {
+    removeAdditionalClaimantField(index);
+    // Remove verification states for the removed claimant
+    setAdditionalClaimantEmailVerified(prev => prev.filter((_, i) => i !== index));
+    setAdditionalClaimantPhoneVerified(prev => prev.filter((_, i) => i !== index));
+    // Remove modal states for the removed claimant
+    setShowAdditionalEmailOTP(prev => prev.filter((_, i) => i !== index));
+    setShowAdditionalPhoneOTP(prev => prev.filter((_, i) => i !== index));
+    setAdditionalEmailOTP(prev => prev.filter((_, i) => i !== index));
+    setAdditionalPhoneOTP(prev => prev.filter((_, i) => i !== index));
+    setSentAdditionalEmailOTP(prev => prev.filter((_, i) => i !== index));
+    setSentAdditionalPhoneOTP(prev => prev.filter((_, i) => i !== index));
   };
   
   const addManager = () => {
@@ -1179,9 +1419,253 @@ function ArbitrationForm() {
   const addArgument = () => {
     appendArgument("" as any); // Type assertion to work around TypeScript error
   };
+
+  const addDisputeDescription = () => {
+    appendDisputeDescription(initialDisputeDescription);
+  };
+
+  const addDocumentEvidence = () => {
+    const newDocumentEvidence = {
+      ...initialDocumentEvidence,
+      documentId: `DOC-${Date.now()}`, // Auto-generate document ID
+    };
+    appendDocumentEvidence(newDocumentEvidence);
+  };
+
+  // Verification functions
+  const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+  };
+
+  const sendEmailVerification = async () => {
+    const email = watch('claimant.email');
+    if (!email) {
+      toast.error('Please enter an email address first');
+      return;
+    }
+    
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    const otp = generateOTP();
+    setSentEmailOTP(otp);
+    setShowEmailOTP(true);
+    
+    // In a real application, you would send this OTP via email
+    // For demo purposes, we'll show it in a toast
+    toast.success(`Email OTP sent to ${email}. Demo OTP: ${otp}`);
+  };
+
+  const sendPhoneVerification = async () => {
+    const phone = watch('claimant.phone');
+    if (!phone) {
+      toast.error('Please enter a phone number first');
+      return;
+    }
+    
+    // Validate phone format (exactly 10 digits)
+    if (!/^\d{10}$/.test(phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    const otp = generateOTP();
+    setSentPhoneOTP(otp);
+    setShowPhoneOTP(true);
+    
+    // In a real application, you would send this OTP via SMS
+    // For demo purposes, we'll show it in a toast
+    toast.success(`SMS OTP sent to ${phone}. Demo OTP: ${otp}`);
+  };
+
+  const verifyEmailOTP = () => {
+    if (emailOTP === sentEmailOTP) {
+      setEmailVerified(true);
+      setShowEmailOTP(false);
+      setEmailOTP("");
+      toast.success('Email verified successfully!');
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const verifyPhoneOTP = () => {
+    if (phoneOTP === sentPhoneOTP) {
+      setPhoneVerified(true);
+      setShowPhoneOTP(false);
+      setPhoneOTP("");
+      toast.success('Phone verified successfully!');
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  // Additional claimant verification functions
+  const sendAdditionalClaimantEmailVerification = async (index: number) => {
+    const email = watch(`additionalClaimants.${index}.email`);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      console.log(`Demo OTP for additional claimant ${index + 1} email ${email}: ${otp}`);
+      toast.success(`Demo OTP sent to ${email}: ${otp}`);
+      
+      // Update arrays to show modal for this specific claimant
+      const newSentOTPs = [...sentAdditionalEmailOTP];
+      const newShowModals = [...showAdditionalEmailOTP];
+      
+      // Ensure arrays are large enough
+      while (newSentOTPs.length <= index) newSentOTPs.push("");
+      while (newShowModals.length <= index) newShowModals.push(false);
+      
+      newSentOTPs[index] = otp;
+      newShowModals[index] = true;
+      
+      setSentAdditionalEmailOTP(newSentOTPs);
+      setShowAdditionalEmailOTP(newShowModals);
+    } catch (error) {
+      toast.error('Failed to send verification email');
+    }
+  };
+
+  const sendAdditionalClaimantPhoneVerification = async (index: number) => {
+    const phone = watch(`additionalClaimants.${index}.phone`);
+    const countryCode = watch(`additionalClaimants.${index}.phoneCountryCode`);
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      console.log(`Demo OTP for additional claimant ${index + 1} phone ${countryCode} ${phone}: ${otp}`);
+      toast.success(`Demo OTP sent to ${countryCode} ${phone}: ${otp}`);
+      
+      // Update arrays to show modal for this specific claimant
+      const newSentOTPs = [...sentAdditionalPhoneOTP];
+      const newShowModals = [...showAdditionalPhoneOTP];
+      
+      // Ensure arrays are large enough
+      while (newSentOTPs.length <= index) newSentOTPs.push("");
+      while (newShowModals.length <= index) newShowModals.push(false);
+      
+      newSentOTPs[index] = otp;
+      newShowModals[index] = true;
+      
+      setSentAdditionalPhoneOTP(newSentOTPs);
+      setShowAdditionalPhoneOTP(newShowModals);
+    } catch (error) {
+      toast.error('Failed to send verification SMS');
+    }
+  };
+
+  const verifyAdditionalClaimantEmailOTP = (index: number) => {
+    const enteredOTP = additionalEmailOTP[index] || "";
+    const sentOTP = sentAdditionalEmailOTP[index] || "";
+    
+    if (enteredOTP === sentOTP) {
+      // Mark as verified
+      const newEmailVerified = [...additionalClaimantEmailVerified];
+      newEmailVerified[index] = true;
+      setAdditionalClaimantEmailVerified(newEmailVerified);
+      
+      // Hide modal and clear OTP
+      const newShowModals = [...showAdditionalEmailOTP];
+      const newOTPs = [...additionalEmailOTP];
+      newShowModals[index] = false;
+      newOTPs[index] = "";
+      setShowAdditionalEmailOTP(newShowModals);
+      setAdditionalEmailOTP(newOTPs);
+      
+      toast.success(`Email verified successfully for Additional Claimant ${index + 1}`);
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const verifyAdditionalClaimantPhoneOTP = (index: number) => {
+    const enteredOTP = additionalPhoneOTP[index] || "";
+    const sentOTP = sentAdditionalPhoneOTP[index] || "";
+    
+    if (enteredOTP === sentOTP) {
+      // Mark as verified
+      const newPhoneVerified = [...additionalClaimantPhoneVerified];
+      newPhoneVerified[index] = true;
+      setAdditionalClaimantPhoneVerified(newPhoneVerified);
+      
+      // Hide modal and clear OTP
+      const newShowModals = [...showAdditionalPhoneOTP];
+      const newOTPs = [...additionalPhoneOTP];
+      newShowModals[index] = false;
+      newOTPs[index] = "";
+      setShowAdditionalPhoneOTP(newShowModals);
+      setAdditionalPhoneOTP(newOTPs);
+      
+      toast.success(`Phone verified successfully for Additional Claimant ${index + 1}`);
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const verifyAdditionalClaimantEmail = (index: number) => {
+    // Simulate email verification
+    const newEmailVerified = [...additionalClaimantEmailVerified];
+    newEmailVerified[index] = true;
+    setAdditionalClaimantEmailVerified(newEmailVerified);
+    toast.success('Email verified successfully');
+  };
+
+  const verifyAdditionalClaimantPhone = (index: number) => {
+    // Simulate phone verification
+    const newPhoneVerified = [...additionalClaimantPhoneVerified];
+    newPhoneVerified[index] = true;
+    setAdditionalClaimantPhoneVerified(newPhoneVerified);
+    toast.success('Phone number verified successfully');
+  };
+
+  // Helper functions for OTP input handling
+  const handleAdditionalEmailOTPChange = (index: number, value: string) => {
+    const newOTPs = [...additionalEmailOTP];
+    while (newOTPs.length <= index) newOTPs.push("");
+    newOTPs[index] = value.replace(/\D/g, '').slice(0, 6);
+    setAdditionalEmailOTP(newOTPs);
+  };
+
+  const handleAdditionalPhoneOTPChange = (index: number, value: string) => {
+    const newOTPs = [...additionalPhoneOTP];
+    while (newOTPs.length <= index) newOTPs.push("");
+    newOTPs[index] = value.replace(/\D/g, '').slice(0, 6);
+    setAdditionalPhoneOTP(newOTPs);
+  };
+
+  const closeAdditionalEmailModal = (index: number) => {
+    const newShowModals = [...showAdditionalEmailOTP];
+    const newOTPs = [...additionalEmailOTP];
+    newShowModals[index] = false;
+    newOTPs[index] = "";
+    setShowAdditionalEmailOTP(newShowModals);
+    setAdditionalEmailOTP(newOTPs);
+  };
+
+  const closeAdditionalPhoneModal = (index: number) => {
+    const newShowModals = [...showAdditionalPhoneOTP];
+    const newOTPs = [...additionalPhoneOTP];
+    newShowModals[index] = false;
+    newOTPs[index] = "";
+    setShowAdditionalPhoneOTP(newShowModals);
+    setAdditionalPhoneOTP(newOTPs);
+  };
   
   // Validate current step
-  const validateCurrentStep = async () => {
+  const validateCurrentStep = async (isDraftSave = false) => {
     let fieldsToValidate: Array<keyof FormData | string> = [];
     
     switch (activeStep) {
@@ -1192,6 +1676,32 @@ function ArbitrationForm() {
           'claimant.state', 'claimant.country', 'claimant.email', 
           'claimant.phone'
         ];
+        
+        // Check if email and phone are verified
+        if (!emailVerified) {
+          toast.error('Please verify your email address before proceeding');
+          return false;
+        }
+        if (!phoneVerified) {
+          toast.error('Please verify your phone number before proceeding');
+          return false;
+        }
+        
+        // Check required document uploads (only when not saving draft)
+        if (!isDraftSave) {
+          if (!files['claimant.coi']) {
+            toast.error('Certificate of Incorporation (COI) is required');
+            return false;
+          }
+          if (!files['claimant.panCard']) {
+            toast.error('PAN Card document is required');
+            return false;
+          }
+          if (!files['claimant.gstCert']) {
+            toast.error('GST Registration Certificate is required');
+            return false;
+          }
+        }
         break;
       case 1: // Additional Claimants & Manager
         // Validate managers if any exist
@@ -1230,6 +1740,18 @@ function ArbitrationForm() {
             `additionalClaimants.${index}.country`
           );
         });
+        
+        // Check if additional claimant email and phone are verified
+        for (let index = 0; index < additionalClaimantFields.length; index++) {
+          if (!additionalClaimantEmailVerified[index]) {
+            toast.error(`Please verify email for Additional Claimant ${index + 1}`);
+            return false;
+          }
+          if (!additionalClaimantPhoneVerified[index]) {
+            toast.error(`Please verify phone number for Additional Claimant ${index + 1}`);
+            return false;
+          }
+        }
         break;
       case 2: // Respondent Details
         respondentFields.forEach((_, index) => {
@@ -1248,37 +1770,72 @@ function ArbitrationForm() {
         break;
       case 3: // Arbitration Agreement
         fieldsToValidate = [
-          'arbitrationAgreement.agreementDate', 'arbitrationAgreement.agreementType',
-          'arbitrationAgreement.resolutionMode', 'arbitrationAgreement.seatOfArbitration',
-          'arbitrationAgreement.signedOnPlace', 'arbitrationAgreement.agreementParties',
-          'arbitrationAgreement.arbitratorSelection', 'arbitrationAgreement.placeOfSigning',
-          'arbitrationAgreement.arbitrationText', 'arbitrationAgreement.numberOfArbitrators'
+          'arbitrationAgreement.agreementDate', 'arbitrationAgreement.placeOfSigning',
+          'arbitrationAgreement.arbitrationText', 'arbitrationAgreement.stampDutyPercentage',
+          'arbitrationAgreement.numberOfArbitrators'
         ];
-        
-        // Check file
-        if (!files.agreementFile) {
-          toast.error('Agreement file is required');
+        break;
+      case 4: // Nature of Dispute
+        fieldsToValidate = [
+          'natureOfDispute.category', 'natureOfDispute.subCategory',
+          'natureOfDispute.natureOfDispute', 'natureOfDispute.dateWhenRightToClaimArose',
+          'natureOfDispute.standardisedPrayerClauses'
+        ];
+        break;
+      case 5: // Dispute Description
+        // Validate all dispute descriptions
+        const disputeDescriptions = watch('disputeDescriptions') || [];
+        if (disputeDescriptions.length === 0) {
+          toast.error('Please add at least one dispute description');
           return false;
         }
-        break;
-      case 4: // Dispute Details
-        fieldsToValidate = [
-          'disputeDetails.disputeType', 'disputeDetails.disputeAmount',
-          'disputeDetails.disputeDescription', 'disputeDetails.disputeDate',
-          'disputeDetails.serviceType', 'disputeDetails.disputeCategory',
-          'disputeDetails.disputeSubCategory', 'disputeDetails.natureOfDispute',
-          'disputeDetails.factsOfCase', 'disputeDetails.clauseReferences',
-          'disputeDetails.applicableActs', 'disputeDetails.claimType',
-          'disputeDetails.claimReason', 'disputeDetails.lawsReliedUpon',
-          'disputeDetails.clauseNumber', 'disputeDetails.clauseSupportingClaim',
-          'disputeDetails.clause', 'disputeDetails.documentSupportingClaim',
-          'disputeDetails.reliefSought'
-        ];
-        break;
-      case 5: // Prayers & Reliefs
+        
+        for (let i = 0; i < disputeDescriptions.length; i++) {
+          const fieldPaths = [
+            `disputeDescriptions.${i}.claimType`,
+            `disputeDescriptions.${i}.claimReason`,
+            `disputeDescriptions.${i}.lawReliedUpon`,
+            `disputeDescriptions.${i}.relevantClauseNumber`,
+            `disputeDescriptions.${i}.clauseSupportingClaim`,
+            `disputeDescriptions.${i}.clause`,
+            `disputeDescriptions.${i}.documentSupportingClaim`,
+            `disputeDescriptions.${i}.reliefSought`
+          ];
+          const result = await trigger(fieldPaths as any);
+          if (!result) return false;
+        }
+        return true;
+      case 6: // Documents/Evidence
+        // Validate all documents evidence
+        const documentsEvidence = watch('documentsEvidence') || [];
+        if (documentsEvidence.length === 0) {
+          toast.error('Please add at least one document/evidence');
+          return false;
+        }
+        
+        for (let i = 0; i < documentsEvidence.length; i++) {
+          const fieldPaths = [
+            `documentsEvidence.${i}.documentType`,
+            `documentsEvidence.${i}.relevantClauseNumber`,
+            `documentsEvidence.${i}.supportingClaimNumber`,
+            `documentsEvidence.${i}.dateOfIssueSign`,
+            `documentsEvidence.${i}.attachedDocuments`
+          ];
+          const result = await trigger(fieldPaths as any);
+          if (!result) return false;
+          
+          // Check that at least one document is attached
+          const attachedDocs = documentsEvidence[i]?.attachedDocuments || [];
+          if (attachedDocs.length === 0) {
+            toast.error(`Please attach at least one document for evidence entry ${i + 1}`);
+            return false;
+          }
+        }
+        return true;
+      case 7: // Prayers & Reliefs
         fieldsToValidate = ['prayers.prayers'];
         break;
-      case 6: // Documents
+      case 8: // Documents
         // Check at least one of the document types has been uploaded
         const scannedDocs = watch('documents.scannedDocuments') || [];
         const affidavits = watch('documents.affidavits') || [];
@@ -1347,12 +1904,12 @@ function ArbitrationForm() {
         }
         
         return true;
-      case 7: // Payment
+      case 9: // Payment
         fieldsToValidate = [
           'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
         ];
         break;
-      case 8: // Arguments
+      case 10: // Arguments
         if (argumentFields.length > 0) {
           argumentFields.forEach((_, index) => {
             fieldsToValidate.push(`arguments.argumentsPerIssue.${index}`);
@@ -1433,18 +1990,36 @@ function ArbitrationForm() {
       }
     
       // Check if files are uploaded when required
+      console.log('🔥 SUBMIT: Current files state:', files);
+      console.log('🔥 SUBMIT: Arbitration agreement:', data.arbitrationAgreement);
+      
       const fileErrors: Record<string, string> = {};
       
-      if (!files.agreementFile) {
+      // Check required files based on form structure (using correct field names)
+      if (!files['claimant.coi']) {
+        fileErrors.coi = "Certificate of Incorporation (COI) is required";
+      }
+      
+      if (!files['claimant.panCard']) {
+        fileErrors.panCard = "PAN Card is required";
+      }
+      
+      // Agreement file is only required if there's an arbitration agreement
+      if (data.arbitrationAgreement?.agreementType && !files.agreementFile) {
         fileErrors.agreementFile = "Agreement file is required";
       }
       
+      console.log('🔥 SUBMIT: File validation errors:', fileErrors);
+      
       if (Object.keys(fileErrors).length > 0) {
-        // Show error for missing files
+        // Show specific error messages for missing files
         console.log('File validation failed:', fileErrors);
-        toast.error('Please upload all required files');
+        const missingFiles = Object.values(fileErrors).join(', ');
+        toast.error(`Please upload all required files: ${missingFiles}`);
         return;
       }
+      
+      console.log('🔥 SUBMIT: File validation passed');
       
       console.log('Files validated, preparing FormData...');
 
@@ -1521,6 +2096,21 @@ function ArbitrationForm() {
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
+      // Add documentsEvidence files
+      if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
+        console.log(`Adding documents evidence files`);
+        data.documentsEvidence.forEach((evidence, evidenceIndex) => {
+          if (evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
+            evidence.attachedDocuments.forEach((file, fileIndex) => {
+              if (file instanceof File) {
+                formData.append(`documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`, file);
+                console.log(`Added documentsEvidence file: ${file.name}`);
+              }
+            });
+          }
+        });
+      }
+      
       console.log('FormData prepared, submitting to API...');
       
       // Show submission toast
@@ -1528,8 +2118,37 @@ function ArbitrationForm() {
       
       // Submit the form
       if (currentDraftId) {
-        // If editing a draft, submit it
-        console.log('Submitting existing draft with ID:', currentDraftId);
+        // Check if we're editing a draft or a submitted case
+        console.log('Editing existing case with ID:', currentDraftId);
+        console.log('Edit mode:', editMode);
+        console.log('Initial data status:', initialData?.status);
+        
+        // If editing a submitted case (not a draft), use update API
+        if (initialData && !initialData.isDraft && initialData.status !== 'draft') {
+          console.log('Updating submitted case...');
+          
+          try {
+            const response = await arbitrationApi.update(currentDraftId, formData);
+            console.log('Case update successful:', response);
+            
+            // Dismiss the loading toast
+            toast.dismiss();
+            
+            toast.success('Case updated successfully!');
+            
+            // Redirect back to the case detail page
+            router.push(`/dashboard/case/${currentDraftId}`);
+          } catch (updateError: any) {
+            // Dismiss the loading toast
+            toast.dismiss();
+            
+            console.error('Error updating case:', updateError);
+            toast.error(`Failed to update case: ${updateError.message || 'Unknown error'}`);
+            throw updateError;
+          }
+        } else {
+          // If editing a draft, submit it
+          console.log('Submitting existing draft with ID:', currentDraftId);
         
         // Directly try the API call
         try {
@@ -1561,6 +2180,7 @@ function ArbitrationForm() {
           console.error('Error submitting draft:', submitError);
           toast.error(`Failed to submit draft: ${submitError.message || 'Unknown error'}`);
           throw submitError; // Re-throw to be caught by the outer catch
+        }
         }
       } else {
         // New submission
@@ -1643,6 +2263,12 @@ function ArbitrationForm() {
       // Get form data
       const data = formValues;
       
+      // Log what data we're trying to save
+      console.log('🔥 DRAFT SAVE: Form data being saved:', data);
+      console.log('🔥 DRAFT SAVE: natureOfDispute:', data.natureOfDispute);
+      console.log('🔥 DRAFT SAVE: disputeDescriptions:', data.disputeDescriptions);
+      console.log('🔥 DRAFT SAVE: documentsEvidence:', data.documentsEvidence);
+      
       // Create FormData
       const formData = new FormData();
       
@@ -1651,15 +2277,59 @@ function ArbitrationForm() {
         formData.append('id', currentDraftId);
       }
       
-      // Add structured data as JSON
-      formData.append('data', JSON.stringify(data));
+      // Transform data structure to match backend expectations
+      const transformedData = {
+        ...data,
+        // Ensure claimant data is properly structured
+        claimant: data.claimant || {},
+        // Ensure arrays are properly initialized
+        additionalClaimants: data.additionalClaimants || [],
+        managerDetails: data.managerDetails || [],
+        respondents: data.respondents || [],
+        // Ensure objects are properly initialized
+        arbitrationAgreement: data.arbitrationAgreement || {},
+        disputeDetails: data.disputeDetails || {},
+        // Include new dispute structure
+        natureOfDispute: data.natureOfDispute || {},
+        disputeDescriptions: data.disputeDescriptions || [],
+        documentsEvidence: data.documentsEvidence || [],
+        prayers: data.prayers || {},
+        documents: data.documents || {},
+        payment: data.payment || {},
+        arguments: data.arguments || {}
+      };
       
-      // Add files
+      // Add structured data as JSON
+      formData.append('data', JSON.stringify(transformedData));
+      
+      // Add files (only if they exist - drafts allow incomplete data)
+      // Map frontend file keys to backend expected keys
+      const fileKeyMapping = {
+        'claimant.coi': 'coi',
+        'claimant.panCard': 'panCard', 
+        'claimant.gstCert': 'gstCert',
+        'agreementFile': 'agreementFile'
+      };
+      
+      console.log("🔥 DRAFT SAVE: Current files state:", files);
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
-          formData.append(key, file);
+          const backendKey = fileKeyMapping[key] || key;
+          console.log(`🔥 DRAFT SAVE: Adding file ${key} -> ${backendKey}:`, file.name);
+          formData.append(backendKey, file);
+        } else {
+          console.log(`🔥 DRAFT SAVE: No file for key ${key}`);
         }
       });
+      
+      // Add file metadata to indicate which files are present
+      const fileMetadata = {
+        hasCoiFile: !!files['claimant.coi'],
+        hasPanCardFile: !!files['claimant.panCard'],
+        hasGstCertFile: !!files['claimant.gstCert'],
+        hasAgreementFile: !!files['agreementFile']
+      };
+      formData.append('fileMetadata', JSON.stringify(fileMetadata));
       
       // Add document files from React Hook Form state
       const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
@@ -1679,6 +2349,23 @@ function ArbitrationForm() {
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
+      // Add documentsEvidence files
+      if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
+        console.log('🔥 DRAFT SAVE: Processing documentsEvidence files:', data.documentsEvidence.length, 'entries');
+        data.documentsEvidence.forEach((evidence, evidenceIndex) => {
+          console.log(`🔥 DRAFT SAVE: Evidence ${evidenceIndex}:`, evidence);
+          if (evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
+            console.log(`🔥 DRAFT SAVE: Evidence ${evidenceIndex} has ${evidence.attachedDocuments.length} attached documents`);
+            evidence.attachedDocuments.forEach((file, fileIndex) => {
+              if (file instanceof File) {
+                formData.append(`documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`, file);
+                console.log(`🔥 DRAFT SAVE: Added file: documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex} - ${file.name}`);
+              }
+            });
+          }
+        });
+      }
+      
       // Save the draft
       const response = await arbitrationApi.saveDraft(formData);
       
@@ -1690,7 +2377,15 @@ function ArbitrationForm() {
       
     } catch (error: any) {
       console.error('Draft save error:', error);
-      toast.error(`Error saving draft: ${error.message}`);
+      // Show more specific error message
+      if (error.response?.status === 400) {
+        toast.error('Error saving draft: Invalid form data. Please check your inputs.');
+      } else if (error.response?.status === 401) {
+        toast.error('Authentication expired. Please log in again.');
+        router.push('/auth/login');
+      } else {
+        toast.error(`Error saving draft: ${error.message}`);
+      }
     } finally {
       setIsSavingDraft(false);
     }
@@ -1763,7 +2458,9 @@ function ArbitrationForm() {
           managerDetails: managerDetails,
           respondents: draft.formData.respondents || [initialRespondent],
           arbitrationAgreement: draft.formData.arbitrationAgreement || initialArbitrationAgreement,
-          disputeDetails: draft.formData.disputeDetails || initialDisputeDetails,
+          natureOfDispute: draft.formData.natureOfDispute || initialNatureOfDispute,
+          disputeDescriptions: draft.formData.disputeDescriptions || [initialDisputeDescription],
+          documentsEvidence: draft.formData.documentsEvidence || [initialDocumentEvidence],
           prayers: draft.formData.prayers || initialPrayers,
           documents: draft.formData.documents || initialDocuments,
           payment: draft.formData.payment || initialPayment,
@@ -1803,7 +2500,9 @@ function ArbitrationForm() {
           managerDetails: managerDetails,
           respondents: draft.respondents || [initialRespondent],
           arbitrationAgreement: draft.arbitrationAgreement || initialArbitrationAgreement,
-          disputeDetails: draft.disputeDetails || initialDisputeDetails,
+          natureOfDispute: draft.natureOfDispute || initialNatureOfDispute,
+          disputeDescriptions: draft.disputeDescriptions || [initialDisputeDescription],
+          documentsEvidence: draft.documentsEvidence || [initialDocumentEvidence],
           prayers: draft.prayers || initialPrayers,
           documents: draft.documents || initialDocuments,
           payment: draft.payment || initialPayment,
@@ -1821,47 +2520,45 @@ function ArbitrationForm() {
       console.log("🔥 DRAFT LOADING: Calling reset() with form data");
       reset(completeFormData);
       
-      // Trigger a form validation to update any computed values
-      setTimeout(() => {
-        console.log("🔥 DRAFT LOADING: Triggering form validation");
-        trigger();
-      }, 100);
+      // Manually update field arrays to match the loaded data
+      console.log("🔥 DRAFT LOADING: Updating field arrays");
+      
+      // Update field arrays by setting values directly (useFieldArray will sync automatically)
+      if (completeFormData.disputeDescriptions && completeFormData.disputeDescriptions.length > 0) {
+        console.log("🔥 DRAFT LOADING: Setting disputeDescriptions field array with", completeFormData.disputeDescriptions.length, "items");
+        setValue('disputeDescriptions', completeFormData.disputeDescriptions);
+      }
+      
+      if (completeFormData.documentsEvidence && completeFormData.documentsEvidence.length > 0) {
+        console.log("🔥 DRAFT LOADING: Setting documentsEvidence field array with", completeFormData.documentsEvidence.length, "items");
+        setValue('documentsEvidence', completeFormData.documentsEvidence);
+      }
+      
+      console.log("🔥 DRAFT LOADING: Triggering form validation");
+      trigger();
       
       // Set the current draft ID
       setCurrentDraftId(draftId);
       
       // Set files if available
+      console.log("🔥 DRAFT LOADING: Draft files:", draft.files);
       if (draft.files) {
+        console.log("🔥 DRAFT LOADING: Setting files state:", draft.files);
         setFiles(draft.files);
+      } else {
+        console.log("🔥 DRAFT LOADING: No files found in draft");
       }
       
       // Set edit mode
       setEditMode(true);
       
       // Verify the form was updated
-      setTimeout(() => {
-        const values = watch();
-        console.log("🔥 DRAFT LOADING: Form values after reset and delay:", values);
-        console.log("🔥 DRAFT LOADING: Claimant name after reset:", values.claimant?.name);
-        
-        // If the form still doesn't have the data, try a force update
-        if (!values.claimant?.name && completeFormData.claimant?.name) {
-          console.log("🔥 DRAFT LOADING: Form didn't update properly, forcing update");
-          
-          // Try setting values individually
-          Object.keys(completeFormData.claimant).forEach(key => {
-            setValue(`claimant.${key}` as any, completeFormData.claimant[key]);
-          });
-          
-          // Set other sections
-          if (completeFormData.respondents?.length > 0) {
-            setValue('respondents' as any, completeFormData.respondents);
-          }
-          
-          // Force a re-render
-          setActiveStep(activeStep);
-        }
-      }, 500);
+      const values = watch();
+      console.log("🔥 DRAFT LOADING: Form values after reset:", values);
+      console.log("🔥 DRAFT LOADING: Claimant name after reset:", values.claimant?.name);
+      console.log("🔥 DRAFT LOADING: Nature of dispute after reset:", values.natureOfDispute);
+      console.log("🔥 DRAFT LOADING: Dispute descriptions after reset:", values.disputeDescriptions);
+      console.log("🔥 DRAFT LOADING: Documents evidence after reset:", values.documentsEvidence);
       
       toast.success('Draft loaded successfully');
     } catch (error: any) {
@@ -1881,11 +2578,14 @@ function ArbitrationForm() {
       managerDetails, 
       respondents, 
       arbitrationAgreement, 
-      disputeDetails, 
+      natureOfDispute,
+      disputeDescriptions,
+      documentsEvidence,
       prayers, 
       payment, 
       arguments: { argumentsPerIssue }, 
-      documents 
+      documents,
+      disputeDetails
     } = watch();
     
     switch (activeStep) {
@@ -1897,9 +2597,8 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Type"
+                  label="Type*"
                   name="claimant.type"
-                  required
                   type="select"
                   options={[
                     { value: "individual", label: "Individual" },
@@ -1912,18 +2611,16 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Name"
+                  label="Name*"
                   name="claimant.name"
-                  required
                   maxLength={MAX_NAME_LENGTH}
                 />
               </div>
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Pincode"
+                  label="Pincode*"
                   name="claimant.pincode"
-                  required
                   maxLength={6}
                 />
                 <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
@@ -1931,9 +2628,8 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Address Line 1"
+                  label="Address Line 1*"
                   name="claimant.address1"
-                  required
                   maxLength={MAX_ADDRESS_LENGTH}
                 />
               </div>
@@ -1948,68 +2644,82 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
-                  label="City"
+                  label="City*"
                   name="claimant.city"
-                  required
                   type="select"
-                  options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Enter pincode to load cities" }]}
+                  options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
                 />
               </div>
               <div>
                 <ControlledFormField
                   control={control}
-                  label="District"
+                  label="District*"
                   name="claimant.district"
-                  required
                   type="select"
-                  options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Enter pincode to load districts" }]}
+                  options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
                 />
               </div>
               <div>
                 <ControlledFormField
                   control={control}
-                  label="State"
+                  label="State*"
                   name="claimant.state"
-                  required
                   type="select"
-                  options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Enter pincode to load states" }]}
+                  options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
                 />
               </div>
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Country"
+                  label="Country*"
                   name="claimant.country"
-                  required
                   type="select"
-                  options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Enter pincode to load countries" }]}
+                  options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
                 />
               </div>
-              <div>
+              <div className="relative">
                 <ControlledFormField
                   control={control}
-                  label="Email"
+                  label={emailVerified ? "Email* ✓" : "Email*"}
                   name="claimant.email"
-                  required
                   maxLength={MAX_EMAIL_LENGTH}
                 />
+                <Button 
+                  type="button" 
+                  variant={emailVerified ? "default" : "outline"}
+                  size="sm"
+                  className="absolute top-6 right-2 h-8 px-3"
+                  onClick={emailVerified ? undefined : sendEmailVerification}
+                  disabled={emailVerified || !watch('claimant.email') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch('claimant.email') || '')}
+                >
+                  {emailVerified ? "✓ Verified" : "Verify"}
+                </Button>
               </div>
-              <div>
+              <div className="relative">
                 <PhoneField
                   control={control}
                   phoneFieldName="claimant.phone"
                   countryCodeFieldName="claimant.phoneCountryCode"
-                  label="Phone"
-                  required
+                  label={phoneVerified ? "Phone* ✓" : "Phone*"}
                   error={!formValues.claimant.phone ? "Phone is required" : ""}
-                  />
+                />
+                <Button 
+                  type="button" 
+                  variant={phoneVerified ? "default" : "outline"}
+                  size="sm"
+                  className="absolute top-6 right-2 h-8 px-3"
+                  onClick={phoneVerified ? undefined : sendPhoneVerification}
+                  disabled={phoneVerified || !watch('claimant.phone') || !/^\d{10}$/.test(watch('claimant.phone') || '')}
+                >
+                  {phoneVerified ? "✓ Verified" : "Verify"}
+                </Button>
               </div>
               <div>
                 <ControlledFormField
                   control={control}
                   label="GST Number"
                   name="claimant.gst"
-                    placeholder="22AAAAA0000A1Z5"
+                  placeholder="22AAAAA0000A1Z5"
                   maxLength={MAX_GST_LENGTH}
                 />
                 <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
@@ -2019,7 +2729,7 @@ function ArbitrationForm() {
                   control={control}
                   label="PAN Number"
                   name="claimant.pan"
-                    placeholder="AAAPL1234C"
+                  placeholder="AAAPL1234C"
                   maxLength={MAX_PAN_LENGTH}
                 />
                 <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
@@ -2029,11 +2739,45 @@ function ArbitrationForm() {
                   control={control}
                   label="CIN"
                   name="claimant.cin"
-                    placeholder="U74140MH2014PTC123456"
+                  placeholder="U74140MH2014PTC123456"
                   maxLength={MAX_CIN_LENGTH}
-                  />
+                />
                 <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                    </div>
+              </div>
+              <div>
+                {/* Empty div to maintain 2-column layout */}
+              </div>
+            </div>
+            
+            {/* Document Upload Section */}
+            <div className="mt-6 border-t pt-6">
+              <h4 className="font-medium text-md mb-4">Document Upload</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FileField
+                    label="Certificate of Incorporation (COI)*"
+                    name="claimant.coi"
+                    onChange={(file) => handleFileChange('claimant.coi', file)}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </div>
+                <div>
+                  <FileField
+                    label="PAN Card*"
+                    name="claimant.panCard"
+                    onChange={(file) => handleFileChange('claimant.panCard', file)}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <FileField
+                    label="GST Registration Certificate*"
+                    name="claimant.gstCert"
+                    onChange={(file) => handleFileChange('claimant.gstCert', file)}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )
@@ -2049,7 +2793,7 @@ function ArbitrationForm() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => removeAdditionalClaimantField(index)}
+                      onClick={() => removeAdditionalClaimant(index)}
                     >
                       Remove
                     </Button>
@@ -2064,23 +2808,43 @@ function ArbitrationForm() {
                       maxLength={MAX_NAME_LENGTH}
                     />
                   </div>
-                  <div>
+                  <div className="relative">
                       <ControlledFormField
                         control={control}
-                      label="Email"
+                        label={additionalClaimantEmailVerified[index] ? "Email* ✓" : "Email*"}
                         name={`additionalClaimants.${index}.email`}
                       required
                       maxLength={MAX_EMAIL_LENGTH}
                     />
+                    <Button 
+                      type="button" 
+                      variant={additionalClaimantEmailVerified[index] ? "default" : "outline"}
+                      size="sm"
+                      className="absolute top-6 right-2 h-8 px-3"
+                      onClick={additionalClaimantEmailVerified[index] ? undefined : () => sendAdditionalClaimantEmailVerification(index)}
+                      disabled={additionalClaimantEmailVerified[index] || !watch(`additionalClaimants.${index}.email`) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch(`additionalClaimants.${index}.email`) || '')}
+                    >
+                      {additionalClaimantEmailVerified[index] ? "✓ Verified" : "Verify"}
+                    </Button>
                   </div>
-                  <div>
+                  <div className="relative">
                       <PhoneField
                         control={control}
                         phoneFieldName={`additionalClaimants.${index}.phone`}
                         countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
-                      label="Phone"
+                        label={additionalClaimantPhoneVerified[index] ? "Phone* ✓" : "Phone*"}
                       required
                       />
+                    <Button 
+                      type="button" 
+                      variant={additionalClaimantPhoneVerified[index] ? "default" : "outline"}
+                      size="sm"
+                      className="absolute top-6 right-2 h-8 px-3"
+                      onClick={additionalClaimantPhoneVerified[index] ? undefined : () => sendAdditionalClaimantPhoneVerification(index)}
+                      disabled={additionalClaimantPhoneVerified[index] || !watch(`additionalClaimants.${index}.phone`) || !/^\d{10}$/.test(watch(`additionalClaimants.${index}.phone`) || '')}
+                    >
+                      {additionalClaimantPhoneVerified[index] ? "✓ Verified" : "Verify"}
+                    </Button>
                   </div>
                   <div>
                       <ControlledFormField
@@ -2096,7 +2860,6 @@ function ArbitrationForm() {
                         control={control}
                       label="Address Line 1"
                         name={`additionalClaimants.${index}.address1`}
-                      required
                       maxLength={MAX_ADDRESS_LENGTH}
                     />
                   </div>
@@ -2111,37 +2874,37 @@ function ArbitrationForm() {
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="City"
+                      label="City*"
                         name={`additionalClaimants.${index}.city`}
-                      required
-                      maxLength={MAX_CITY_LENGTH}
+                      type="select"
+                      options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
                     />
                   </div>
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="District"
+                      label="District*"
                         name={`additionalClaimants.${index}.district`}
-                      required
-                      maxLength={MAX_DISTRICT_LENGTH}
+                      type="select"
+                      options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
                     />
                   </div>
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="State"
+                      label="State*"
                         name={`additionalClaimants.${index}.state`}
-                      required
-                      maxLength={MAX_STATE_LENGTH}
+                      type="select"
+                      options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
                     />
                   </div>
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="Country"
+                      label="Country*"
                         name={`additionalClaimants.${index}.country`}
-                      required
-                      maxLength={MAX_COUNTRY_LENGTH}
+                      type="select"
+                      options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
                     />
                   </div>
                 </div>
@@ -2320,37 +3083,37 @@ function ArbitrationForm() {
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="City"
+                      label="City*"
                         name={`respondents.${index}.city`}
-                      required
-                      maxLength={MAX_CITY_LENGTH}
+                      type="select"
+                      options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
                     />
                   </div>
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="District"
+                      label="District*"
                         name={`respondents.${index}.district`}
-                      required
-                      maxLength={MAX_DISTRICT_LENGTH}
+                      type="select"
+                      options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
                     />
                   </div>
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="State"
+                      label="State*"
                         name={`respondents.${index}.state`}
-                      required
-                      maxLength={MAX_STATE_LENGTH}
+                      type="select"
+                      options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
                     />
                   </div>
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="Country"
+                      label="Country*"
                         name={`respondents.${index}.country`}
-                      required
-                      maxLength={MAX_COUNTRY_LENGTH}
+                      type="select"
+                      options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
                     />
                   </div>
                   <div>
@@ -2398,15 +3161,15 @@ function ArbitrationForm() {
       case 3: // Arbitration Agreement
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[3] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Arbitration Agreement</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <h3 className="font-medium text-lg mb-4">Arbitration Agreement Details</h3>
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <Controller
                   control={control}
                   name="arbitrationAgreement.agreementDate"
                   render={({ field, fieldState }) => (
                 <FormField
-                  label="Agreement Date"
+                  label="Date of Arbitration Agreement / Agreement containing the arbitration clause*"
                   name="agreementDate"
                   type="date"
                       value={field.value || ""}
@@ -2421,80 +3184,39 @@ function ArbitrationForm() {
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Agreement Type"
-                  name="arbitrationAgreement.agreementType"
-                  required
-                  type="select"
-                  options={[
-                    { value: "contract", label: "Contract" },
-                    { value: "clause", label: "Arbitration Clause" },
-                    { value: "separate", label: "Separate Agreement" },
-                    { value: "submission", label: "Submission Agreement" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Resolution Mode"
-                  name="arbitrationAgreement.resolutionMode"
-                  required
-                  type="select"
-                  options={[
-                    { value: "sole", label: "Sole Arbitrator" },
-                    { value: "tribunal", label: "Arbitral Tribunal" },
-                    { value: "institutional", label: "Institutional Arbitration" },
-                    { value: "fast_track", label: "Fast Track Procedure" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Seat of Arbitration"
-                  name="arbitrationAgreement.seatOfArbitration"
-                  required
-                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Signed-on Place"
-                  name="arbitrationAgreement.signedOnPlace"
-                  required
-                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Place of Signing"
+                  label="Place where the Arbitration Agreement / Agreement containing the arbitration clause was signed*"
                   name="arbitrationAgreement.placeOfSigning"
                   required
                   maxLength={MAX_ARBITRATION_FIELD_LENGTH}
-                  placeholder="Where was the agreement signed"
+                  placeholder="Enter the place where the agreement was signed"
                 />
               </div>
               <div>
-                <ControlledFormField
+                <ControlledTextAreaField
                   control={control}
-                  label="Arbitrator Selection"
-                  name="arbitrationAgreement.arbitratorSelection"
+                  label="Text of Arbitration Agreement/clause*"
+                  name="arbitrationAgreement.arbitrationText"
                   required
-                  type="select"
-                  options={[
-                    { value: "parties", label: "Selected by Parties" },
-                    { value: "court", label: "Appointed by Court" },
-                    { value: "institution", label: "Selected by Institution" },
-                    { value: "default", label: "Default Procedure" },
-                  ]}
+                  maxLength={2000}
+                  rows={5}
+                  placeholder="Enter the exact text of the arbitration agreement or clause"
                 />
               </div>
               <div>
                 <ControlledFormField
                   control={control}
-                  label="Number of Arbitrators"
+                  label="Percentage of the Agreement value / Amount of stamp duty paid on the Arbitration Agreement / Agreement containing the arbitration clause*"
+                  name="arbitrationAgreement.stampDutyPercentage"
+                  required
+                  placeholder="Enter percentage or amount"
+                  maxLength={50}
+                />
+                <p className="text-xs text-gray-500 mt-1">Enter as percentage of agreement value or actual amount paid</p>
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Number of Arbitrators as per Agreement*"
                   name="arbitrationAgreement.numberOfArbitrators"
                   required
                   type="select"
@@ -2506,331 +3228,366 @@ function ArbitrationForm() {
                   ]}
                 />
               </div>
-              <div className="col-span-2">
-                <ControlledFormField
-                  control={control}
-                  label="Agreement Parties"
-                  name="arbitrationAgreement.agreementParties"
-                  required
-                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Text of Arbitration Agreement/Clause"
-                  name="arbitrationAgreement.arbitrationText"
-                  required
-                  maxLength={2000}
-                  rows={5}
-                  placeholder="Enter the exact text of the arbitration agreement or clause"
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Stamp Duty Percentage"
-                  name="arbitrationAgreement.stampDutyPercentage"
-                  placeholder="% of Agreement value"
-                  type="number"
-                />
-                <p className="text-xs text-gray-500 mt-1">Enter as percentage of agreement value</p>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Stamp Duty Amount Paid"
-                  name="arbitrationAgreement.stampDutyAmount"
-                  placeholder="Amount in INR"
-                  type="number"
-                />
-                <p className="text-xs text-gray-500 mt-1">Enter the amount in INR</p>
-              </div>
-              <div className="col-span-2">
-                <FileField
-                  label="Agreement File"
-                  name="agreementFile"
-                  onChange={(file) => {
-                    if (!Array.isArray(file)) {
-                      handleFileChange('agreementFile', file);
-                    }
-                  }}
-                  required
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  error={!files.agreementFile ? "Agreement file is required" : ""}
-                />
+            </div>
+          </div>
+        )
+      case 4: // Nature of Dispute
+        return (
+          <div className="space-y-6">
+            {/* Nature of Dispute Section */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-lg mb-4">Nature of Dispute</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <ControlledFormField
+                    control={control}
+                    label="Category"
+                    name="natureOfDispute.category"
+                    required
+                    type="select"
+                    options={[
+                      { value: "commercial", label: "Commercial" },
+                      { value: "construction", label: "Construction" },
+                      { value: "employment", label: "Employment" },
+                      { value: "intellectual_property", label: "Intellectual Property" },
+                      { value: "corporate", label: "Corporate" },
+                      { value: "real_estate", label: "Real Estate" },
+                      { value: "banking", label: "Banking & Finance" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <ControlledFormField
+                    control={control}
+                    label="Sub Category"
+                    name="natureOfDispute.subCategory"
+                    required
+                    type="select"
+                    options={[
+                      { value: "breach", label: "Breach of Contract" },
+                      { value: "payment", label: "Payment Dispute" },
+                      { value: "quality", label: "Quality/Performance Issue" },
+                      { value: "delivery", label: "Delivery Delay" },
+                      { value: "warranty", label: "Warranty Claim" },
+                      { value: "termination", label: "Contract Termination" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <ControlledFormField
+                    control={control}
+                    label="Nature of Dispute"
+                    name="natureOfDispute.natureOfDispute"
+                    required
+                    type="select"
+                    options={[
+                      { value: "civil", label: "Civil" },
+                      { value: "commercial", label: "Commercial" },
+                      { value: "constitutional", label: "Constitutional" },
+                      { value: "family", label: "Family" },
+                      { value: "property", label: "Property" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <Controller
+                    control={control}
+                    name="natureOfDispute.dateWhenRightToClaimArose"
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="Date when right to claim arose"
+                        name="dateWhenRightToClaimArose"
+                        type="date"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        required
+                        max={new Date().toISOString().split('T')[0]}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <ControlledFormField
+                    control={control}
+                    label="Standardised prayer clauses"
+                    name="natureOfDispute.standardisedPrayerClauses"
+                    required
+                    type="select"
+                    options={[
+                      { value: "monetary_relief", label: "Monetary Relief" },
+                      { value: "specific_performance", label: "Specific Performance" },
+                      { value: "declaratory_relief", label: "Declaratory Relief" },
+                      { value: "injunctive_relief", label: "Injunctive Relief" },
+                      { value: "damages", label: "Damages" },
+                      { value: "costs", label: "Costs and Expenses" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </div>
               </div>
             </div>
           </div>
         )
-      case 4: // Dispute Details
+      case 5: // Dispute Description
         return (
-          <div className="space-y-4">
-            <h3 className="font-medium text-lg mb-4">Dispute Details & Classification</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Dispute Type"
-                  name="disputeDetails.disputeType"
-                  required
-                  type="select"
-                  options={[
-                    { value: "commercial", label: "Commercial" },
-                    { value: "construction", label: "Construction" },
-                    { value: "employment", label: "Employment" },
-                    { value: "intellectual_property", label: "Intellectual Property" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
+          <div className="space-y-6">
+            {/* Dispute Description Section */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-lg mb-4">Dispute Description</h3>
+              <p className="text-sm text-gray-600 mb-4">You can add multiple dispute descriptions. Each entry represents a separate claim or issue.</p>
+              
+              {disputeDescriptionFields.map((field, index) => (
+                <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium">Dispute Description {index + 1}</h4>
+                    {disputeDescriptionFields.length > 1 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeDisputeDescription(index)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Claim Type"
+                        name={`disputeDescriptions.${index}.claimType`}
+                        required
+                        type="select"
+                        options={[
+                          { value: "monetary", label: "Monetary" },
+                          { value: "specific_performance", label: "Specific Performance" },
+                          { value: "declaratory", label: "Declaratory Relief" },
+                          { value: "injunctive", label: "Injunctive Relief" },
+                          { value: "combination", label: "Combination of Above" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <ControlledTextAreaField
+                        control={control}
+                        label="Claim Reason"
+                        name={`disputeDescriptions.${index}.claimReason`}
+                        required
+                        rows={2}
+                        placeholder="Provide the primary reason for this claim"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <ControlledTextAreaField
+                        control={control}
+                        label="Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
+                        name={`disputeDescriptions.${index}.lawReliedUpon`}
+                        required
+                        rows={3}
+                        placeholder="List specific Acts, Rules, Regulations, or other legal provisions relied upon"
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Relevant Clause Number/Page Number"
+                        name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                        required
+                        placeholder="e.g., Clause 5.2 or Page 7"
+                      />
+                    </div>
+                    <div>
+                      <ControlledTextAreaField
+                        control={control}
+                        label="Clause Supporting Claim"
+                        name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                        required
+                        rows={2}
+                        placeholder="Describe how this clause supports your claim"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <ControlledTextAreaField
+                        control={control}
+                        label="Clause"
+                        name={`disputeDescriptions.${index}.clause`}
+                        required
+                        rows={3}
+                        placeholder="Enter the exact text of the relevant clause"
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Document Supporting Claim"
+                        name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                        required
+                        placeholder="Name/reference of supporting document"
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Relief Sought"
+                        name={`disputeDescriptions.${index}.reliefSought`}
+                        required
+                        type="select"
+                        options={[
+                          { value: "monetary_compensation", label: "Monetary Compensation" },
+                          { value: "specific_performance", label: "Specific Performance" },
+                          { value: "declaratory_relief", label: "Declaratory Relief" },
+                          { value: "injunctive_relief", label: "Injunctive Relief" },
+                          { value: "restitution", label: "Restitution" },
+                          { value: "rescission", label: "Rescission of Contract" },
+                          { value: "rectification", label: "Rectification" },
+                          { value: "damages_costs", label: "Damages and Costs" },
+                          { value: "interest_penalty", label: "Interest and Penalty" },
+                          { value: "termination", label: "Contract Termination" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addDisputeDescription}
+                  className="mt-4"
+                >
+                  Add
+                </Button>
               </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Service Type"
-                  name="disputeDetails.serviceType"
-                  required
-                  type="select"
-                  options={[
-                    { value: "fast_track", label: "Fast Track" },
-                    { value: "regular", label: "Regular" },
-                    { value: "emergency", label: "Emergency" },
-                    { value: "institutional", label: "Institutional" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Dispute Category"
-                  name="disputeDetails.disputeCategory"
-                  required
-                  type="select"
-                  options={[
-                    { value: "contractual", label: "Contractual" },
-                    { value: "corporate", label: "Corporate" },
-                    { value: "real_estate", label: "Real Estate" },
-                    { value: "banking", label: "Banking & Finance" },
-                    { value: "international", label: "International" },
-                    { value: "employment", label: "Employment" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Dispute Sub-Category"
-                  name="disputeDetails.disputeSubCategory"
-                  required
-                  type="select"
-                  options={[
-                    { value: "breach", label: "Breach of Contract" },
-                    { value: "payment", label: "Payment Dispute" },
-                    { value: "quality", label: "Quality/Performance Issue" },
-                    { value: "delivery", label: "Delivery Delay" },
-                    { value: "warranty", label: "Warranty Claim" },
-                    { value: "termination", label: "Contract Termination" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Claim Type"
-                  name="disputeDetails.claimType"
-                  required
-                  type="select"
-                  options={[
-                    { value: "monetary", label: "Monetary" },
-                    { value: "specific_performance", label: "Specific Performance" },
-                    { value: "declaratory", label: "Declaratory Relief" },
-                    { value: "injunctive", label: "Injunctive Relief" },
-                    { value: "combination", label: "Combination of Above" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Dispute Amount (INR)"
-                  name="disputeDetails.disputeAmount"
-                  type="number"
-                  required
-                  maxLength={MAX_DISPUTE_AMOUNT_LENGTH}
-                />
-                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_DISPUTE_AMOUNT.toLocaleString()} INR</p>
-              </div>
-              <div>
-                <Controller
-                  control={control}
-                  name="disputeDetails.disputeDate"
-                  render={({ field, fieldState }) => (
-                <FormField
-                  label="Dispute Date"
-                  name="disputeDate"
-                  type="date"
-                      value={field.value || ""}
-                      onChange={field.onChange}
-                  required
-                  max={new Date().toISOString().split('T')[0]}
-                      error={fieldState.error?.message}
-                />
-                )}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Nature of Dispute"
-                  name="disputeDetails.natureOfDispute"
-                  required
-                  type="select"
-                  options={[
-                    { value: "civil", label: "Civil" },
-                    { value: "commercial", label: "Commercial" },
-                    { value: "constitutional", label: "Constitutional" },
-                    { value: "family", label: "Family" },
-                    { value: "property", label: "Property" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Claim Reason"
-                  name="disputeDetails.claimReason"
-                  required
-                  maxLength={1000}
-                  placeholder="Provide the primary reason for the claim"
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <Controller
-                  control={control}
-                  name="disputeDetails.applicableActs"
-                  render={({ field, fieldState }) => (
-                    <>
-                <FormField
-                  label="Applicable Acts"
-                  name="applicableActs"
-                        value={field.value?.join(', ') || ""}
-                        onChange={(e) => {
-                    const newActs = e.target.value.split(',').map(act => act.trim());
-                          field.onChange(newActs);
+            </div>
+          </div>
+        )
+      case 6: // Documents/Evidence
+        return (
+          <div className="space-y-6">
+            {/* Documents/Evidence Section */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-lg mb-4">Documents/Evidence</h3>
+              <p className="text-sm text-gray-600 mb-4">Upload documents and evidence supporting your claims. You can add multiple entries.</p>
+              
+              {documentsEvidenceFields.map((field, index) => (
+                <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium">Document/Evidence {index + 1}</h4>
+                    {documentsEvidenceFields.length > 1 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeDocumentEvidence(index)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Document Type"
+                        name={`documentsEvidence.${index}.documentType`}
+                        required
+                        type="select"
+                        options={[
+                          { value: "agreement", label: "Agreement/Contract" },
+                          { value: "invoice", label: "Invoice" },
+                          { value: "receipt", label: "Receipt" },
+                          { value: "correspondence", label: "Correspondence" },
+                          { value: "legal_notice", label: "Legal Notice" },
+                          { value: "certificate", label: "Certificate" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Document ID"
+                        name={`documentsEvidence.${index}.documentId`}
+                        placeholder="Auto Generated"
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Relevant Clause Number/Page Number"
+                        name={`documentsEvidence.${index}.relevantClauseNumber`}
+                        required
+                        placeholder="e.g., Clause 5.2 or Page 7"
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
+                        label="Supporting Claim Number"
+                        name={`documentsEvidence.${index}.supportingClaimNumber`}
+                        required
+                        placeholder="Enter claim number this document supports"
+                      />
+                    </div>
+                    <div>
+                      <Controller
+                        control={control}
+                        name={`documentsEvidence.${index}.dateOfIssueSign`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="Date of Issue/Sign of the document"
+                            name={`dateOfIssueSign_${index}`}
+                            type="date"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            required
+                            max={new Date().toISOString().split('T')[0]}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <FileField
+                        label="Attach document(s)*"
+                        name={`documentsEvidence_${index}_attachedDocuments`}
+                        onChange={(files) => {
+                          const fileArray = Array.isArray(files) ? files : files ? [files] : [];
+                          setValue(`documentsEvidence.${index}.attachedDocuments`, fileArray);
                           setFormChanged(true);
                         }}
-                  required
-                  placeholder="Enter applicable acts separated by commas"
-                        error={fieldState.error?.message}
-                        maxLength={MAX_APPLICABLE_ACTS_LENGTH}
-                />
-                      <p className="text-xs text-gray-500 mt-1">Maximum {MAX_APPLICABLE_ACTS_LENGTH} characters</p>
-                    </>
-                )}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Laws Relied Upon"
-                  name="disputeDetails.lawsReliedUpon"
-                  required
-                  maxLength={1000}
-                  placeholder="List specific Acts/Rules/Regulations/Others relied upon by Claimant"
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledFormField
-                  control={control}
-                  label="Contract Clause References"
-                  name="disputeDetails.clauseReferences"
-                  required
-                  maxLength={500}
-                  placeholder="e.g., Clause 12.3, 15.2, etc."
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Relevant Clause Number/Page Number"
-                  name="disputeDetails.clauseNumber"
-                  required
-                  placeholder="e.g., Clause 5.2 or Page 7"
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Document Supporting Claim"
-                  name="disputeDetails.documentSupportingClaim"
-                  required
-                  placeholder="Name/reference of supporting document"
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Clause Supporting Claim"
-                  name="disputeDetails.clauseSupportingClaim"
-                  required
-                  maxLength={1000}
-                  placeholder="Describe how the clause supports your claim"
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Clause Text"
-                  name="disputeDetails.clause"
-                  required
-                  maxLength={1000}
-                  placeholder="Enter the exact text of the relevant clause"
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Relief Sought"
-                  name="disputeDetails.reliefSought"
-                  required
-                  maxLength={1000}
-                  placeholder="Describe the specific relief you are seeking"
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Facts of the Case"
-                  name="disputeDetails.factsOfCase"
-                  required
-                  maxLength={2000}
-                  placeholder="Provide a clear and concise statement of the facts related to the dispute"
-                  rows={6}
-                />
-              </div>
-              <div className="col-span-2">
-                <ControlledTextAreaField
-                  control={control}
-                  label="Dispute Description"
-                  name="disputeDetails.disputeDescription"
-                  required
-                  maxLength={2000}
-                  rows={4}
-                />
+                        multiple
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addDocumentEvidence}
+                  className="mt-4"
+                >
+                  Add
+                </Button>
               </div>
             </div>
           </div>
         )
-      case 5: // Prayers & Reliefs
+      case 7: // Prayers & Reliefs
         return (
           <div className="space-y-4">
             <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
@@ -2851,7 +3608,7 @@ function ArbitrationForm() {
             </div>
           </div>
         )
-      case 6: // Documents
+      case 8: // Documents
         // Create default issues in case arguments don't exist yet
         const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
           (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
@@ -2875,7 +3632,7 @@ function ArbitrationForm() {
             />
           </div>
         )
-      case 7: // Payment
+      case 9: // Payment
         return (
           <div className="space-y-4">
             <h3 className="font-medium text-lg mb-4">Payment</h3>
@@ -2922,7 +3679,7 @@ function ArbitrationForm() {
             </div>
           </div>
         )
-      case 8: // Arguments
+      case 10: // Arguments
         return (
           <div className="space-y-4">
             <h3 className="font-medium text-lg mb-4">Arguments</h3>
@@ -2981,7 +3738,7 @@ function ArbitrationForm() {
             </div>
           </div>
         )
-      case 9: // Review & Submit
+      case 11: // Review & Submit
         return (
           <div>
             <h2 className="text-xl font-semibold mb-6">Review Your Petition</h2>
@@ -3134,120 +3891,101 @@ function ArbitrationForm() {
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Arbitration Agreement</h4>
-                  <div className="text-sm grid grid-cols-2 gap-2">
+                  <h4 className="font-medium mb-2">Arbitration Agreement Details</h4>
+                  <div className="text-sm space-y-3">
                     <div>
-                      <span className="font-medium">Date:</span> {arbitrationAgreement.agreementDate}
-                    </div>
-                    <div>
-                      <span className="font-medium">Type:</span> {arbitrationAgreement.agreementType}
-                    </div>
-                    <div>
-                      <span className="font-medium">Resolution Mode:</span> {arbitrationAgreement.resolutionMode}
-                    </div>
-                    <div>
-                      <span className="font-medium">Seat of Arbitration:</span> {arbitrationAgreement.seatOfArbitration}
-                    </div>
-                    <div>
-                      <span className="font-medium">Signed-on Place:</span> {arbitrationAgreement.signedOnPlace}
+                      <span className="font-medium">Date of Arbitration Agreement:</span> {arbitrationAgreement.agreementDate}
                     </div>
                     <div>
                       <span className="font-medium">Place of Signing:</span> {arbitrationAgreement.placeOfSigning}
                     </div>
                     <div>
-                      <span className="font-medium">Arbitrator Selection:</span> {arbitrationAgreement.arbitratorSelection}
+                      <span className="font-medium">Text of Arbitration Agreement/clause:</span>
+                      <p className="mt-1 whitespace-pre-line">{arbitrationAgreement.arbitrationText}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium">Stamp Duty Percentage/Amount:</span> {arbitrationAgreement.stampDutyPercentage}
                     </div>
                     <div>
                       <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement.numberOfArbitrators}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Agreement Parties:</span> {arbitrationAgreement.agreementParties}
-                    </div>
-                    {arbitrationAgreement.stampDutyPercentage && (
-                      <div>
-                        <span className="font-medium">Stamp Duty Percentage:</span> {arbitrationAgreement.stampDutyPercentage}%
-                      </div>
-                    )}
-                    {arbitrationAgreement.stampDutyAmount && (
-                      <div>
-                        <span className="font-medium">Stamp Duty Amount:</span> ₹{arbitrationAgreement.stampDutyAmount}
-                      </div>
-                    )}
-                    <div className="col-span-2">
-                      <span className="font-medium">Arbitration Text:</span>
-                      <p className="mt-1 whitespace-pre-line">{arbitrationAgreement.arbitrationText}</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
                   <h4 className="font-medium mb-2">Dispute Details</h4>
-                  <div className="text-sm grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="font-medium">Type:</span> {disputeDetails.disputeType}
+                  {disputeDetails ? (
+                    <div className="text-sm grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-medium">Type:</span> {disputeDetails.disputeType || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Service Type:</span> {disputeDetails.serviceType || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Category:</span> {disputeDetails.disputeCategory || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Claim Type:</span> {disputeDetails.claimType || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount || '0'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Date:</span> {disputeDetails.disputeDate || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute || 'Not specified'}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Claim Reason:</span>
+                        <p className="mt-1">{disputeDetails.claimReason || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs?.join(', ') || 'Not specified'}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Laws Relied Upon:</span>
+                        <p className="mt-1">{disputeDetails.lawsReliedUpon || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Clause/Page Number:</span> {disputeDetails.clauseNumber || 'Not specified'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Supporting Document:</span> {disputeDetails.documentSupportingClaim || 'Not specified'}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Clause Supporting Claim:</span>
+                        <p className="mt-1">{disputeDetails.clauseSupportingClaim || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Clause Text:</span>
+                        <p className="mt-1">{disputeDetails.clause || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Relief Sought:</span>
+                        <p className="mt-1">{disputeDetails.reliefSought || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Facts of the Case:</span>
+                        <p className="mt-1">{disputeDetails.factsOfCase || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Description:</span>
+                        <p className="mt-1">{disputeDetails.disputeDescription || 'Not specified'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-medium">Service Type:</span> {disputeDetails.serviceType}
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      No dispute details available
                     </div>
-                    <div>
-                      <span className="font-medium">Category:</span> {disputeDetails.disputeCategory}
-                    </div>
-                    <div>
-                      <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory}
-                    </div>
-                    <div>
-                      <span className="font-medium">Claim Type:</span> {disputeDetails.claimType}
-                    </div>
-                    <div>
-                      <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount}
-                    </div>
-                    <div>
-                      <span className="font-medium">Date:</span> {disputeDetails.disputeDate}
-                    </div>
-                    <div>
-                      <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Claim Reason:</span>
-                      <p className="mt-1">{disputeDetails.claimReason}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs.join(', ')}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Laws Relied Upon:</span>
-                      <p className="mt-1">{disputeDetails.lawsReliedUpon}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences}
-                    </div>
-                    <div>
-                      <span className="font-medium">Clause/Page Number:</span> {disputeDetails.clauseNumber}
-                    </div>
-                    <div>
-                      <span className="font-medium">Supporting Document:</span> {disputeDetails.documentSupportingClaim}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Clause Supporting Claim:</span>
-                      <p className="mt-1">{disputeDetails.clauseSupportingClaim}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Clause Text:</span>
-                      <p className="mt-1">{disputeDetails.clause}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Relief Sought:</span>
-                      <p className="mt-1">{disputeDetails.reliefSought}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Facts of the Case:</span>
-                      <p className="mt-1">{disputeDetails.factsOfCase}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Description:</span>
-                      <p className="mt-1">{disputeDetails.disputeDescription}</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
                 
                 <div>
@@ -3464,6 +4202,160 @@ function ArbitrationForm() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Email OTP Modal */}
+      {showEmailOTP && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Email Verification</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the 6-digit OTP sent to {watch('claimant.email')}
+            </p>
+            <input
+              type="text"
+              value={emailOTP}
+              onChange={(e) => setEmailOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit OTP"
+              className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
+              maxLength={6}
+            />
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEmailOTP(false);
+                  setEmailOTP("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={verifyEmailOTP}
+                disabled={emailOTP.length !== 6}
+                className="flex-1"
+              >
+                Verify
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phone OTP Modal */}
+      {showPhoneOTP && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Phone Verification</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the 6-digit OTP sent to {watch('claimant.phoneCountryCode')} {watch('claimant.phone')}
+            </p>
+            <input
+              type="text"
+              value={phoneOTP}
+              onChange={(e) => setPhoneOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit OTP"
+              className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
+              maxLength={6}
+            />
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPhoneOTP(false);
+                  setPhoneOTP("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={verifyPhoneOTP}
+                disabled={phoneOTP.length !== 6}
+                className="flex-1"
+              >
+                Verify
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Claimant Email OTP Modals */}
+      {showAdditionalEmailOTP.map((show, index) => 
+        show && (
+          <div key={`email-${index}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Email Verification - Additional Claimant {index + 1}</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Enter the 6-digit OTP sent to {watch(`additionalClaimants.${index}.email`)}
+              </p>
+              <input
+                type="text"
+                value={additionalEmailOTP[index] || ""}
+                onChange={(e) => handleAdditionalEmailOTPChange(index, e.target.value)}
+                placeholder="Enter 6-digit OTP"
+                className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
+                maxLength={6}
+              />
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => closeAdditionalEmailModal(index)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => verifyAdditionalClaimantEmailOTP(index)}
+                  disabled={(additionalEmailOTP[index] || "").length !== 6}
+                  className="flex-1"
+                >
+                  Verify
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Additional Claimant Phone OTP Modals */}
+      {showAdditionalPhoneOTP.map((show, index) => 
+        show && (
+          <div key={`phone-${index}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Phone Verification - Additional Claimant {index + 1}</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Enter the 6-digit OTP sent to {watch(`additionalClaimants.${index}.phoneCountryCode`)} {watch(`additionalClaimants.${index}.phone`)}
+              </p>
+              <input
+                type="text"
+                value={additionalPhoneOTP[index] || ""}
+                onChange={(e) => handleAdditionalPhoneOTPChange(index, e.target.value)}
+                placeholder="Enter 6-digit OTP"
+                className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
+                maxLength={6}
+              />
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => closeAdditionalPhoneModal(index)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => verifyAdditionalClaimantPhoneOTP(index)}
+                  disabled={(additionalPhoneOTP[index] || "").length !== 6}
+                  className="flex-1"
+                >
+                  Verify
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
     </div>
   )
 }

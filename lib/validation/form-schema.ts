@@ -174,16 +174,9 @@ export const respondentSchema = z.object({
 // Arbitration agreement schema
 export const arbitrationAgreementSchema = z.object({
   agreementDate: z.string().min(1, "Agreement date is required"),
-  agreementType: z.string().min(1, "Agreement type is required"),
-  resolutionMode: z.string().min(1, "Resolution mode is required"),
-  seatOfArbitration: z.string().min(1, "Seat of arbitration is required"),
-  signedOnPlace: z.string().min(1, "Signed-on place is required"),
-  agreementParties: z.string().min(1, "Agreement parties is required"),
-  arbitratorSelection: z.string().min(1, "Arbitrator selection is required"),
   placeOfSigning: z.string().min(1, "Place of signing is required"),
   arbitrationText: z.string().min(1, "Text of Arbitration Agreement/clause is required").max(2000, "Text cannot exceed 2000 characters"),
-  stampDutyPercentage: z.string().optional(),
-  stampDutyAmount: z.string().optional(),
+  stampDutyPercentage: z.string().min(1, "Stamp duty percentage/amount is required"),
   numberOfArbitrators: z.string().min(1, "Number of Arbitrators is required"),
   agreementFile: z.any().optional(),
 });

@@ -58,15 +58,23 @@ export class ArbitrationController {
   @UseInterceptors(
     FileFieldsInterceptor(
       [
+        // Direct field names
         { name: 'coi', maxCount: 1 },
         { name: 'panCard', maxCount: 1 },
         { name: 'gstCert', maxCount: 1 },
         { name: 'agreementFile', maxCount: 1 },
+        // Nested field names from claimant object
+        { name: 'claimant.coi', maxCount: 1 },
+        { name: 'claimant.panCard', maxCount: 1 },
+        { name: 'claimant.gstCert', maxCount: 1 },
+        { name: 'claimant.agreementFile', maxCount: 1 },
+        // Supporting documents
         { name: 'supportingDocuments_0', maxCount: 1 },
         { name: 'supportingDocuments_1', maxCount: 1 },
         { name: 'supportingDocuments_2', maxCount: 1 },
         { name: 'supportingDocuments_3', maxCount: 1 },
         { name: 'supportingDocuments_4', maxCount: 1 },
+        // Evidence files
         { name: 'evidenceFiles_0', maxCount: 1 },
         { name: 'evidenceFiles_1', maxCount: 1 },
         { name: 'evidenceFiles_2', maxCount: 1 },
@@ -106,7 +114,9 @@ export class ArbitrationController {
       if (files) {
         Object.keys(files).forEach(key => {
           const file = files[key][0];
-          fileData[key] = {
+          // Handle nested field names (e.g., 'claimant.coi' -> 'coi')
+          const normalizedKey = key.includes('.') ? key.split('.')[1] : key;
+          fileData[normalizedKey] = {
             filename: file.filename,
             originalName: file.originalname,
             path: file.path,
@@ -140,15 +150,23 @@ export class ArbitrationController {
   @UseInterceptors(
     FileFieldsInterceptor(
       [
+        // Direct field names
         { name: 'coi', maxCount: 1 },
         { name: 'panCard', maxCount: 1 },
         { name: 'gstCert', maxCount: 1 },
         { name: 'agreementFile', maxCount: 1 },
+        // Nested field names from claimant object
+        { name: 'claimant.coi', maxCount: 1 },
+        { name: 'claimant.panCard', maxCount: 1 },
+        { name: 'claimant.gstCert', maxCount: 1 },
+        { name: 'claimant.agreementFile', maxCount: 1 },
+        // Supporting documents
         { name: 'supportingDocuments_0', maxCount: 1 },
         { name: 'supportingDocuments_1', maxCount: 1 },
         { name: 'supportingDocuments_2', maxCount: 1 },
         { name: 'supportingDocuments_3', maxCount: 1 },
         { name: 'supportingDocuments_4', maxCount: 1 },
+        // Evidence files
         { name: 'evidenceFiles_0', maxCount: 1 },
         { name: 'evidenceFiles_1', maxCount: 1 },
         { name: 'evidenceFiles_2', maxCount: 1 },
@@ -218,14 +236,16 @@ export class ArbitrationController {
         this.logger.log('🔥 BACKEND: Processing files:', Object.keys(files));
         Object.keys(files).forEach(key => {
           const file = files[key][0];
-          fileData[key] = {
+          // Handle nested field names (e.g., 'claimant.coi' -> 'coi')
+          const normalizedKey = key.includes('.') ? key.split('.')[1] : key;
+          fileData[normalizedKey] = {
             filename: file.filename,
             originalName: file.originalname,
             path: file.path,
             mimetype: file.mimetype,
             size: file.size
           };
-          this.logger.log(`🔥 BACKEND: Processed file ${key}: ${file.originalname}`);
+          this.logger.log(`🔥 BACKEND: Processed file ${key} -> ${normalizedKey}: ${file.originalname}`);
         });
       }
       

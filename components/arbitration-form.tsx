@@ -2172,20 +2172,18 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         reset();
         
         // Redirect to dashboard after successful submission
-          router.push('/dashboard');
-        } catch (submitError: any) {
-          // Dismiss the loading toast
-          toast.dismiss();
-          
-          console.error('Error submitting draft:', submitError);
-          toast.error(`Failed to submit draft: ${submitError.message || 'Unknown error'}`);
-          throw submitError; // Re-throw to be caught by the outer catch
-        }
-        }
-      } else {
-        // New submission
-        console.log('Creating new arbitration submission...');
+        router.push("/dashboard");
+      } catch (submitError: any) {
+        // Dismiss the loading toast
+        toast.dismiss();
         
+        console.error("Error submitting draft:", submitError);
+        toast.error(`Failed to submit draft: ${submitError.message || "Unknown error"}`);
+    // New submission
+    console.log("Creating new arbitration submission...");
+          }
+    }
+  } else {        
         // Directly try the API call
         try {
         const response = await arbitrationApi.create(formData);

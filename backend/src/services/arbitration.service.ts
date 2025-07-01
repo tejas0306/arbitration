@@ -100,7 +100,7 @@ export class ArbitrationService {
         additionalClaimants: data.additionalClaimants,
         respondents: data.respondents,
         arbitrationAgreement: arbitrationAgreement,
-        disputeDetails: data.disputeDetails,
+        disputeDetails: data.disputeDetails || {},
         documents: documents,
         caseNumber,
         status: data.status || 'pending',

@@ -27,9 +27,7 @@ export default function EditPetitionClient({ petitionId }: EditPetitionClientPro
         setIsLoading(true)
         setError(null)
         
-        console.log(`Fetching petition data for ID: ${petitionId}`)
         const data = await arbitrationApi.getById(petitionId)
-        console.log("Fetched petition data:", data)
         
         if (!data) {
           throw new Error("No petition data found")
@@ -37,7 +35,6 @@ export default function EditPetitionClient({ petitionId }: EditPetitionClientPro
         
         setPetitionData(data)
       } catch (err: any) {
-        console.error("Error fetching petition:", err)
         setError(err.message || "Failed to load petition data")
         toast.error("Could not load petition data. Please try again.")
       } finally {

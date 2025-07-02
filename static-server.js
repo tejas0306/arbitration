@@ -33,5 +33,4 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Static server running at http://localhost:${port}`);
 }); 

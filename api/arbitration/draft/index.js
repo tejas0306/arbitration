@@ -23,7 +23,6 @@ if (mockDrafts.length === 0) {
       }
     }
   });
-  console.log('🔶 Added test draft for development');
 }
 
 // Store drafts in memory (will be reset on server restart)
@@ -59,15 +58,12 @@ const saveMockDraft = (draft) => {
 };
 
 export async function GET(req) {
-  console.log('🔶 Mock API - Getting all drafts');
-  console.log(`🔶 Current mock drafts: ${mockDrafts.length}`);
   
   // Return mock data
   return NextResponse.json(mockDrafts);
 }
 
 export async function POST(req) {
-  console.log('🔶 Mock API - Saving draft');
   
   try {
     // Parse the request body
@@ -75,7 +71,6 @@ export async function POST(req) {
     let id = formData.get('id');
     const jsonData = formData.get('data');
     
-    console.log(`🔶 Got form data - ID: ${id}, Data: ${jsonData ? 'present' : 'missing'}`);
     
     // Create a draft object
     const draftData = { 
@@ -86,12 +81,10 @@ export async function POST(req) {
     // Save the draft
     const savedDraft = saveMockDraft(draftData);
     
-    console.log('🔶 Mock API - Draft saved:', savedDraft.id);
     
     // Return the saved draft
     return NextResponse.json(savedDraft);
   } catch (error) {
-    console.error('🔶 Mock API - Error saving draft:', error);
     return NextResponse.json(
       { error: 'Error saving draft', message: error.message },
       { status: 500 }

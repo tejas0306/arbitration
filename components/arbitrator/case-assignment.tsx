@@ -58,7 +58,6 @@ export default function CaseAssignment({ onComplete }: CaseAssignmentProps) {
       const data = await response.json()
       setAssignments(data || [])
     } catch (error) {
-      console.error('Error fetching assignments:', error)
       toast.error('Failed to load case assignments')
     } finally {
       setLoading(false)
@@ -129,7 +128,6 @@ export default function CaseAssignment({ onComplete }: CaseAssignmentProps) {
         onComplete()
       }
     } catch (error: any) {
-      console.error('Error responding to assignment:', error)
       toast.error(error.message || `Failed to ${accepted ? 'accept' : 'reject'} assignment`)
     } finally {
       setResponding(false)

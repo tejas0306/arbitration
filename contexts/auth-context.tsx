@@ -48,9 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const parsedUser = JSON.parse(storedUser)
         setUser(parsedUser)
         refreshedRef.current = true
-        // No console.log here to prevent excessive logging
       } catch (e) {
-        console.error('Error parsing stored user:', e)
       }
     }
   }
@@ -72,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Skip auth check in development if needed
         if (process.env.NEXT_PUBLIC_SKIP_AUTH_VERIFICATION === 'true') {
-          console.log('Skipping auth verification in development')
           // Even when skipping verification, try to load user from localStorage
           refreshUserState()
           setIsLoading(false)
@@ -100,7 +97,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem('user', JSON.stringify(userData))
           }
         } catch (error) {
-          console.error('User verification failed:', error)
           // If API call fails but we have stored user, keep using that
           // Only clear if we couldn't parse stored user earlier
           if (!user) {
@@ -110,7 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Authentication error:', error)
         setUser(null)
         // Clear invalid token
         localStorage.removeItem('auth_token')
@@ -142,7 +137,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Force a full page reload by using window.location instead of router.push
       window.location.href = '/dashboard'
     } catch (error) {
-      console.error('Login error:', error)
       throw error
     } finally {
       setIsLoading(false)
@@ -177,7 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Force a full page reload by using window.location instead of router.push
       window.location.href = '/dashboard'
     } catch (error) {
-      console.error('Registration error:', error)
       throw error
     } finally {
       setIsLoading(false)

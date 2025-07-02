@@ -85,7 +85,6 @@ export default function UserForm() {
         status: data.isActive ? 'active' : (data.isSuspended ? 'inactive' : 'pending')
       })
     } catch (error) {
-      console.error('Error fetching user data:', error)
       toast.error('Failed to load user data')
     } finally {
       setLoading(false)
@@ -171,7 +170,6 @@ export default function UserForm() {
       toast.success(`User ${isEditMode ? 'updated' : 'created'} successfully`)
       router.push('/dashboard/users')
     } catch (error: any) {
-      console.error('Error saving user:', error)
       toast.error(error.message || `Failed to ${isEditMode ? 'update' : 'create'} user`)
     } finally {
       setIsSubmitting(false)

@@ -76,7 +76,6 @@ export function DocumentsDataTable({
       document.body.removeChild(link)
       toast.success(`Downloaded ${document.name}`)
     } catch (error) {
-      console.error('Download error:', error)
       toast.error('Failed to download document')
     }
   }, [])

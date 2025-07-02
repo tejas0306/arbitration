@@ -21,7 +21,6 @@ export default function DebugAuth() {
       })
       
       const debugData = await debugResponse.json()
-      console.log('Debug auth data:', debugData)
       
       // Then try the arbitrators endpoint
       const arbitratorsResponse = await fetch(getApiUrl('api/arbitrators'), {
@@ -44,7 +43,6 @@ export default function DebugAuth() {
         }
       })
     } catch (error) {
-      console.error('Error testing auth:', error)
       setError(error instanceof Error ? error.message : 'An unknown error occurred')
     } finally {
       setLoading(false)

@@ -9,7 +9,6 @@ export async function GET(
   try {
     // Get the filename from the route parameter
     const filename = params.filename;
-    console.log(`Direct file access request at /uploads/arbitration/file path: ${filename}`);
 
     if (!filename) {
       return NextResponse.json(
@@ -23,18 +22,15 @@ export async function GET(
     
     // The actual path where files are stored
     const actualFilePath = path.join(process.cwd(), 'backend', 'uploads', 'arbitration', sanitizedFilename);
-    console.log(`Looking for file at: ${actualFilePath}`);
 
     // Check if the file exists
     if (!fs.existsSync(actualFilePath)) {
-      console.error(`File not found: ${actualFilePath}`);
       return NextResponse.json(
         { error: 'File not found', filename: sanitizedFilename },
         { status: 404 }
       );
     }
 
-    console.log(`File found: ${actualFilePath}`);
 
     // Read the file
     const fileBuffer = fs.readFileSync(actualFilePath);
@@ -64,7 +60,6 @@ export async function GET(
       headers,
     });
   } catch (error: any) {
-    console.error('Error serving file:', error);
     return NextResponse.json(
       { error: 'Error serving file', details: error.message },
       { status: 500 }

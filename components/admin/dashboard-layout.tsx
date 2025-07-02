@@ -179,7 +179,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       const data = await response.json()
       setNotifications(data)
     } catch (error) {
-      console.error('Error fetching notifications:', error)
     } finally {
       setIsLoadingNotifications(false)
     }
@@ -216,7 +215,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         )
       )
     } catch (error) {
-      console.error('Error marking notification as read:', error)
     }
   }
 
@@ -241,7 +239,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       
       toast.success('All notifications marked as read')
     } catch (error) {
-      console.error('Error marking all notifications as read:', error)
       toast.error('Failed to mark all as read')
     }
   }

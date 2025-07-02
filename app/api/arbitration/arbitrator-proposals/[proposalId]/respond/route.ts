@@ -126,7 +126,6 @@ export async function POST(
     
     return NextResponse.json(updatedProposal);
   } catch (error) {
-    console.error('Error responding to arbitrator proposal:', error);
     return NextResponse.json(
       { error: 'Failed to respond to arbitrator proposal' },
       { status: 500 }

@@ -73,7 +73,6 @@ export default function CaseView({ caseId: propsCaseId }: CaseViewProps) {
   const fetchCaseData = async (id: string) => {
     try {
       setLoading(true)
-      console.log(`Fetching case data for ID: ${id}`)
       
       const response = await fetch(getApiUrl(`api/admin/cases/${id}`), {
         headers: {
@@ -86,7 +85,6 @@ export default function CaseView({ caseId: propsCaseId }: CaseViewProps) {
       }
       
       const data = await response.json()
-      console.log('Fetched case data:', data)
       
       // Fetch arbitrator name if ID exists
       if (data.arbitratorId) {
@@ -102,13 +100,11 @@ export default function CaseView({ caseId: propsCaseId }: CaseViewProps) {
             setArbitratorName(arbData.name || 'Unknown')
           }
         } catch (error) {
-          console.error('Error fetching arbitrator details:', error)
         }
       }
       
       setCaseData(data)
     } catch (error) {
-      console.error('Error fetching case:', error)
       toast.error('Failed to load case details')
       
       // Use mock data for development
@@ -193,10 +189,8 @@ export default function CaseView({ caseId: propsCaseId }: CaseViewProps) {
       }
       
       const data = await response.json()
-      console.log('Fetched arbitrator proposals:', data)
       setArbitratorProposals(data || [])
     } catch (error) {
-      console.error('Error fetching arbitrator proposals:', error)
     } finally {
       setLoadingProposals(false)
     }

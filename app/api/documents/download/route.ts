@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('Requested file:', filename);
 
     // Sanitize the filename to prevent directory traversal attacks
     const sanitizedFilename = path.basename(filename);
@@ -39,14 +38,12 @@ export async function GET(request: NextRequest) {
         : null,
     ].filter(Boolean);
 
-    console.log('Checking these potential file paths:', potentialPaths);
 
     // If the path includes the full filename with ID
     if (filename.includes('agreementFile-')) {
       // Add a more specific path with the exact filename
       const agreementPath = path.join(process.cwd(), 'backend', 'upload', 'arbtation', filename);
       potentialPaths.unshift(agreementPath);
-      console.log('Added specific agreement path:', agreementPath);
     }
 
     // Find the first path that exists
@@ -55,17 +52,14 @@ export async function GET(request: NextRequest) {
       try {
         if (potentialPath && fs.existsSync(potentialPath)) {
           filePath = potentialPath;
-          console.log('Found file at:', filePath);
           break;
         }
       } catch (err) {
-        console.error(`Error checking path ${potentialPath}:`, err);
       }
     }
 
     // If file not found in any of the potential locations
     if (!filePath) {
-      console.error('File not found in any of these locations:', potentialPaths);
       
       // For the frontend, redirect to a proxy URL that fetches from the backend
       const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -102,7 +96,6 @@ export async function GET(request: NextRequest) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('Error serving file:', error);
     return NextResponse.json(
       { error: 'Error serving file', details: error.message },
       { status: 500 }

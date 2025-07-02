@@ -102,7 +102,6 @@ export default function SupportPortal() {
       const data = await response.json()
       setTickets(data)
     } catch (error) {
-      console.error('Error fetching tickets:', error)
       toast.error('Failed to fetch your support tickets')
     } finally {
       setLoading(false)
@@ -123,7 +122,6 @@ export default function SupportPortal() {
       setSelectedTicket(detailedTicket)
       setShowTicketDialog(true)
     } catch (error) {
-      console.error('Error fetching ticket details:', error)
       toast.error('Failed to fetch ticket details')
     }
   }
@@ -174,7 +172,6 @@ export default function SupportPortal() {
       setShowSubmitDialog(false)
       toast.success('Support ticket submitted successfully!')
     } catch (error) {
-      console.error('Error submitting ticket:', error)
       toast.error('Failed to submit support ticket')
     } finally {
       setSending(false)

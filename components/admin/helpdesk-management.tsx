@@ -85,7 +85,6 @@ export default function HelpDeskManagement() {
       const data = await response.json()
       setTickets(data)
     } catch (error) {
-      console.error('Error fetching tickets:', error)
       toast.error('Failed to fetch help desk tickets')
     } finally {
       setLoading(false)
@@ -124,7 +123,6 @@ export default function HelpDeskManagement() {
       setSelectedTicket(detailedTicket)
       setShowTicketDialog(true)
     } catch (error) {
-      console.error('Error fetching ticket details:', error)
       toast.error('Failed to fetch ticket details')
     }
   }
@@ -150,7 +148,6 @@ export default function HelpDeskManagement() {
 
       toast.success('Ticket status updated successfully')
     } catch (error) {
-      console.error('Error updating status:', error)
       toast.error('Failed to update ticket status')
     }
   }
@@ -183,7 +180,6 @@ export default function HelpDeskManagement() {
       setIsInternal(false)
       toast.success('Response sent successfully')
     } catch (error) {
-      console.error('Error sending response:', error)
       toast.error('Failed to send response')
     } finally {
       setSending(false)

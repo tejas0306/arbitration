@@ -92,7 +92,6 @@ export default function CaseForm() {
         name: a.name
       })))
     } catch (error) {
-      console.error('Error fetching arbitrators:', error)
       // Use mock data if API fails
       setArbitrators([
         { id: 'arb1', name: 'John Smith' },
@@ -116,7 +115,6 @@ export default function CaseForm() {
       }
       
       const data = await response.json()
-      console.log('Fetched case data:', data)
       
       // Extract claimant information
       const claimantName = data.name || 
@@ -160,7 +158,6 @@ export default function CaseForm() {
         arbitratorId: data.arbitratorId || 'none'
       })
     } catch (error) {
-      console.error('Error fetching case data:', error)
       toast.error('Failed to load case data')
     } finally {
       setLoading(false)
@@ -282,7 +279,6 @@ export default function CaseForm() {
       toast.success(`Case ${isEditMode ? 'updated' : 'created'} successfully`)
       router.push('/admin/cases')
     } catch (error: any) {
-      console.error('Error saving case:', error)
       toast.error(error.message || `Failed to ${isEditMode ? 'update' : 'create'} case`)
     } finally {
       setIsSubmitting(false)

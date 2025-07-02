@@ -59,11 +59,9 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
 
   const handleViewCase = React.useCallback((id: string, status?: string) => {
     try {
-      console.log(`Attempting to navigate to case details: id=${id}, status=${status}`)
       
       // Check if the case exists
       if (!id) {
-        console.error("Cannot navigate: Case ID is missing")
         toast.error("Case ID is missing")
         return
       }
@@ -73,7 +71,6 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
       
       // For drafts in user context, navigate to edit page instead of view
       if (!adminContext && status && status.toLowerCase() === 'draft') {
-        console.log(`Case is a draft, navigating to edit: /dashboard/petition/edit/${id}`)
         router.push(`/dashboard/petition/edit/${id}`)
         return
       }
@@ -83,26 +80,21 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
       
       if (adminContext) {
         viewUrl = `/admin/cases/${id}`;
-        console.log(`Admin context detected, navigating to admin case details: ${viewUrl}`)
       } else {
         viewUrl = `/dashboard/case/${id}`;
-        console.log(`Regular user context, navigating to case details: ${viewUrl}`)
       }
       
       router.push(viewUrl)
     } catch (error) {
-      console.error("Navigation error:", error)
       toast.error("Failed to navigate to case details. Please try again.")
     }
   }, [router, isAdminContext])
 
   const handleEditCase = React.useCallback((id: string, status?: string) => {
     try {
-      console.log(`Attempting to navigate to edit case: id=${id}, status=${status}`)
       
       // Check if the case exists
       if (!id) {
-        console.error("Cannot navigate: Case ID is missing")
         toast.error("Case ID is missing")
         return
       }
@@ -115,15 +107,11 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
       
       if (adminContext) {
         editUrl = `/admin/cases/edit/${id}`
-        console.log(`Admin context detected, using admin edit URL: ${editUrl}`)
       } else {
-        console.log(`Regular user context, using standard edit URL: ${editUrl}`)
       }
       
-      console.log(`Navigating to edit case: ${editUrl}`)
       router.push(editUrl)
     } catch (error) {
-      console.error("Navigation error:", error)
       toast.error("Failed to navigate to edit case. Please try again.")
     }
   }, [router, isAdminContext])
@@ -148,7 +136,6 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
       } else if (filename) {
         const baseUrl = window.location.origin
         const directUrl = `${baseUrl}/files/${filename}`
-        console.log(`Opening document directly: ${directUrl}`)
         window.open(directUrl, '_blank')
       } else {
         const baseUrl = window.location.origin
@@ -156,7 +143,6 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
         window.open(`${baseUrl}${documentPath}`, '_blank')
       }
     } catch (error) {
-      console.error('Error opening document:', error)
       toast.error('Could not open the document. Please try again later.')
     }
   }, [])

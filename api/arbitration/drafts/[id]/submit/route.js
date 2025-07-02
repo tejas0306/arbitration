@@ -4,13 +4,11 @@ import { mockDrafts, mockCases } from '@/lib/mock-data';
 
 export async function POST(req, { params }) {
   const { id } = params;
-  console.log(`🔶 Mock API - Submitting draft with ID: ${id}`);
   
   // Find the draft with the given ID
   const draft = mockDrafts.find(d => d.id === id);
   
   if (!draft) {
-    console.log(`🔶 Mock API - Draft not found with ID: ${id}`);
     return NextResponse.json(
       { error: 'Draft not found' },
       { status: 404 }
@@ -19,7 +17,6 @@ export async function POST(req, { params }) {
   
   // Generate a case number
   const caseNumber = `ADDS/ARB/${new Date().getFullYear()}/${String(mockCases.length + 1).padStart(7, '0')}`;
-  console.log(`🔶 Mock API - Generated case number: ${caseNumber}`);
   
   // Create a new case from the draft
   const newCase = {

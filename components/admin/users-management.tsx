@@ -87,7 +87,6 @@ export default function UsersManagement() {
       
       if (response.ok) {
         const data = await response.json()
-        console.log('Raw API response:', data)
         
         // Map API response to component format
         const mappedUsers = (Array.isArray(data) ? data : data.users || []).map((user: any) => ({
@@ -102,7 +101,6 @@ export default function UsersManagement() {
           organization: user.organization || ''
         }))
         
-        console.log('Mapped users:', mappedUsers)
         setUsers(mappedUsers)
       } else {
         // Mock data for development
@@ -155,7 +153,6 @@ export default function UsersManagement() {
         ])
       }
     } catch (error) {
-      console.error('Error fetching users:', error)
       toast.error('Failed to fetch users')
     } finally {
       setLoading(false)
@@ -202,7 +199,6 @@ export default function UsersManagement() {
         setNewUser({ name: '', email: '', role: 'claimant', phone: '' })
       }
     } catch (error) {
-      console.error('Error creating user:', error)
       toast.error('Failed to create user')
     }
   }
@@ -227,7 +223,6 @@ export default function UsersManagement() {
         toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`)
       }
     } catch (error) {
-      console.error('Error updating user status:', error)
       toast.error('Failed to update user status')
     }
   }

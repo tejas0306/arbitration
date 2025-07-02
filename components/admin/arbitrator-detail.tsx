@@ -89,7 +89,6 @@ export default function ArbitratorDetail() {
       const data = await response.json()
       setArbitrator(data)
     } catch (error: any) {
-      console.error('Error fetching arbitrator:', error)
       setError(error.message || 'Failed to load arbitrator')
       toast.error('Error loading arbitrator details')
     } finally {
@@ -122,7 +121,6 @@ export default function ArbitratorDetail() {
         })
       }
     } catch (error) {
-      console.error('Error updating arbitrator status:', error)
       toast.error('Failed to update arbitrator status')
     }
   }
@@ -144,7 +142,6 @@ export default function ArbitratorDetail() {
       toast.success('Arbitrator deleted successfully')
       router.push('/dashboard/arbitrators')
     } catch (error: any) {
-      console.error('Error deleting arbitrator:', error)
       toast.error(`Failed to delete arbitrator: ${error.message}`)
     } finally {
       setIsConfirmingDelete(false)

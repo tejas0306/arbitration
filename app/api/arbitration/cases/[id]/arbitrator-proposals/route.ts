@@ -77,7 +77,6 @@ export async function GET(
     
     return NextResponse.json(proposals);
   } catch (error) {
-    console.error('Error fetching arbitrator proposals:', error);
     return NextResponse.json(
       { error: 'Failed to fetch arbitrator proposals' },
       { status: 500 }

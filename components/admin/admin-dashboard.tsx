@@ -78,7 +78,6 @@ export default function AdminDashboard() {
         arbitrators: arbitratorsData.length || 0
       })
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error)
     } finally {
       setLoading(false)
     }

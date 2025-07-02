@@ -29,7 +29,6 @@ export default function LoginClient() {
       
       // The auth context will handle the redirect to dashboard
     } catch (err: any) {
-      console.error("Login error:", err)
       
       // Handle specific error scenarios
       if (err.response?.status === 401) {

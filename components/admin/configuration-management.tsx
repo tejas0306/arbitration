@@ -213,7 +213,6 @@ export default function ConfigurationManagement() {
       setBusinessRules(transformedBusinessRules)
       
     } catch (error) {
-      console.error('Error fetching configuration:', error)
       toast.error('Failed to fetch configuration data')
     } finally {
       setLoading(false)
@@ -268,7 +267,6 @@ export default function ConfigurationManagement() {
       setShowLovDialog(false)
       setEditingLov(null)
     } catch (error) {
-      console.error('Error saving LOV:', error)
       toast.error('Failed to save LOV')
     } finally {
       setSaving(false)
@@ -290,7 +288,6 @@ export default function ConfigurationManagement() {
       setLovs(prev => prev.filter(l => l.id !== id))
       toast.success('LOV deleted successfully')
     } catch (error) {
-      console.error('Error deleting LOV:', error)
       toast.error('Failed to delete LOV')
     }
   }
@@ -347,7 +344,6 @@ export default function ConfigurationManagement() {
       setShowTemplateDialog(false)
       setEditingTemplate(null)
     } catch (error) {
-      console.error('Error saving template:', error)
       toast.error('Failed to save template')
     } finally {
       setSaving(false)
@@ -369,7 +365,6 @@ export default function ConfigurationManagement() {
       setTemplates(prev => prev.filter(t => t.id !== id))
       toast.success('Template deleted successfully')
     } catch (error) {
-      console.error('Error deleting template:', error)
       toast.error('Failed to delete template')
     }
   }
@@ -425,7 +420,6 @@ export default function ConfigurationManagement() {
       setShowFeeDialog(false)
       setEditingFee(null)
     } catch (error) {
-      console.error('Error saving fee:', error)
       toast.error('Failed to save fee')
     } finally {
       setSaving(false)
@@ -443,7 +437,6 @@ export default function ConfigurationManagement() {
       setFees(prev => prev.filter(f => f.id !== id))
       toast.success('Fee deleted successfully')
     } catch (error) {
-      console.error('Error deleting fee:', error)
       toast.error('Failed to delete fee')
     }
   }
@@ -500,7 +493,6 @@ export default function ConfigurationManagement() {
       setShowRuleDialog(false)
       setEditingRule(null)
     } catch (error) {
-      console.error('Error saving business rule:', error)
       toast.error('Failed to save business rule')
     } finally {
       setSaving(false)
@@ -522,7 +514,6 @@ export default function ConfigurationManagement() {
       setBusinessRules(prev => prev.filter(r => r.id !== id))
       toast.success('Business rule deleted successfully')
     } catch (error) {
-      console.error('Error deleting business rule:', error)
       toast.error('Failed to delete business rule')
     }
   }

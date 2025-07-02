@@ -24,13 +24,11 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null); // Clear any previous errors
       
-      console.log('Fetching dashboard data...');
       
       // Fetch user data
       try {
         const user = await api.auth.getCurrentUser();
         setUserData(user);
-        console.log('User data fetched successfully');
         
         // Redirect users to their role-specific dashboards
         if (user.role === 'ADMIN') {
@@ -49,20 +47,15 @@ export default function DashboardPage() {
         // CLAIMANT and RESPONDENT stay on this dashboard
         
       } catch (userErr) {
-        console.error('Error fetching user data:', userErr);
         toast.error('Unable to load your profile information');
         // Continue execution to try loading other data
       }
 
       // Fetch drafts (only for CLAIMANT/RESPONDENT)
       try {
-        console.log('Fetching draft submissions...');
         const draftsData = await api.arbitration.getDrafts();
         setDrafts(draftsData || []);
-        console.log(`Fetched ${draftsData?.length || 0} drafts`);
       } catch (draftErr) {
-        console.error('Error fetching drafts:', draftErr);
-        console.error('Drafts error details:', {
           message: draftErr.message,
           response: draftErr.response?.data,
           status: draftErr.response?.status,
@@ -74,7 +67,6 @@ export default function DashboardPage() {
         setDrafts([]);
       }
     } catch (err) {
-      console.error('Dashboard general error:', err);
       setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);
@@ -320,13 +312,11 @@ export default function DashboardPage() {
                               <button 
                                 onClick={async () => {
                                   try {
-                                    console.log(`Attempting to submit draft with ID: ${draft.id}`);
                                     await api.arbitration.submitDraft(draft.id);
                                     toast.success('Draft submitted successfully');
                                     // Refresh the data
                                     await fetchData();
                                   } catch (error: any) {
-                                    console.error('Error submitting draft:', error);
                                     
                                     // Provide more specific error message
                                     let errorMessage = 'Failed to submit draft';
@@ -336,7 +326,6 @@ export default function DashboardPage() {
                                     }
                                     
                                     if (error.response) {
-                                      console.error('Server error details:', {
                                         status: error.response.status,
                                         data: error.response.data,
                                       });

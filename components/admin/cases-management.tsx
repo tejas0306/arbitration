@@ -181,7 +181,6 @@ export default function CasesManagement() {
         ])
       }
     } catch (error) {
-      console.error('Error fetching cases:', error)
       toast.error('Failed to fetch cases')
     } finally {
       setLoading(false)

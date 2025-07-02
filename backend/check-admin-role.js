@@ -3,7 +3,6 @@ const prisma = new PrismaClient();
 
 async function main() {
   try {
-    console.log('Checking admin user role...');
 
     // Check the admin user
     const adminUser = await prisma.user.findUnique({
@@ -11,11 +10,9 @@ async function main() {
     });
 
     if (!adminUser) {
-      console.log('Admin user not found!');
       return;
     }
 
-    console.log(`Current user details:
 - Email: ${adminUser.email}
 - Name: ${adminUser.name}
 - Role: ${adminUser.role}
@@ -25,7 +22,6 @@ async function main() {
 
     // Update to ADMIN role if needed
     if (adminUser.role !== 'ADMIN') {
-      console.log('Updating user to ADMIN role...');
       
       // Update the admin user
       await prisma.user.update({
@@ -37,14 +33,12 @@ async function main() {
         }
       });
       
-      console.log('Admin user role updated successfully!');
       
       // Verify the update
       const updatedUser = await prisma.user.findUnique({
         where: { email: 'admin@arbitration.com' }
       });
       
-      console.log(`Updated user details:
 - Email: ${updatedUser.email}
 - Name: ${updatedUser.name}
 - Role: ${updatedUser.role}
@@ -52,10 +46,8 @@ async function main() {
 - isActive: ${updatedUser.isActive}
 `);
     } else {
-      console.log('User already has ADMIN role.');
     }
   } catch (error) {
-    console.error('Error:', error);
   } finally {
     await prisma.$disconnect();
   }
@@ -63,7 +55,6 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

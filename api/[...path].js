@@ -71,12 +71,10 @@ export default async function handler(req, res) {
     let path = url.pathname;
     
     // Log original request path
-    console.log(`Original request path: ${path}`);
     
     // Special handling for draft routes in development
     if (process.env.NODE_ENV !== 'production') {
       if (path === '/api/arbitration/draft' || path.startsWith('/api/arbitration/drafts/')) {
-        console.log('Handling draft request in development mode, forwarding to Next.js API routes');
         return null; // Return null to let Next.js handle the route via app/api/...
       }
     }
@@ -86,14 +84,11 @@ export default async function handler(req, res) {
     const remappedPath = getRemappedPath(originalPath);
     
     if (originalPath !== remappedPath) {
-      console.log(`Remapping path: ${originalPath} -> ${remappedPath}`);
       path = remappedPath;
     }
     
-    console.log(`Processing request: ${req.method} ${path}`);
     
     const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
-    console.log(`Forwarding to backend at: ${BACKEND_URL}${path}`);
     
     // Development fallback - proxy the request to the backend
     if (process.env.NODE_ENV !== 'production') {
@@ -103,7 +98,6 @@ export default async function handler(req, res) {
       // For GET requests, directly fetch from the backend and return the response
       if (req.method === 'GET') {
         try {
-          console.log(`Proxying GET request to: ${targetUrl}`);
           const response = await fetch(targetUrl, {
             method: 'GET',
             headers: {
@@ -119,7 +113,6 @@ export default async function handler(req, res) {
           res.status(response.status).json(data);
           return;
         } catch (error) {
-          console.error('Error proxying GET request:', error);
           res.status(500).json({ error: 'Failed to proxy request to backend', details: error.message });
           return;
         }
@@ -128,7 +121,6 @@ export default async function handler(req, res) {
       // For POST/PUT/DELETE requests with FormData, manually handle the FormData and forward
       if (['POST', 'PUT'].includes(req.method) && req.headers['content-type']?.includes('multipart/form-data')) {
         try {
-          console.log(`Proxying ${req.method} FormData request to: ${targetUrl}`);
           
           // Create a new FormData object from the request
           const formData = new FormData();
@@ -143,7 +135,6 @@ export default async function handler(req, res) {
           });
           return;
         } catch (error) {
-          console.error(`Error proxying ${req.method} FormData request:`, error);
           res.status(500).json({ error: 'Failed to proxy request to backend', details: error.message });
           return;
         }
@@ -152,7 +143,6 @@ export default async function handler(req, res) {
       // For regular POST/PUT/DELETE requests
       if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
         try {
-          console.log(`Proxying ${req.method} request to: ${targetUrl}`);
           
           // Get request body
           const body = req.body ? JSON.stringify(req.body) : undefined;
@@ -174,7 +164,6 @@ export default async function handler(req, res) {
           res.status(response.status).json(data);
           return;
         } catch (error) {
-          console.error(`Error proxying ${req.method} request:`, error);
           res.status(500).json({ error: 'Failed to proxy request to backend', details: error.message });
           return;
         }
@@ -230,7 +219,6 @@ export default async function handler(req, res) {
       });
     }
   } catch (error) {
-    console.error('API route error:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

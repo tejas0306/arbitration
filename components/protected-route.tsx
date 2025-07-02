@@ -60,7 +60,6 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         
         setHasAccess(true)
       } catch (error: any) {
-        console.error('Access check error:', error)
         toast.error('Access verification failed')
         router.push('/auth/login')
       } finally {

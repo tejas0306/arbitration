@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const path = request.nextUrl.pathname;
-    console.log(`Fallback API proxy request for: ${path}`);
     
     // Extract the relative path from /api/upload/...
     const relativePath = path.replace(/^\/api\/upload/, '');
@@ -13,7 +12,6 @@ export async function GET(request: NextRequest) {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const targetUrl = `${backendUrl}/upload${relativePath}`;
     
-    console.log(`Proxying to backend URL: ${targetUrl}`);
     
     // Forward the request to the backend API
     const response = await fetch(targetUrl, {
@@ -23,7 +21,6 @@ export async function GET(request: NextRequest) {
     
     // If the response is not ok, log the error
     if (!response.ok) {
-      console.error(`Backend API returned error: ${response.status} ${response.statusText}`);
       return new Response(`Backend API returned error: ${response.status} ${response.statusText}`, {
         status: response.status,
       });
@@ -39,7 +36,6 @@ export async function GET(request: NextRequest) {
       headers: response.headers,
     });
   } catch (error) {
-    console.error('Error proxying to backend API:', error);
     return NextResponse.json(
       { error: 'Error proxying to backend API', details: error.message },
       { status: 500 }

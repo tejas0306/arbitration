@@ -55,7 +55,6 @@ export default function RecentActivity() {
       const data = await response.json()
       setActivities(data.activities || [])
     } catch (error: any) {
-      console.error('Error fetching activities:', error)
       setError(error.message || 'Failed to load recent activities')
     } finally {
       setLoading(false)

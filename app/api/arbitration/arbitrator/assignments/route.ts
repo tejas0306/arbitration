@@ -60,7 +60,6 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(assignments);
   } catch (error) {
-    console.error('Error fetching arbitrator assignments:', error);
     return NextResponse.json(
       { error: 'Failed to fetch arbitrator assignments' },
       { status: 500 }

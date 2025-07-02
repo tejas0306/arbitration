@@ -74,7 +74,6 @@ export default function ProfilePage() {
           bio: userProfile.bio || ''
         })
       } catch (error: any) {
-        console.error('Error loading profile:', error)
         toast.error('Failed to load profile information')
       } finally {
         setLoading(false)
@@ -93,7 +92,6 @@ export default function ProfilePage() {
       setProfile(response.data.user)
       toast.success('Profile updated successfully!')
     } catch (error: any) {
-      console.error('Error updating profile:', error)
       toast.error(error.response?.data?.message || 'Failed to update profile')
     } finally {
       setSaving(false)
@@ -128,7 +126,6 @@ export default function ProfilePage() {
         confirmPassword: ''
       })
     } catch (error: any) {
-      console.error('Error changing password:', error)
       toast.error(error.response?.data?.message || 'Failed to change password')
     } finally {
       setSaving(false)

@@ -87,7 +87,6 @@ export default function NotificationsManagement() {
       const data = await response.json()
       setNotifications(data)
     } catch (error: any) {
-      console.error('Error fetching notifications:', error)
       setError(error.message || 'Failed to load notifications')
       toast.error(error.message || 'Failed to load notifications')
       setNotifications([]) // Set empty array instead of mock data
@@ -121,7 +120,6 @@ export default function NotificationsManagement() {
       
       toast.success('Notification marked as read')
     } catch (error: any) {
-      console.error('Error marking notification as read:', error)
       toast.error(error.message || 'Failed to mark as read')
     }
   }
@@ -147,7 +145,6 @@ export default function NotificationsManagement() {
       
       toast.success('All notifications marked as read')
     } catch (error: any) {
-      console.error('Error marking all notifications as read:', error)
       toast.error(error.message || 'Failed to mark all as read')
     }
   }

@@ -31,9 +31,7 @@ app.prepare().then(() => {
 
   server.listen(port, (err) => {
     if (err) throw err;
-    console.log(`> Ready on http://localhost:${port}`);
   });
 }).catch(err => {
-  console.error('Error starting server:', err);
   process.exit(1);
 }); 

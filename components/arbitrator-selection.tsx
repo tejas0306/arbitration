@@ -89,8 +89,6 @@ export default function ArbitratorSelection({
       }
       
       const apiUrl = getApiUrl(`api/arbitrators?${params}`)
-      console.log('Fetching arbitrators from:', apiUrl)
-      console.log('With params:', Object.fromEntries(params.entries()))
       
       // Make the request without explicitly setting Authorization header
       // NextAuth will handle the session cookie automatically
@@ -98,16 +96,13 @@ export default function ArbitratorSelection({
         credentials: 'include', // Include cookies
       })
       
-      console.log('Response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
-        console.error('Error response:', errorData)
         throw new Error(errorData?.error || 'Failed to fetch arbitrators')
       }
       
       const data = await response.json()
-      console.log('Arbitrators data:', data)
       
       // Extract unique expertise values for filters
       const expertiseSet = new Set<string>()
@@ -120,7 +115,6 @@ export default function ArbitratorSelection({
       setExpertiseOptions(Array.from(expertiseSet))
       setArbitrators(data || [])
     } catch (error) {
-      console.error('Error fetching arbitrators:', error)
       toast.error('Failed to load arbitrators')
     } finally {
       setLoading(false)
@@ -131,25 +125,20 @@ export default function ArbitratorSelection({
     try {
       setLoadingProposals(true)
       const apiUrl = getApiUrl(`api/arbitration/cases/${caseId}/arbitrator-proposals`)
-      console.log('Fetching proposals from:', apiUrl)
       
       const response = await fetch(apiUrl, {
         credentials: 'include' // Include cookies
       })
       
-      console.log('Proposals response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
-        console.error('Error fetching proposals:', errorData)
         throw new Error(errorData?.error || 'Failed to fetch arbitrator proposals')
       }
       
       const data = await response.json()
-      console.log('Proposals data:', data)
       setProposals(data || [])
     } catch (error) {
-      console.error('Error fetching proposals:', error)
     } finally {
       setLoadingProposals(false)
     }
@@ -173,8 +162,6 @@ export default function ArbitratorSelection({
       setProposing(true)
       
       const apiUrl = getApiUrl(`api/arbitration/cases/${caseId}/propose-arbitrator`)
-      console.log('Proposing arbitrator to:', apiUrl)
-      console.log('Request payload:', { arbitratorId: selectedArbitrator })
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -187,16 +174,13 @@ export default function ArbitratorSelection({
         })
       })
       
-      console.log('Propose response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('Error proposing arbitrator:', errorData)
         throw new Error(errorData.message || errorData.error || 'Failed to propose arbitrator')
       }
       
       const data = await response.json()
-      console.log('Proposal success response:', data)
       
       toast.success('Arbitrator proposed successfully')
       fetchProposals()
@@ -206,7 +190,6 @@ export default function ArbitratorSelection({
         onComplete()
       }
     } catch (error: any) {
-      console.error('Error proposing arbitrator:', error)
       toast.error(error.message || 'Failed to propose arbitrator')
     } finally {
       setProposing(false)
@@ -216,8 +199,6 @@ export default function ArbitratorSelection({
   const handleRespondToProposal = async (proposalId: string, status: 'ACCEPTED' | 'REJECTED') => {
     try {
       const apiUrl = getApiUrl(`api/arbitration/arbitrator-proposals/${proposalId}/respond`)
-      console.log(`Responding to proposal (${status}) at:`, apiUrl)
-      console.log('Request payload:', { status })
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -230,16 +211,13 @@ export default function ArbitratorSelection({
         })
       })
       
-      console.log('Response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('Error responding to proposal:', errorData)
         throw new Error(errorData.message || errorData.error || `Failed to ${status.toLowerCase()} proposal`)
       }
       
       const data = await response.json()
-      console.log('Response success data:', data)
       
       toast.success(`Proposal ${status.toLowerCase()} successfully`)
       fetchProposals()
@@ -248,7 +226,6 @@ export default function ArbitratorSelection({
         onComplete()
       }
     } catch (error: any) {
-      console.error(`Error ${status.toLowerCase()}ing proposal:`, error)
       toast.error(error.message || `Failed to ${status.toLowerCase()} proposal`)
     }
   }

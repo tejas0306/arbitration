@@ -203,9 +203,9 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
                 Edit Case
               </Button>
             )}
-            <Button variant="outline" onClick={() => router.push('/dashboard')}>
-              Back to Dashboard
-            </Button>
+          <Button variant="outline" onClick={() => router.push('/dashboard')}>
+            Back to Dashboard
+          </Button>
           </div>
         </div>
 

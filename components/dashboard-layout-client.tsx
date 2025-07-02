@@ -45,7 +45,6 @@ export default function DashboardLayoutClient({
         const user = await auth.getCurrentUser()
         setIsAuthenticated(true)
       } catch (error: any) {
-        console.error('Authentication error:', error)
         
         // Use the error message from the API if available
         const errorMessage = error.message || 'Your session has expired. Please log in again.'

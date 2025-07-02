@@ -32,32 +32,26 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null); // Clear any previous errors
       
-      console.log('Fetching dashboard data...');
       
       // Fetch user data
       try {
         const user = await api.auth.getCurrentUser();
         setUserData(user);
-        console.log('User data fetched successfully');
       } catch (userErr) {
-        console.error('Error fetching user data:', userErr);
         toast.error('Unable to load your profile information');
         // Continue execution to try loading other data
       }
 
       // Fetch drafts
       try {
-        console.log('Fetching draft submissions...');
         const draftsData = await api.arbitration.getDrafts();
         setDrafts(draftsData || []);
-        console.log(`Fetched ${draftsData?.length || 0} drafts`);
       } catch (draftErr: unknown) {
-        console.error('Error fetching drafts:', draftErr);
         
         // Safely log error details
         if (draftErr && typeof draftErr === 'object') {
           const err = draftErr as any;
-          console.error('Drafts error details:', {
+          console.error('Draft loading error:', {
             message: err.message,
             response: err.response?.data,
             status: err.response?.status,
@@ -71,7 +65,6 @@ export default function DashboardPage() {
       }
 
     } catch (err: unknown) {
-      console.error('Dashboard error:', err);
       setError('Failed to load dashboard data');
       toast.error('Failed to load dashboard data');
     } finally {

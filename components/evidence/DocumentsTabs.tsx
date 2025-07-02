@@ -44,7 +44,6 @@ export const DocumentsTabs: React.FC<DocumentsTabsProps> = ({ control, disputeIs
   }, [disputeIssues, watch]);
 
   // Log issues for debugging
-  console.log("Available issues for documents:", issues);
 
   return (
     <div className="space-y-4">

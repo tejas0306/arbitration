@@ -123,7 +123,6 @@ export default function ArbitratorForm() {
         status: data.status || 'pending'
       })
     } catch (error) {
-      console.error('Error fetching arbitrator data:', error)
       toast.error('Failed to load arbitrator data')
     } finally {
       setLoading(false)
@@ -253,7 +252,6 @@ export default function ArbitratorForm() {
       // Navigate back to arbitrators list
       router.push('/dashboard/arbitrators')
     } catch (error: any) {
-      console.error('Error saving arbitrator:', error)
       toast.error(`Failed to save arbitrator: ${error.message}`)
     } finally {
       setIsSubmitting(false)

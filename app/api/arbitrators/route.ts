@@ -5,14 +5,11 @@ import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('GET /api/arbitrators called');
     
     // Check authentication
     const session = await getServerSession(authOptions);
-    console.log('Session from getServerSession:', session ? 'Session exists' : 'No session');
     
     if (!session?.user) {
-      console.log('Unauthorized: No user in session');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
@@ -21,10 +18,8 @@ export async function GET(request: NextRequest) {
       where: { email: session.user.email as string }
     });
     
-    console.log('User from database:', user ? `Found (ID: ${user.id}, Role: ${user.role})` : 'Not found');
     
     if (!user) {
-      console.log('User not found in database');
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
@@ -34,7 +29,6 @@ export async function GET(request: NextRequest) {
     const expertise = searchParams.get('expertise');
     const status = searchParams.get('status') || 'active';
     
-    console.log('Search params:', { search, expertise, status });
     
     // Build where clause for filtering
     const where: any = {
@@ -61,7 +55,6 @@ export async function GET(request: NextRequest) {
       where.expertise = { contains: expertise, mode: 'insensitive' };
     }
     
-    console.log('Prisma where clause:', JSON.stringify(where, null, 2));
     
     // Query arbitrators
     const arbitrators = await prisma.user.findMany({
@@ -89,11 +82,9 @@ export async function GET(request: NextRequest) {
       ],
     });
     
-    console.log(`Found ${arbitrators.length} arbitrators matching criteria`);
     
     return NextResponse.json(arbitrators);
   } catch (error) {
-    console.error('Error fetching arbitrators:', error);
     return NextResponse.json(
       { error: 'Failed to fetch arbitrators' },
       { status: 500 }

@@ -8,7 +8,6 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     return NextResponse.json(session);
   } catch (error) {
-    console.error("Error in /auth/session route:", error);
     return NextResponse.json(
       { error: "Failed to get session" },
       { status: 500 }

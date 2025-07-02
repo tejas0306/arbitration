@@ -88,7 +88,6 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(transformedData);
   } catch (error) {
-    console.error('Error fetching arbitrators:', error);
     return NextResponse.json(
       { error: 'Failed to fetch arbitrators' },
       { status: 500 }
@@ -167,7 +166,6 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(newArbitrator, { status: 201 });
   } catch (error) {
-    console.error('Error creating arbitrator:', error);
     return NextResponse.json(
       { error: 'Failed to create arbitrator' },
       { status: 500 }

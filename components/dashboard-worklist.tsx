@@ -38,9 +38,8 @@ export default function DashboardWorklist({
       setLoading(true)
       setError(null)
       
-      console.log('🐛 DEBUG: About to fetch cases from API')
       const casesData = await api.arbitration.getAll()
-      console.log('🐛 DEBUG: Received cases data:', {
+      console.log('Cases data:', {
         count: casesData.length,
         firstCaseUserId: casesData[0]?.userId,
         allUserIds: [...new Set(casesData.map((c: any) => c.userId))]
@@ -88,7 +87,7 @@ export default function DashboardWorklist({
           null
         
         // Console log for debugging
-        console.log('Case data mapping:', {
+        console.log('Case transformation:', {
           id: caseData.id,
           caseNumber: caseData.caseNumber,
           claimant: claimantName,
@@ -117,7 +116,6 @@ export default function DashboardWorklist({
       
       setCases(formattedCases)
     } catch (err) {
-      console.error('Error fetching cases:', err)
       setError('Failed to load your cases. Please try again later.')
       toast.error('Unable to load your cases')
     } finally {

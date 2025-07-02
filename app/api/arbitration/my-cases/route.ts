@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error fetching cases:', error);
     return NextResponse.json(
       { error: 'Failed to fetch cases' },
       { status: 500 }

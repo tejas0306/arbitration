@@ -4,7 +4,6 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function createTestUsers() {
-  console.log('🔧 Creating test users for role testing...');
 
   const defaultPassword = 'Test123!';
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
@@ -78,7 +77,6 @@ async function createTestUsers() {
       });
 
       if (existingUser) {
-        console.log(`⚠️  User ${userData.email} already exists, skipping...`);
         continue;
       }
 
@@ -86,21 +84,14 @@ async function createTestUsers() {
         data: userData as any,
       });
 
-      console.log(`✅ Created ${userData.role}: ${userData.name} (${userData.email})`);
     }
 
-    console.log('\n🎉 Test users created successfully!');
-    console.log('\nLogin credentials for testing:');
-    console.log('==================================');
     testUsers.forEach(user => {
-      console.log(`${user.role}: ${user.email} / ${defaultPassword}`);
     });
 
   } catch (error) {
-    console.error('❌ Error creating test users:', error);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-createTestUsers().catch(console.error); 

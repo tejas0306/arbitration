@@ -109,7 +109,6 @@ export async function GET(
     
     return NextResponse.json(arbitrator);
   } catch (error) {
-    console.error('Error fetching arbitrator:', error);
     return NextResponse.json(
       { error: 'Failed to fetch arbitrator details' },
       { status: 500 }
@@ -215,7 +214,6 @@ export async function PUT(
     
     return NextResponse.json(updatedArbitrator);
   } catch (error) {
-    console.error('Error updating arbitrator:', error);
     return NextResponse.json(
       { error: 'Failed to update arbitrator' },
       { status: 500 }
@@ -282,7 +280,6 @@ export async function DELETE(
     
     return NextResponse.json({ message: 'Arbitrator deleted successfully' });
   } catch (error) {
-    console.error('Error deleting arbitrator:', error);
     return NextResponse.json(
       { error: 'Failed to delete arbitrator' },
       { status: 500 }

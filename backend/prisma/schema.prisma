@@ -8,6 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 enum UserRole {
@@ -233,7 +234,7 @@ model Feedback {
 
 model Arbitration {
   id                  String   @id @default(uuid())
-  caseNumber          String   @unique
+  caseNumber          String?  @unique
   type                String
   name                String
   pincode            String

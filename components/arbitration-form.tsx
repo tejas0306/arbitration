@@ -1109,7 +1109,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Effect to load initial data when in edit mode (after useForm is defined)
   useEffect(() => {
     if (initialData && petitionId) {
-      console.log("🔥 EDIT MODE: Loading initial data:", initialData);
+
       
       // Set edit mode and current draft ID
       setEditMode(true);
@@ -1122,7 +1122,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           
           // Check if we have the new formData structure, otherwise fallback to reconstruction
           if (initialData.formData && typeof initialData.formData === 'object') {
-            console.log("🔥 EDIT MODE: Using stored formData structure");
+  
             completeFormData = {
               claimant: initialData.formData.claimant || initialClaimant,
               additionalClaimants: initialData.formData.additionalClaimants || [initialAdditionalClaimant],
@@ -1142,7 +1142,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
               arguments: initialData.formData.arguments || initialArguments,
             };
           } else {
-            console.log("🔥 EDIT MODE: Reconstructing from flattened data structure");
+  
             // Fallback: reconstruct from flattened data (old format)
             const managerDetails = Array.isArray(initialData.managerDetails) 
               ? initialData.managerDetails 
@@ -1182,7 +1182,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             };
           }
           
-          console.log("🔥 EDIT MODE: Final form data structure:", completeFormData);
+
           
           // Reset the form with the loaded data
           reset(completeFormData);
@@ -1196,15 +1196,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             setValue('documentsEvidence', completeFormData.documentsEvidence);
           }
           
-          // Set files if available
-          if (initialData.files) {
-            console.log("🔥 EDIT MODE: Setting files:", initialData.files);
-            setFiles(initialData.files);
-          }
+                      // Set files if available
+            if (initialData.files) {
+              setFiles(initialData.files);
+            }
           
           toast.success('Case data loaded successfully');
         } catch (error: any) {
-          console.error('🔥 EDIT MODE: Error loading initial data:', error);
+
           toast.error(`Error loading case data: ${error.message}`);
         }
       };
@@ -1514,7 +1513,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     try {
       // Generate OTP for demo
       const otp = generateOTP();
-      console.log(`Demo OTP for additional claimant ${index + 1} email ${email}: ${otp}`);
+      
       toast.success(`Demo OTP sent to ${email}: ${otp}`);
       
       // Update arrays to show modal for this specific claimant
@@ -1546,7 +1545,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     try {
       // Generate OTP for demo
       const otp = generateOTP();
-      console.log(`Demo OTP for additional claimant ${index + 1} phone ${countryCode} ${phone}: ${otp}`);
+      
       toast.success(`Demo OTP sent to ${countryCode} ${phone}: ${otp}`);
       
       // Update arrays to show modal for this specific claimant
@@ -1952,7 +1951,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     } else {
         // We're on the last step, but we don't submit here
         // Instead, the Submit button will directly call onSubmit
-        console.log('On last step, ready to submit via Submit button...');
+
       }
     }
   };
@@ -1978,21 +1977,15 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   
   // Form submission handler
   const onSubmit = async (data: FormData) => {
-    console.log('Starting form submission process...', { isSubmitting });
-    
     try {
       // Check authentication
       if (!isAuthenticated) {
-        console.log('Authentication check failed');
         toast.error('Please log in to submit your petition');
         router.push('/auth/login');
         return;
       }
     
       // Check if files are uploaded when required
-      console.log('🔥 SUBMIT: Current files state:', files);
-      console.log('🔥 SUBMIT: Arbitration agreement:', data.arbitrationAgreement);
-      
       const fileErrors: Record<string, string> = {};
       
       // Check required files based on form structure (using correct field names)
@@ -2009,19 +2002,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         fileErrors.agreementFile = "Agreement file is required";
       }
       
-      console.log('🔥 SUBMIT: File validation errors:', fileErrors);
-      
       if (Object.keys(fileErrors).length > 0) {
         // Show specific error messages for missing files
-        console.log('File validation failed:', fileErrors);
         const missingFiles = Object.values(fileErrors).join(', ');
         toast.error(`Please upload all required files: ${missingFiles}`);
         return;
       }
-      
-      console.log('🔥 SUBMIT: File validation passed');
-      
-      console.log('Files validated, preparing FormData...');
 
       // Create FormData for submission
       const formData = new FormData();
@@ -2029,7 +2015,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       // Add the draft ID if editing
       if (currentDraftId) {
         formData.append('id', currentDraftId);
-        console.log('Adding draft ID to formData:', currentDraftId);
       }
       
       // Restructure data to match backend expectations
@@ -2061,18 +2046,26 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         disputeDetails: data.disputeDetails,
         prayers: data.prayers,
         payment: data.payment,
-        arguments: data.arguments
+        arguments: data.arguments,
+        
+        // Include documents and evidence data (but not the file objects, just metadata)
+        documents: data.documents,
+        documentsEvidence: data.documentsEvidence ? data.documentsEvidence.map(evidence => ({
+          ...evidence,
+          // Remove file objects from the JSON data (they're sent separately as FormData)
+          attachedDocuments: evidence.attachedDocuments ? evidence.attachedDocuments.map((file, index) => 
+            file instanceof File ? { name: file.name, size: file.size, type: file.type, index } : file
+          ) : []
+        })) : []
       };
       
       // Add structured data as JSON
       formData.append('data', JSON.stringify(restructuredData));
-      console.log('Added structured data to formData');
       
       // Add files
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
           formData.append(key, file);
-          console.log(`Added file ${key} to formData: ${file.name}`);
         }
       });
       
@@ -2080,14 +2073,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
       
       if (supportingDocuments.length > 0) {
-        console.log(`Adding ${supportingDocuments.length} supporting documents`);
         supportingDocuments.forEach((file, index) => {
           formData.append(`supportingDocuments_${index}`, file);
         });
       }
       
       if (evidenceFiles.length > 0) {
-        console.log(`Adding ${evidenceFiles.length} evidence files`);
         evidenceFiles.forEach((file, index) => {
           formData.append(`evidenceFiles_${index}`, file);
         });
@@ -2096,40 +2087,30 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
-      // Add documentsEvidence files
+      // Add documentsEvidence files with exact field names expected by backend
       if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
-        console.log(`Adding documents evidence files`);
         data.documentsEvidence.forEach((evidence, evidenceIndex) => {
-          if (evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
+          if (evidence && evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
             evidence.attachedDocuments.forEach((file, fileIndex) => {
               if (file instanceof File) {
-                formData.append(`documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`, file);
-                console.log(`Added documentsEvidence file: ${file.name}`);
+                // Use exact field name format expected by backend controller
+                const fieldName = `documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`;
+                formData.append(fieldName, file);
               }
             });
           }
         });
       }
       
-      console.log('FormData prepared, submitting to API...');
-      
       // Show submission toast
       toast.loading('Submitting your petition...');
       
       // Submit the form
       if (currentDraftId) {
-        // Check if we're editing a draft or a submitted case
-        console.log('Editing existing case with ID:', currentDraftId);
-        console.log('Edit mode:', editMode);
-        console.log('Initial data status:', initialData?.status);
-        
         // If editing a submitted case (not a draft), use update API
         if (initialData && !initialData.isDraft && initialData.status !== 'draft') {
-          console.log('Updating submitted case...');
-          
           try {
             const response = await arbitrationApi.update(currentDraftId, formData);
-            console.log('Case update successful:', response);
             
             // Dismiss the loading toast
             toast.dismiss();
@@ -2142,18 +2123,13 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             // Dismiss the loading toast
             toast.dismiss();
             
-            console.error('Error updating case:', updateError);
             toast.error(`Failed to update case: ${updateError.message || 'Unknown error'}`);
             throw updateError;
           }
         } else {
           // If editing a draft, submit it
-          console.log('Submitting existing draft with ID:', currentDraftId);
-        
-        // Directly try the API call
-        try {
-        const response = await arbitrationApi.submitDraft(currentDraftId);
-          console.log('Draft submission successful:', response);
+          try {
+            const response = await arbitrationApi.submitDraft(currentDraftId);
           
           // Dismiss the loading toast
           toast.dismiss();
@@ -2177,17 +2153,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         // Dismiss the loading toast
         toast.dismiss();
         
-        console.error("Error submitting draft:", submitError);
         toast.error(`Failed to submit draft: ${submitError.message || "Unknown error"}`);
-    // New submission
-    console.log("Creating new arbitration submission...");
-          }
+        throw submitError; // Re-throw to be caught by the outer catch
+      }
     }
-  } else {        
-        // Directly try the API call
-        try {
+  } else {
+    // New submission
+    try {
         const response = await arbitrationApi.create(formData);
-          console.log('Submission successful:', response);
           
           // Dismiss the loading toast
           toast.dismiss();
@@ -2207,7 +2180,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           // Dismiss the loading toast
           toast.dismiss();
           
-          console.error('Error creating submission:', createError);
           toast.error(`Failed to submit: ${createError.message || 'Unknown error'}`);
           throw createError; // Re-throw to be caught by the outer catch
         }
@@ -2224,12 +2196,9 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       // Reset to first step
       setActiveStep(0);
       
-      console.log('Submission completed successfully');
       return true;
       
     } catch (error: any) {
-      console.error('Submission error:', error);
-      
       // Dismiss any existing toasts
       toast.dismiss();
       
@@ -2241,7 +2210,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       }
       return false;
     } finally {
-      console.log('Resetting submission state in finally block');
       setIsSubmitting(false);
     }
   };
@@ -2260,12 +2228,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       
       // Get form data
       const data = formValues;
-      
-      // Log what data we're trying to save
-      console.log('🔥 DRAFT SAVE: Form data being saved:', data);
-      console.log('🔥 DRAFT SAVE: natureOfDispute:', data.natureOfDispute);
-      console.log('🔥 DRAFT SAVE: disputeDescriptions:', data.disputeDescriptions);
-      console.log('🔥 DRAFT SAVE: documentsEvidence:', data.documentsEvidence);
       
       // Create FormData
       const formData = new FormData();
@@ -2309,14 +2271,11 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         'agreementFile': 'agreementFile'
       };
       
-      console.log("🔥 DRAFT SAVE: Current files state:", files);
+
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
           const backendKey = fileKeyMapping[key] || key;
-          console.log(`🔥 DRAFT SAVE: Adding file ${key} -> ${backendKey}:`, file.name);
           formData.append(backendKey, file);
-        } else {
-          console.log(`🔥 DRAFT SAVE: No file for key ${key}`);
         }
       });
       
@@ -2349,15 +2308,13 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       
       // Add documentsEvidence files
       if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
-        console.log('🔥 DRAFT SAVE: Processing documentsEvidence files:', data.documentsEvidence.length, 'entries');
         data.documentsEvidence.forEach((evidence, evidenceIndex) => {
-          console.log(`🔥 DRAFT SAVE: Evidence ${evidenceIndex}:`, evidence);
-          if (evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
-            console.log(`🔥 DRAFT SAVE: Evidence ${evidenceIndex} has ${evidence.attachedDocuments.length} attached documents`);
+          if (evidence && evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
             evidence.attachedDocuments.forEach((file, fileIndex) => {
               if (file instanceof File) {
-                formData.append(`documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`, file);
-                console.log(`🔥 DRAFT SAVE: Added file: documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex} - ${file.name}`);
+                // Use exact field name format expected by backend controller
+                const fieldName = `documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`;
+                formData.append(fieldName, file);
               }
             });
           }
@@ -2374,7 +2331,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       }
       
     } catch (error: any) {
-      console.error('Draft save error:', error);
       // Show more specific error message
       if (error.response?.status === 400) {
         toast.error('Error saving draft: Invalid form data. Please check your inputs.');
@@ -2395,9 +2351,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       setIsLoadingDrafts(true);
       
       // Get the specific draft by ID
-      console.log(`🔥 DRAFT LOADING: Attempting to load draft with ID: ${draftId}`);
       const draftResponse = await arbitrationApi.getDraft(draftId);
-      console.log("🔥 DRAFT LOADING: Draft API response:", draftResponse);
       
       // The response might be directly the draft or it might contain the draft in a property
       // Try to find the actual draft data in common response formats
@@ -2419,29 +2373,15 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       
       // Check if we found a draft
       if (!draft) {
-        console.error("🔥 DRAFT LOADING: Could not find valid draft data in response:", draftResponse);
         toast.error('Failed to load draft: Invalid draft format');
         return;
       }
-      
-      console.log("🔥 DRAFT LOADING: Found draft data:", draft);
-      console.log("🔥 DRAFT LOADING: Draft has formData:", !!draft.formData);
-      console.log("🔥 DRAFT LOADING: Draft keys:", Object.keys(draft));
       
       // Check if we have the new formData structure, otherwise fallback to reconstruction
       let completeFormData;
       
       if (draft.formData && typeof draft.formData === 'object') {
         // Use the stored formData structure (new format)
-        console.log("🔥 DRAFT LOADING: Using stored formData structure");
-        console.log("🔥 DRAFT LOADING: formData keys:", Object.keys(draft.formData));
-        
-        // Log each section to understand the structure
-        if (draft.formData.claimant) {
-          console.log("🔥 DRAFT LOADING: Claimant data found:", draft.formData.claimant);
-        } else {
-          console.log("🔥 DRAFT LOADING: No claimant data in formData");
-        }
         
         // Ensure managerDetails is an array
         const managerDetails = Array.isArray(draft.formData.managerDetails) 
@@ -2466,8 +2406,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         };
       } else {
         // Fallback: reconstruct from flattened data (old format)
-        console.log("🔥 DRAFT LOADING: Reconstructing from flattened data structure");
-        console.log("🔥 DRAFT LOADING: Available fields:", Object.keys(draft));
         
         // Ensure managerDetails is an array
         const managerDetails = Array.isArray(draft.managerDetails) 
@@ -2507,60 +2445,38 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           arguments: draft.arguments || initialArguments,
         };
         
-        console.log("🔥 DRAFT LOADING: Reconstructed claimant data:", reconstructedFormData.claimant);
         completeFormData = reconstructedFormData;
       }
       
-      console.log("🔥 DRAFT LOADING: Final form data structure:", completeFormData);
-      console.log("🔥 DRAFT LOADING: Final claimant data:", completeFormData.claimant);
-      
       // Reset the form with the form data
-      console.log("🔥 DRAFT LOADING: Calling reset() with form data");
       reset(completeFormData);
       
       // Manually update field arrays to match the loaded data
-      console.log("🔥 DRAFT LOADING: Updating field arrays");
       
       // Update field arrays by setting values directly (useFieldArray will sync automatically)
       if (completeFormData.disputeDescriptions && completeFormData.disputeDescriptions.length > 0) {
-        console.log("🔥 DRAFT LOADING: Setting disputeDescriptions field array with", completeFormData.disputeDescriptions.length, "items");
         setValue('disputeDescriptions', completeFormData.disputeDescriptions);
       }
       
       if (completeFormData.documentsEvidence && completeFormData.documentsEvidence.length > 0) {
-        console.log("🔥 DRAFT LOADING: Setting documentsEvidence field array with", completeFormData.documentsEvidence.length, "items");
         setValue('documentsEvidence', completeFormData.documentsEvidence);
       }
       
-      console.log("🔥 DRAFT LOADING: Triggering form validation");
       trigger();
       
       // Set the current draft ID
       setCurrentDraftId(draftId);
       
       // Set files if available
-      console.log("🔥 DRAFT LOADING: Draft files:", draft.files);
       if (draft.files) {
-        console.log("🔥 DRAFT LOADING: Setting files state:", draft.files);
         setFiles(draft.files);
-      } else {
-        console.log("🔥 DRAFT LOADING: No files found in draft");
       }
       
       // Set edit mode
       setEditMode(true);
       
-      // Verify the form was updated
-      const values = watch();
-      console.log("🔥 DRAFT LOADING: Form values after reset:", values);
-      console.log("🔥 DRAFT LOADING: Claimant name after reset:", values.claimant?.name);
-      console.log("🔥 DRAFT LOADING: Nature of dispute after reset:", values.natureOfDispute);
-      console.log("🔥 DRAFT LOADING: Dispute descriptions after reset:", values.disputeDescriptions);
-      console.log("🔥 DRAFT LOADING: Documents evidence after reset:", values.documentsEvidence);
-      
       toast.success('Draft loaded successfully');
     } catch (error: any) {
-      console.error('🔥 DRAFT LOADING: Draft load error:', error);
       toast.error(`Error loading draft: ${error.message}`);
     } finally {
       setIsLoadingDrafts(false);
@@ -3619,7 +3535,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
           ];
           
-        console.log("Rendering Documents section with issues:", disputeIssues);
+  
         
         return (
           <div className="space-y-4">
@@ -4068,7 +3984,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Effect to ensure form refreshes when a draft is loaded
   useEffect(() => {
     if (currentDraftId) {
-      console.log("Current draft ID changed, triggering form refresh:", currentDraftId);
+  
       
       // Force UI to update
       const timer = setTimeout(() => {
@@ -4173,7 +4089,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       // Call onSubmit directly
                       onSubmit(currentFormValues as any)
                         .catch(error => {
-                          console.error('Submission error:', error);
+                  
                           toast.error(`Error: ${error?.message || 'An unexpected error occurred'}`);
                         })
                         .finally(() => {

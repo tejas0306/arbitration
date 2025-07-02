@@ -131,7 +131,6 @@ export default function ArbitratorsManagement() {
       
       setStats(calculatedStats)
     } catch (error) {
-      console.error('Error fetching arbitrators:', error)
       toast.error('Failed to load arbitrators')
     } finally {
       setLoading(false)
@@ -197,7 +196,6 @@ export default function ArbitratorsManagement() {
       })
       fetchArbitrators()
     } catch (error: any) {
-      console.error('Error creating arbitrator:', error)
       toast.error(`Failed to create arbitrator: ${error.message}`)
     }
   }
@@ -224,7 +222,6 @@ export default function ArbitratorsManagement() {
         prev.map(a => a.id === arbitratorId ? { ...a, status: newStatus as any } : a)
       )
     } catch (error) {
-      console.error('Error updating arbitrator status:', error)
       toast.error('Failed to update arbitrator status')
     }
   }

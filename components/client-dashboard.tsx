@@ -41,7 +41,6 @@ export default function ClientDashboard() {
         const draftsData = await api.arbitration.getDrafts()
         setDrafts(draftsData || [])
       } catch (draftErr) {
-        console.error('Error fetching drafts:', draftErr)
         toast.error('Unable to load your saved drafts')
         setDrafts([])
       }
@@ -62,13 +61,11 @@ export default function ClientDashboard() {
         const data = await response.json()
         setCases(data.cases || [])
       } catch (casesErr) {
-        console.error('Error fetching cases:', casesErr)
         toast.error('Unable to load your cases')
         setCases([])
       }
       
     } catch (error) {
-      console.error('Dashboard error:', error)
       setError('Failed to load dashboard data')
       toast.error('Failed to load dashboard data')
     } finally {

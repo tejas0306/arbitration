@@ -93,7 +93,6 @@ export async function GET(request: NextRequest) {
       agreementFiles,
     });
   } catch (error) {
-    console.error('Error in file debug endpoint:', error);
     return NextResponse.json(
       { error: 'Error checking files', details: error.message },
       { status: 500 }

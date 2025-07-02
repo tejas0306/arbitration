@@ -34,7 +34,6 @@ export default function ArbitrationFormWrapper() {
         const user = await auth.getCurrentUser()
         setIsAuthenticated(true)
       } catch (error: any) {
-        console.error('Authentication error:', error)
         toast.error('Session expired. Please log in again.')
         router.push('/auth/login')
       } finally {

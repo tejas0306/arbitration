@@ -34,7 +34,6 @@ export default function AdminDashboardPage() {
           setError('Access denied. Admin privileges required.');
         }
       } catch (err) {
-        console.error('Error fetching data:', err);
         setError('Error loading data. Please try again later.');
       } finally {
         setLoading(false);
@@ -82,10 +81,8 @@ export default function AdminDashboardPage() {
     try {
       // This is a direct view - you would need to implement an API endpoint for this
       // For now, we'll just log to console for demonstration
-      console.log("Please implement a direct database view API endpoint");
       alert("Database query feature would go here. Currently, view the data using the tabs above.");
     } catch (err) {
-      console.error('Error:', err);
     }
   };
 

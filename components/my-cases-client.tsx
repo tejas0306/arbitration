@@ -24,13 +24,10 @@ export default function MyCasesClient() {
           arbitrationApi.getAll(),
           arbitrationApi.getDrafts()
         ]).catch(error => {
-          console.error("Error in Promise.all:", error);
           // Return default values if fetch fails
           return [[], []];
         });
         
-        console.log("Fetched cases:", allCases?.length || 0);
-        console.log("Fetched drafts:", draftsList?.length || 0);
         
         // Filter out drafts from regular cases
         const submittedCases = allCases.filter((c: any) => c.status !== 'DRAFT');
@@ -38,7 +35,6 @@ export default function MyCasesClient() {
         setDrafts(draftsList || []);
         setCases(submittedCases || []);
       } catch (error) {
-        console.error("Error fetching cases:", error)
         toast.error("Failed to load your cases")
       } finally {
         setIsLoading(false)

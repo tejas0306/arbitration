@@ -26,13 +26,11 @@ async function getAuthToken(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('Arbitration submit API route handler called');
     
     // Get authentication token
     const token = await getAuthToken(req);
     
     if (!token) {
-      console.error('Authentication required');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -43,11 +41,9 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     
     // Log form data keys for debugging
-    console.log('Form data keys:', Array.from(formData.keys()));
     
     // Forward the request to the backend API
     const apiUrl = getApiUrl('api/arbitration/submit');
-    console.log('Forwarding request to backend:', apiUrl);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -62,18 +58,15 @@ export async function POST(req: NextRequest) {
     const responseData = await response.json();
     
     if (!response.ok) {
-      console.error('Backend API error:', responseData);
       return NextResponse.json(
         { error: responseData.message || 'Failed to submit arbitration' },
         { status: response.status }
       );
     }
     
-    console.log('Arbitration submitted successfully:', responseData);
     return NextResponse.json(responseData);
     
   } catch (error: any) {
-    console.error('Error in arbitration submit API route:', error);
     return NextResponse.json(
       { error: error.message || 'An unexpected error occurred' },
       { status: 500 }

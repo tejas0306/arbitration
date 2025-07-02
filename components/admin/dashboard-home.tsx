@@ -167,7 +167,6 @@ export default function DashboardHome() {
           ])
         }
       } catch (error) {
-        console.error('Error fetching activity logs:', error)
         // Fallback to mock data if real data fetch fails
         setActivity([
           {
@@ -198,7 +197,6 @@ export default function DashboardHome() {
       }
 
     } catch (error) {
-      console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
     }

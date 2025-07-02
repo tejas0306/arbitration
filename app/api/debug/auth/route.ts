@@ -5,7 +5,6 @@ import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('Debug API route called');
     
     // Get all cookies for debugging
     const cookieStore = cookies();
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error in debug route:', error);
     return NextResponse.json(
       { error: 'Debug route error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }

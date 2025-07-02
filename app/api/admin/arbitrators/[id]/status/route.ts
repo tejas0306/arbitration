@@ -95,7 +95,6 @@ export async function PUT(
       arbitrator: updatedArbitrator
     });
   } catch (error) {
-    console.error('Error updating arbitrator status:', error);
     return NextResponse.json(
       { error: 'Failed to update arbitrator status' },
       { status: 500 }

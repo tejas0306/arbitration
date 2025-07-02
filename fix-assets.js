@@ -27,7 +27,6 @@ if (fs.existsSync(nextCssDir)) {
       const sourcePath = path.join(nextCssDir, file);
       const destPath = path.join(publicCssDir, file);
       fs.copyFileSync(sourcePath, destPath);
-      console.log(`Copied ${sourcePath} to ${destPath}`);
     }
   });
 }
@@ -56,7 +55,6 @@ if (fs.existsSync(nextJsDir)) {
         copyFilesRecursively(sourcePath, destPath);
       } else if (file.endsWith('.js')) {
         fs.copyFileSync(sourcePath, destPath);
-        console.log(`Copied ${sourcePath} to ${destPath}`);
       }
     });
   }
@@ -89,7 +87,4 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Fix server running at http://localhost:${port}`);
-  console.log('Your assets should now be accessible and no longer show 404 errors.');
-  console.log('Press Ctrl+C to stop this server when you want to return to your regular app.');
 }); 

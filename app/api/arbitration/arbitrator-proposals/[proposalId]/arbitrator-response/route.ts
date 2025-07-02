@@ -113,7 +113,6 @@ export async function POST(
           },
         });
       } catch (error) {
-        console.error('Error creating case assignment:', error);
         // Continue execution even if this fails
       }
       
@@ -139,7 +138,6 @@ export async function POST(
     
     return NextResponse.json(updatedProposal);
   } catch (error) {
-    console.error('Error processing arbitrator response:', error);
     return NextResponse.json(
       { error: 'Failed to process arbitrator response' },
       { status: 500 }

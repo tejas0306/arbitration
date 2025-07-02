@@ -9,7 +9,6 @@ export async function GET(
   try {
     // Get the filename from the route parameter
     const filename = params.filename;
-    console.log(`File access request: ${filename}`);
 
     if (!filename) {
       return NextResponse.json(
@@ -33,29 +32,24 @@ export async function GET(
       path.join(process.cwd(), 'uploads', 'arbitration', sanitizedFilename),
     ];
 
-    console.log(`Looking for file: ${sanitizedFilename}`);
-    console.log('Checking paths:', potentialPaths);
 
     // Find the first path that exists
     let actualFilePath = null;
     for (const potentialPath of potentialPaths) {
       if (fs.existsSync(potentialPath)) {
         actualFilePath = potentialPath;
-        console.log(`File found at: ${actualFilePath}`);
         break;
       }
     }
 
     // Check if the file exists
     if (!actualFilePath) {
-      console.error(`File not found in any of these locations:`, potentialPaths);
       return NextResponse.json(
         { error: 'File not found', filename: sanitizedFilename, searchedPaths: potentialPaths },
         { status: 404 }
       );
     }
 
-    console.log(`File found: ${actualFilePath}`);
 
     // Read the file
     const fileBuffer = fs.readFileSync(actualFilePath);
@@ -85,7 +79,6 @@ export async function GET(
       headers,
     });
   } catch (error: any) {
-    console.error('Error serving file:', error);
     return NextResponse.json(
       { error: 'Error serving file', details: error.message },
       { status: 500 }

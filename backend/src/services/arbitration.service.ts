@@ -243,8 +243,7 @@ export class ArbitrationService {
           data: processedData,
         });
       } else {
-        // Create a new draft
-        const caseNumber = await generateCaseId();
+        // Create a new draft (drafts don't need case numbers)
         
         const processedData = {
           // Store claimant data at top level for backward compatibility
@@ -290,7 +289,7 @@ export class ArbitrationService {
             payment: data.payment,
             arguments: data.arguments,
           },
-          caseNumber,
+          caseNumber: null, // Drafts don't have case numbers until submitted
           status: 'draft',
           isDraft: true,
           lastEditedAt: new Date(),

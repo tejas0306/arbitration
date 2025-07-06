@@ -145,7 +145,26 @@ export class ArbitrationService {
         evidenceFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('evidenceFiles_'))
           .map(key => fileReferences[key]),
-        // Documents evidence files
+        // NEW: DocumentsTabs files
+        scannedDocuments: Object.keys(fileReferences)
+          .filter(key => key.startsWith('scannedDoc_'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        affidavits: Object.keys(fileReferences)
+          .filter(key => key.startsWith('affidavit_'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        electronicEvidence: Object.keys(fileReferences)
+          .filter(key => key.startsWith('certificate_') || key.startsWith('supporting_files_'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // LEGACY: Documents evidence files
         documentsEvidenceFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('documentsEvidence_'))
           .reduce((acc, key) => {
@@ -357,7 +376,170 @@ export class ArbitrationService {
       throw new Error('This is not a draft');
     }
 
-    return draft;
+    // CRITICAL FIX: Transform file metadata for frontend consumption
+    const transformedDraft = {
+      ...draft,
+      // Convert file metadata to a format the frontend can use
+      fileMetadata: this.extractFileMetadata(draft.documents),
+      // Ensure documents structure is properly formatted
+      documents: this.formatDocumentsForFrontend(draft.documents),
+    };
+
+    return transformedDraft;
+  }
+
+  // Helper method to extract file metadata from documents
+  private extractFileMetadata(documents: any): Record<string, any> {
+    if (!documents || typeof documents !== 'object') {
+      return {};
+    }
+
+    const fileMetadata: Record<string, any> = {};
+
+    // Extract company documents
+    if (documents.companyDocs) {
+      if (documents.companyDocs.coi) {
+        fileMetadata['claimant.coi'] = {
+          name: documents.companyDocs.coi.originalName || documents.companyDocs.coi.filename,
+          path: documents.companyDocs.coi.path,
+          size: documents.companyDocs.coi.size,
+          type: documents.companyDocs.coi.mimetype,
+        };
+      }
+      if (documents.companyDocs.panCard) {
+        fileMetadata['claimant.panCard'] = {
+          name: documents.companyDocs.panCard.originalName || documents.companyDocs.panCard.filename,
+          path: documents.companyDocs.panCard.path,
+          size: documents.companyDocs.panCard.size,
+          type: documents.companyDocs.panCard.mimetype,
+        };
+      }
+      if (documents.companyDocs.gstCert) {
+        fileMetadata['claimant.gstCert'] = {
+          name: documents.companyDocs.gstCert.originalName || documents.companyDocs.gstCert.filename,
+          path: documents.companyDocs.gstCert.path,
+          size: documents.companyDocs.gstCert.size,
+          type: documents.companyDocs.gstCert.mimetype,
+        };
+      }
+    }
+
+    // Extract all files from allFiles if available
+    if (documents.allFiles) {
+      Object.keys(documents.allFiles).forEach(key => {
+        const file = documents.allFiles[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract supporting documents
+    if (documents.supportingDocuments && Array.isArray(documents.supportingDocuments)) {
+      documents.supportingDocuments.forEach((file, index) => {
+        if (file && typeof file === 'object') {
+          fileMetadata[`supportingDocuments_${index}`] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract evidence files
+    if (documents.evidenceFiles && Array.isArray(documents.evidenceFiles)) {
+      documents.evidenceFiles.forEach((file, index) => {
+        if (file && typeof file === 'object') {
+          fileMetadata[`evidenceFiles_${index}`] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract documents evidence files (legacy)
+    if (documents.documentsEvidenceFiles) {
+      Object.keys(documents.documentsEvidenceFiles).forEach(key => {
+        const file = documents.documentsEvidenceFiles[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract NEW DocumentsTabs files
+    if (documents.scannedDocuments) {
+      Object.keys(documents.scannedDocuments).forEach(key => {
+        const file = documents.scannedDocuments[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    if (documents.affidavits) {
+      Object.keys(documents.affidavits).forEach(key => {
+        const file = documents.affidavits[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    if (documents.electronicEvidence) {
+      Object.keys(documents.electronicEvidence).forEach(key => {
+        const file = documents.electronicEvidence[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    return fileMetadata;
+  }
+
+  // Helper method to format documents for frontend
+  private formatDocumentsForFrontend(documents: any): any {
+    if (!documents || typeof documents !== 'object') {
+      return {};
+    }
+
+    return {
+      ...documents,
+      // Ensure arrays are properly formatted
+      supportingDocuments: Array.isArray(documents.supportingDocuments) ? documents.supportingDocuments : [],
+      evidenceFiles: Array.isArray(documents.evidenceFiles) ? documents.evidenceFiles : [],
+    };
   }
 
   async findOne(id: string) {

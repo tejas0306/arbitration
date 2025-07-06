@@ -56,18 +56,36 @@ export const ElectronicEvidenceForm: React.FC<ElectronicEvidenceFormProps> = ({ 
                 control={control}
                 name={`documents.electronicEvidence.${index}.certificateFile`}
                 render={({ field: { onChange, value } }) => (
-                  <FileField
-                    label="Certificate File"
-                    name={`certificate_${index}`}
-                    onChange={(file) => {
-                      if (!Array.isArray(file)) {
-                        onChange(file);
-                      }
-                    }}
-                    required
-                    accept=".pdf,.doc,.docx"
-                    error={!value ? "Certificate file is required" : ""}
-                  />
+                  <div>
+                    <FileField
+                      label="Certificate File"
+                      name={`certificate_${index}`}
+                      onChange={(file) => {
+                        if (!Array.isArray(file)) {
+                          onChange(file);
+                        }
+                      }}
+                      required
+                      accept=".pdf,.doc,.docx"
+                      error={!value ? "Certificate file is required" : ""}
+                    />
+                    {value && value.isExisting && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                        <div className="flex items-center justify-between">
+                          <span className="text-green-700 text-sm">✓ Previously uploaded: {value.name}</span>
+                          {value.path && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(`/api/arbitration/files/${value.path.split('/').pop()}`, '_blank')}
+                              className="text-blue-600 hover:text-blue-800 text-sm underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -80,17 +98,39 @@ export const ElectronicEvidenceForm: React.FC<ElectronicEvidenceFormProps> = ({ 
                 control={control}
                 name={`documents.electronicEvidence.${index}.supportingFiles`}
                 render={({ field: { onChange, value } }) => (
-                  <FileField
-                    label="Supporting Files"
-                    name={`supporting_files_${index}`}
-                    onChange={(files) => {
-                      if (Array.isArray(files)) {
-                        onChange(files);
-                      }
-                    }}
-                    multiple={true}
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp3,.mp4,.wav,.avi"
-                  />
+                  <div>
+                    <FileField
+                      label="Supporting Files"
+                      name={`supporting_files_${index}`}
+                      onChange={(files) => {
+                        if (Array.isArray(files)) {
+                          onChange(files);
+                        }
+                      }}
+                      multiple={true}
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp3,.mp4,.wav,.avi"
+                    />
+                    {value && Array.isArray(value) && value.length > 0 && value[0]?.isExisting && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                        <div className="space-y-1">
+                          {value.map((file: any, fileIndex: number) => (
+                            <div key={fileIndex} className="flex items-center justify-between">
+                              <span className="text-green-700 text-sm">✓ Previously uploaded: {file.name}</span>
+                              {file.path && (
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(`/api/arbitration/files/${file.path.split('/').pop()}`, '_blank')}
+                                  className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                >
+                                  View
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               />
               <p className="text-xs text-gray-500 mt-1">

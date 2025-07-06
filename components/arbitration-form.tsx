@@ -50,7 +50,6 @@ const steps = [
   "Arbitration Agreement",
   "Nature of Dispute",
   "Dispute Description",
-  "Documents/Evidence",
   "Prayers & Reliefs",
   "Documents",
   "Payment",
@@ -499,6 +498,9 @@ export const FileField: React.FC<FileFieldProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
   
+  // Get existing file info from the parent component's files state
+  const existingFile = (window as any).currentFiles?.[name];
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (multiple) {
       const files = e.target.files ? Array.from(e.target.files) : [];
@@ -519,6 +521,10 @@ export const FileField: React.FC<FileFieldProps> = ({
     setFileNames([]);
   };
   
+  // Show existing file name if available
+  const displayFileNames = fileNames.length > 0 ? fileNames : 
+    (existingFile && existingFile.name ? [existingFile.name] : []);
+  
   return (
     <div>
       <label htmlFor={id} className="block text-sm mb-1">
@@ -537,11 +543,27 @@ export const FileField: React.FC<FileFieldProps> = ({
           className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
         />
         
-        {fileNames.length > 0 && (
+        {displayFileNames.length > 0 && (
           <div className="mt-2">
-            {fileNames.map((name, index) => (
-              <div key={index} className="text-sm flex items-center">
-                <span className="mr-2">• {name}</span>
+            {displayFileNames.map((name, index) => (
+              <div key={index} className="text-sm flex items-center justify-between bg-gray-50 p-2 rounded">
+                <span className="mr-2">📎 {name}</span>
+                {existingFile && existingFile.isExisting && fileNames.length === 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 text-xs">(Previously uploaded)</span>
+                    {existingFile.path && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.open(`/api/arbitration/files/${existingFile.path.split('/').pop()}`, '_blank');
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs underline"
+                      >
+                        View
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             <button 
@@ -690,7 +712,7 @@ const formSchema = z.object({
     reliefSought: z.string().min(1, "Relief Sought is required"),
   })).min(1, "At least one dispute description is required"),
 
-  // Documents/Evidence (can be multiple)
+  // Documents/Evidence (can be multiple) - Made optional since we removed the duplicate step
   documentsEvidence: z.array(z.object({
     documentType: z.string().min(1, "Document Type is required"),
     documentId: z.string().optional(), // Auto generated
@@ -698,7 +720,7 @@ const formSchema = z.object({
     supportingClaimNumber: z.string().min(1, "Supporting Claim Number is required"),
     dateOfIssueSign: z.string().min(1, "Date of Issue/Sign of the document is required"),
     attachedDocuments: z.array(z.any()).min(1, "At least one document must be attached"),
-  })).min(1, "At least one document/evidence is required"),
+  })).optional().default([]),
   
   // Prayers & Reliefs
   prayers: z.object({
@@ -930,6 +952,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   const [cityOptions, setCityOptions] = useState<Array<{ value: string, label: string }>>([]);
   const [countryOptions, setCountryOptions] = useState<Array<{ value: string, label: string }>>([]);
   
+  // File management state - Store files separately from form data
+  const [files, setFiles] = useState<Record<string, File | null>>({});
+  
+  // Make files accessible to FileField components
+  useEffect(() => {
+    (window as any).currentFiles = files;
+  }, [files]);
+  
   // Check authentication status on component mount - using an empty dependency array to run only once
   useEffect(() => {
     let isMounted = true;
@@ -963,37 +993,27 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     // Only fetch drafts when authenticated
     if (isAuthenticated) {
       const fetchDrafts = async () => {
-    try {
-      setIsLoadingDrafts(true);
-      const drafts = await arbitrationApi.getDrafts();
-      setDraftList(drafts);
-    } catch (error) {
+        try {
+          setIsLoadingDrafts(true);
+          const drafts = await arbitrationApi.getDrafts();
+          setDraftList(drafts);
+        } catch (error) {
           console.error("Error fetching drafts:", error);
           toast.error("Failed to load drafts");
-    } finally {
-      setIsLoadingDrafts(false);
-    }
-  };
+        } finally {
+          setIsLoadingDrafts(false);
+        }
+      };
 
       fetchDrafts();
     }
   }, [isAuthenticated]); // Only depends on authentication state
 
-
-  
-  // File state for document uploads (not managed by react-hook-form)
-  const [files, setFiles] = useState<Record<string, File | null>>({
-    coi: null,
-    panCard: null,
-    gstCert: null,
-    agreementFile: null,
-  });
-
-  // Verification states
+  // Email/Phone verification states
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
   
-  // Additional claimant verification states (arrays to track each claimant)
+  // Additional claimant verification states (arrays to handle multiple claimants)
   const [additionalClaimantEmailVerified, setAdditionalClaimantEmailVerified] = useState<boolean[]>([]);
   const [additionalClaimantPhoneVerified, setAdditionalClaimantPhoneVerified] = useState<boolean[]>([]);
   
@@ -1094,14 +1114,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     name: "disputeDescriptions",
   });
 
-  const { 
-    fields: documentsEvidenceFields, 
-    append: appendDocumentEvidence,
-    remove: removeDocumentEvidence
-  } = useFieldArray({
-    control,
-    name: "documentsEvidence",
-  });
+  // Removed documentsEvidence field array since we eliminated the duplicate Documents/Evidence step
   
   // Watch form values
   const formValues = watch();
@@ -1109,7 +1122,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Effect to load initial data when in edit mode (after useForm is defined)
   useEffect(() => {
     if (initialData && petitionId) {
-
       
       // Set edit mode and current draft ID
       setEditMode(true);
@@ -1142,7 +1154,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
               arguments: initialData.formData.arguments || initialArguments,
             };
           } else {
-  
             // Fallback: reconstruct from flattened data (old format)
             const managerDetails = Array.isArray(initialData.managerDetails) 
               ? initialData.managerDetails 
@@ -1182,8 +1193,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             };
           }
           
-
-          
           // Reset the form with the loaded data
           reset(completeFormData);
           
@@ -1196,14 +1205,128 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             setValue('documentsEvidence', completeFormData.documentsEvidence);
           }
           
-                      // Set files if available
-            if (initialData.files) {
-              setFiles(initialData.files);
+                                // CRITICAL FIX: Restore file metadata for file visibility
+          if (initialData.fileMetadata) {
+            // Create a file metadata state for display purposes
+            const fileDisplayState: Record<string, any> = {};
+            
+            Object.keys(initialData.fileMetadata).forEach(fieldName => {
+              const fileInfo = initialData.fileMetadata[fieldName];
+              if (fileInfo && fileInfo.name) {
+                // Create a mock file object for display
+                fileDisplayState[fieldName] = {
+                  name: fileInfo.name,
+                  size: fileInfo.size,
+                  type: fileInfo.type,
+                  path: fileInfo.path,
+                  isExisting: true, // Flag to indicate this is an existing file
+                };
+              }
+            });
+            
+            setFiles(fileDisplayState);
+            
+            // ENHANCEMENT: Also populate DocumentsTabs file fields
+            // Map backend field names to frontend form structure
+            const documentsData = completeFormData.documents || {};
+            
+            // Handle scanned documents
+            if (documentsData.scannedDocuments) {
+              documentsData.scannedDocuments.forEach((doc: any, index: number) => {
+                const fieldName = `scannedDoc_${index}`;
+                if (initialData.fileMetadata[fieldName]) {
+                  // Set the file info in the form data
+                  setValue(`documents.scannedDocuments.${index}.file`, {
+                    name: initialData.fileMetadata[fieldName].name,
+                    isExisting: true,
+                    path: initialData.fileMetadata[fieldName].path
+                  });
+                }
+              });
             }
+            
+            // Handle affidavits
+            if (documentsData.affidavits) {
+              documentsData.affidavits.forEach((affidavit: any, index: number) => {
+                const fieldName = `affidavit_${index}`;
+                if (initialData.fileMetadata[fieldName]) {
+                  setValue(`documents.affidavits.${index}.file`, {
+                    name: initialData.fileMetadata[fieldName].name,
+                    isExisting: true,
+                    path: initialData.fileMetadata[fieldName].path
+                  });
+                }
+              });
+            }
+            
+            // Handle electronic evidence
+            if (documentsData.electronicEvidence) {
+              documentsData.electronicEvidence.forEach((evidence: any, index: number) => {
+                const certificateFieldName = `certificate_${index}`;
+                if (initialData.fileMetadata[certificateFieldName]) {
+                  setValue(`documents.electronicEvidence.${index}.certificateFile`, {
+                    name: initialData.fileMetadata[certificateFieldName].name,
+                    isExisting: true,
+                    path: initialData.fileMetadata[certificateFieldName].path
+                  });
+                }
+                
+                // Handle supporting files
+                const supportingFieldName = `supporting_files_${index}`;
+                if (initialData.fileMetadata[supportingFieldName]) {
+                  setValue(`documents.electronicEvidence.${index}.supportingFiles`, [{
+                    name: initialData.fileMetadata[supportingFieldName].name,
+                    isExisting: true,
+                    path: initialData.fileMetadata[supportingFieldName].path
+                  }]);
+                }
+              });
+            }
+          } else if (initialData.files) {
+            // Fallback to old format
+            setFiles(initialData.files);
+          }
+            
+            // CRITICAL FIX: Restore verification states if available
+            if (initialData.verificationStates) {
+              setEmailVerified(initialData.verificationStates.emailVerified || false);
+              setPhoneVerified(initialData.verificationStates.phoneVerified || false);
+              setAdditionalClaimantEmailVerified(initialData.verificationStates.additionalClaimantEmailVerified || []);
+              setAdditionalClaimantPhoneVerified(initialData.verificationStates.additionalClaimantPhoneVerified || []);
+            } else {
+              // In edit mode or when loading existing data, assume verification is already done
+              // This prevents asking for re-verification of already saved data
+              setEmailVerified(true);
+              setPhoneVerified(true);
+              setAdditionalClaimantEmailVerified(Array(additionalClaimantFields.length).fill(true));
+              setAdditionalClaimantPhoneVerified(Array(additionalClaimantFields.length).fill(true));
+            }
+          
+          // CRITICAL FIX: Restore verification states in edit mode
+          if (initialData.verificationStates) {
+            setEmailVerified(initialData.verificationStates.emailVerified || false);
+            setPhoneVerified(initialData.verificationStates.phoneVerified || false);
+            setAdditionalClaimantEmailVerified(initialData.verificationStates.additionalClaimantEmailVerified || []);
+            setAdditionalClaimantPhoneVerified(initialData.verificationStates.additionalClaimantPhoneVerified || []);
+          } else {
+            // For existing data without verification states, assume verified if email/phone exist
+            const hasEmail = completeFormData.claimant?.email;
+            const hasPhone = completeFormData.claimant?.phone;
+            
+            if (hasEmail) setEmailVerified(true);
+            if (hasPhone) setPhoneVerified(true);
+            
+            // Set verification for additional claimants
+            if (completeFormData.additionalClaimants) {
+              const emailStates = completeFormData.additionalClaimants.map(ac => !!ac.email);
+              const phoneStates = completeFormData.additionalClaimants.map(ac => !!ac.phone);
+              setAdditionalClaimantEmailVerified(emailStates);
+              setAdditionalClaimantPhoneVerified(phoneStates);
+            }
+          }
           
           toast.success('Case data loaded successfully');
         } catch (error: any) {
-
           toast.error(`Error loading case data: ${error.message}`);
         }
       };
@@ -1289,11 +1412,43 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 // Extract unique cities from all post offices
                 const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
                 
-                // Update form fields with new values
+                // Update form fields with new values for this specific respondent
                 setValue(`respondents.${index}.country`, postOffice.Country);
                 setValue(`respondents.${index}.state`, postOffice.State);
                 setValue(`respondents.${index}.district`, postOffice.District);
                 setValue(`respondents.${index}.city`, cities[0] || "");
+                
+                // CRITICAL FIX: Update location options for respondent forms
+                setCountryOptions(prev => {
+                  const existing = prev.find(opt => opt.value === postOffice.Country);
+                  if (!existing) {
+                    return [...prev, { value: postOffice.Country, label: postOffice.Country }];
+                  }
+                  return prev;
+                });
+                
+                setStateOptions(prev => {
+                  const existing = prev.find(opt => opt.value === postOffice.State);
+                  if (!existing) {
+                    return [...prev, { value: postOffice.State, label: postOffice.State }];
+                  }
+                  return prev;
+                });
+                
+                setDistrictOptions(prev => {
+                  const existing = prev.find(opt => opt.value === postOffice.District);
+                  if (!existing) {
+                    return [...prev, { value: postOffice.District, label: postOffice.District }];
+                  }
+                  return prev;
+                });
+                
+                setCityOptions(prev => {
+                  const newCities = cities.map(city => ({ value: city, label: city }));
+                  const existingValues = prev.map(opt => opt.value);
+                  const filteredNewCities = newCities.filter(city => !existingValues.includes(city.value));
+                  return [...prev, ...filteredNewCities];
+                });
                 
                 toast.success(`Respondent ${index + 1}: Pincode ${respPincode} found, location details loaded.`);
               } else {
@@ -1361,6 +1516,58 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   const panNumber = watch('claimant.pan');
   const cinNumber = watch('claimant.cin');
   
+  // Watch for email and phone changes to auto-verify if they match existing data
+  const currentEmail = watch('claimant.email');
+  const currentPhone = watch('claimant.phone');
+  
+  useEffect(() => {
+    // Auto-verify if email/phone match the initial loaded data (existing verified data)
+    if (initialData && (editMode || petitionId)) {
+      const initialEmail = initialData.email || initialData.claimant?.email || initialData.formData?.claimant?.email;
+      const initialPhone = initialData.phone || initialData.claimant?.phone || initialData.formData?.claimant?.phone;
+      
+      if (currentEmail && currentEmail === initialEmail && !emailVerified) {
+        setEmailVerified(true);
+      }
+      if (currentPhone && currentPhone === initialPhone && !phoneVerified) {
+        setPhoneVerified(true);
+      }
+    }
+  }, [currentEmail, currentPhone, initialData, editMode, petitionId, emailVerified, phoneVerified]);
+  
+  // Watch for additional claimant email/phone changes to auto-verify
+  const additionalClaimants = watch('additionalClaimants') || [];
+  
+  useEffect(() => {
+    // Auto-verify additional claimants if their email/phone match existing data
+    if (initialData && (editMode || petitionId) && additionalClaimants.length > 0) {
+      const initialAdditionalClaimants = initialData.additionalClaimants || initialData.formData?.additionalClaimants || [];
+      
+      additionalClaimants.forEach((claimant, index) => {
+        if (initialAdditionalClaimants[index]) {
+          const initialEmail = initialAdditionalClaimants[index].email;
+          const initialPhone = initialAdditionalClaimants[index].phone;
+          
+          if (claimant.email && claimant.email === initialEmail && !additionalClaimantEmailVerified[index]) {
+            setAdditionalClaimantEmailVerified(prev => {
+              const newVerified = [...prev];
+              newVerified[index] = true;
+              return newVerified;
+            });
+          }
+          
+          if (claimant.phone && claimant.phone === initialPhone && !additionalClaimantPhoneVerified[index]) {
+            setAdditionalClaimantPhoneVerified(prev => {
+              const newVerified = [...prev];
+              newVerified[index] = true;
+              return newVerified;
+            });
+          }
+        }
+      });
+    }
+  }, [additionalClaimants, initialData, editMode, petitionId, additionalClaimantEmailVerified, additionalClaimantPhoneVerified]);
+  
   // Helper functions for field arrays
   const addAdditionalClaimant = () => {
     appendAdditionalClaimant(initialAdditionalClaimant);
@@ -1423,13 +1630,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     appendDisputeDescription(initialDisputeDescription);
   };
 
-  const addDocumentEvidence = () => {
-    const newDocumentEvidence = {
-      ...initialDocumentEvidence,
-      documentId: `DOC-${Date.now()}`, // Auto-generate document ID
-    };
-    appendDocumentEvidence(newDocumentEvidence);
-  };
+  // Removed addDocumentEvidence function since we eliminated the duplicate Documents/Evidence step
 
   // Verification functions
   const generateOTP = () => {
@@ -1676,7 +1877,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           'claimant.phone'
         ];
         
-        // Check if email and phone are verified
+        // Check if email and phone are verified (skip if already verified or in edit mode)
         if (!emailVerified) {
           toast.error('Please verify your email address before proceeding');
           return false;
@@ -1740,7 +1941,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           );
         });
         
-        // Check if additional claimant email and phone are verified
+        // Check if additional claimant email and phone are verified (skip if already verified or in edit mode)
         for (let index = 0; index < additionalClaimantFields.length; index++) {
           if (!additionalClaimantEmailVerified[index]) {
             toast.error(`Please verify email for Additional Claimant ${index + 1}`);
@@ -1804,37 +2005,10 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           if (!result) return false;
         }
         return true;
-      case 6: // Documents/Evidence
-        // Validate all documents evidence
-        const documentsEvidence = watch('documentsEvidence') || [];
-        if (documentsEvidence.length === 0) {
-          toast.error('Please add at least one document/evidence');
-          return false;
-        }
-        
-        for (let i = 0; i < documentsEvidence.length; i++) {
-          const fieldPaths = [
-            `documentsEvidence.${i}.documentType`,
-            `documentsEvidence.${i}.relevantClauseNumber`,
-            `documentsEvidence.${i}.supportingClaimNumber`,
-            `documentsEvidence.${i}.dateOfIssueSign`,
-            `documentsEvidence.${i}.attachedDocuments`
-          ];
-          const result = await trigger(fieldPaths as any);
-          if (!result) return false;
-          
-          // Check that at least one document is attached
-          const attachedDocs = documentsEvidence[i]?.attachedDocuments || [];
-          if (attachedDocs.length === 0) {
-            toast.error(`Please attach at least one document for evidence entry ${i + 1}`);
-            return false;
-          }
-        }
-        return true;
-      case 7: // Prayers & Reliefs
+      case 6: // Prayers & Reliefs
         fieldsToValidate = ['prayers.prayers'];
         break;
-      case 8: // Documents
+      case 7: // Documents
         // Check at least one of the document types has been uploaded
         const scannedDocs = watch('documents.scannedDocuments') || [];
         const affidavits = watch('documents.affidavits') || [];
@@ -1903,12 +2077,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         }
         
         return true;
-      case 9: // Payment
+      case 8: // Payment
         fieldsToValidate = [
           'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
         ];
         break;
-      case 10: // Arguments
+      case 9: // Arguments
         if (argumentFields.length > 0) {
           argumentFields.forEach((_, index) => {
             fieldsToValidate.push(`arguments.argumentsPerIssue.${index}`);
@@ -1972,6 +2146,24 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         [fieldName]: file
       }));
       setFormChanged(true);
+      
+      // CRITICAL FIX: Also store file info in form data for documents sections
+      if (fieldName.includes('documentsEvidence') && file) {
+        // Extract indices from field name like "documentsEvidence_0_attachedDocuments_0"
+        const matches = fieldName.match(/documentsEvidence_(\d+)_attachedDocuments_(\d+)/);
+        if (matches) {
+          const evidenceIndex = parseInt(matches[1]);
+          const fileIndex = parseInt(matches[2]);
+          
+          // Update the form data to include this file
+          const currentEvidence = watch('documentsEvidence') || [];
+          if (currentEvidence[evidenceIndex]) {
+            const updatedAttachedDocs = [...(currentEvidence[evidenceIndex].attachedDocuments || [])];
+            updatedAttachedDocs[fileIndex] = file;
+            setValue(`documentsEvidence.${evidenceIndex}.attachedDocuments`, updatedAttachedDocs);
+          }
+        }
+      }
     }
   };
   
@@ -2087,7 +2279,44 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
-      // Add documentsEvidence files with exact field names expected by backend
+      // Add files from the new DocumentsTabs component (using correct field names)
+      const { scannedDocuments = [], affidavits = [], electronicEvidence = [] } = data.documents;
+      
+      // Add scanned documents files (backend expects scannedDoc_${index})
+      if (scannedDocuments.length > 0) {
+        scannedDocuments.forEach((doc, index) => {
+          if (doc && doc.file instanceof File) {
+            formData.append(`scannedDoc_${index}`, doc.file);
+          }
+        });
+      }
+      
+      // Add affidavit files (backend expects affidavit_${index})
+      if (affidavits.length > 0) {
+        affidavits.forEach((affidavit, index) => {
+          if (affidavit && affidavit.file instanceof File) {
+            formData.append(`affidavit_${index}`, affidavit.file);
+          }
+        });
+      }
+      
+      // Add electronic evidence files (backend expects certificate_${index} and supporting_files_${index})
+      if (electronicEvidence.length > 0) {
+        electronicEvidence.forEach((evidence, index) => {
+          if (evidence && evidence.certificateFile instanceof File) {
+            formData.append(`certificate_${index}`, evidence.certificateFile);
+          }
+          if (evidence && evidence.supportingFiles && Array.isArray(evidence.supportingFiles)) {
+            evidence.supportingFiles.forEach((file, fileIndex) => {
+              if (file instanceof File) {
+                formData.append(`supporting_files_${index}`, file);
+              }
+            });
+          }
+        });
+      }
+      
+      // Add documentsEvidence files (legacy support for existing data)
       if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
         data.documentsEvidence.forEach((evidence, evidenceIndex) => {
           if (evidence && evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
@@ -2256,7 +2485,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         prayers: data.prayers || {},
         documents: data.documents || {},
         payment: data.payment || {},
-        arguments: data.arguments || {}
+        arguments: data.arguments || {},
+        // CRITICAL FIX: Save verification states
+        verificationStates: {
+          emailVerified,
+          phoneVerified,
+          additionalClaimantEmailVerified,
+          additionalClaimantPhoneVerified
+        }
       };
       
       // Add structured data as JSON
@@ -2271,7 +2507,6 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         'agreementFile': 'agreementFile'
       };
       
-
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
           const backendKey = fileKeyMapping[key] || key;
@@ -2279,12 +2514,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         }
       });
       
-      // Add file metadata to indicate which files are present
+      // CRITICAL FIX: Add file metadata to indicate which files are present
       const fileMetadata = {
         hasCoiFile: !!files['claimant.coi'],
         hasPanCardFile: !!files['claimant.panCard'],
         hasGstCertFile: !!files['claimant.gstCert'],
-        hasAgreementFile: !!files['agreementFile']
+        hasAgreementFile: !!files['agreementFile'],
+        // Include all file keys for restoration
+        fileKeys: Object.keys(files).filter(key => files[key] !== null)
       };
       formData.append('fileMetadata', JSON.stringify(fileMetadata));
       
@@ -2306,7 +2543,44 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       // Add document types
       formData.append('documentTypes', JSON.stringify(documentTypes));
       
-      // Add documentsEvidence files
+      // Add files from the new DocumentsTabs component (for draft saving - using correct field names)
+      const { scannedDocuments = [], affidavits = [], electronicEvidence = [] } = data.documents;
+      
+      // Add scanned documents files (backend expects scannedDoc_${index})
+      if (scannedDocuments.length > 0) {
+        scannedDocuments.forEach((doc, index) => {
+          if (doc && doc.file instanceof File) {
+            formData.append(`scannedDoc_${index}`, doc.file);
+          }
+        });
+      }
+      
+      // Add affidavit files (backend expects affidavit_${index})
+      if (affidavits.length > 0) {
+        affidavits.forEach((affidavit, index) => {
+          if (affidavit && affidavit.file instanceof File) {
+            formData.append(`affidavit_${index}`, affidavit.file);
+          }
+        });
+      }
+      
+      // Add electronic evidence files (backend expects certificate_${index} and supporting_files_${index})
+      if (electronicEvidence.length > 0) {
+        electronicEvidence.forEach((evidence, index) => {
+          if (evidence && evidence.certificateFile instanceof File) {
+            formData.append(`certificate_${index}`, evidence.certificateFile);
+          }
+          if (evidence && evidence.supportingFiles && Array.isArray(evidence.supportingFiles)) {
+            evidence.supportingFiles.forEach((file, fileIndex) => {
+              if (file instanceof File) {
+                formData.append(`supporting_files_${index}`, file);
+              }
+            });
+          }
+        });
+      }
+      
+      // Add documentsEvidence files (legacy support for existing data)
       if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
         data.documentsEvidence.forEach((evidence, evidenceIndex) => {
           if (evidence && evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
@@ -2343,7 +2617,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     } finally {
       setIsSavingDraft(false);
     }
-  }, [isAuthenticated, currentDraftId, formValues, files, router]);
+  }, [isAuthenticated, currentDraftId, formValues, files, router, emailVerified, phoneVerified, additionalClaimantEmailVerified, additionalClaimantPhoneVerified]);
   
   // Load draft handler
   const loadDraft = async (draftId: string) => {
@@ -2467,8 +2741,85 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       // Set the current draft ID
       setCurrentDraftId(draftId);
       
-      // Set files if available
-      if (draft.files) {
+      // CRITICAL FIX: Restore file metadata for file visibility
+      if (draft.fileMetadata) {
+        // Create a file metadata state for display purposes
+        const fileDisplayState: Record<string, any> = {};
+        
+        Object.keys(draft.fileMetadata).forEach(fieldName => {
+          const fileInfo = draft.fileMetadata[fieldName];
+          if (fileInfo && fileInfo.name) {
+            // Create a mock file object for display
+            fileDisplayState[fieldName] = {
+              name: fileInfo.name,
+              size: fileInfo.size,
+              type: fileInfo.type,
+              path: fileInfo.path,
+              isExisting: true, // Flag to indicate this is an existing file
+            };
+          }
+        });
+        
+        setFiles(fileDisplayState);
+        
+        // ENHANCEMENT: Also populate DocumentsTabs file fields
+        // Map backend field names to frontend form structure
+        const documentsData = completeFormData.documents || {};
+        
+        // Handle scanned documents
+        if (documentsData.scannedDocuments) {
+          documentsData.scannedDocuments.forEach((doc: any, index: number) => {
+            const fieldName = `scannedDoc_${index}`;
+            if (draft.fileMetadata[fieldName]) {
+              // Set the file info in the form data
+              setValue(`documents.scannedDocuments.${index}.file`, {
+                name: draft.fileMetadata[fieldName].name,
+                isExisting: true,
+                path: draft.fileMetadata[fieldName].path
+              });
+            }
+          });
+        }
+        
+        // Handle affidavits
+        if (documentsData.affidavits) {
+          documentsData.affidavits.forEach((affidavit: any, index: number) => {
+            const fieldName = `affidavit_${index}`;
+            if (draft.fileMetadata[fieldName]) {
+              setValue(`documents.affidavits.${index}.file`, {
+                name: draft.fileMetadata[fieldName].name,
+                isExisting: true,
+                path: draft.fileMetadata[fieldName].path
+              });
+            }
+          });
+        }
+        
+        // Handle electronic evidence
+        if (documentsData.electronicEvidence) {
+          documentsData.electronicEvidence.forEach((evidence: any, index: number) => {
+            const certificateFieldName = `certificate_${index}`;
+            if (draft.fileMetadata[certificateFieldName]) {
+              setValue(`documents.electronicEvidence.${index}.certificateFile`, {
+                name: draft.fileMetadata[certificateFieldName].name,
+                isExisting: true,
+                path: draft.fileMetadata[certificateFieldName].path
+              });
+            }
+            
+            // Handle supporting files
+            const supportingFieldName = `supporting_files_${index}`;
+            if (draft.fileMetadata[supportingFieldName]) {
+              setValue(`documents.electronicEvidence.${index}.supportingFiles`, [{
+                name: draft.fileMetadata[supportingFieldName].name,
+                isExisting: true,
+                path: draft.fileMetadata[supportingFieldName].path
+              }]);
+            }
+          });
+        }
+      } else if (draft.files) {
+        // Fallback to old format
         setFiles(draft.files);
       }
       
@@ -2602,7 +2953,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   type="button" 
                   variant={emailVerified ? "default" : "outline"}
                   size="sm"
-                  className="absolute top-6 right-2 h-8 px-3"
+                  className={`absolute top-6 right-2 h-8 px-3 ${emailVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                   onClick={emailVerified ? undefined : sendEmailVerification}
                   disabled={emailVerified || !watch('claimant.email') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch('claimant.email') || '')}
                 >
@@ -2621,7 +2972,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   type="button" 
                   variant={phoneVerified ? "default" : "outline"}
                   size="sm"
-                  className="absolute top-6 right-2 h-8 px-3"
+                  className={`absolute top-6 right-2 h-8 px-3 ${phoneVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                   onClick={phoneVerified ? undefined : sendPhoneVerification}
                   disabled={phoneVerified || !watch('claimant.phone') || !/^\d{10}$/.test(watch('claimant.phone') || '')}
                 >
@@ -2734,7 +3085,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       type="button" 
                       variant={additionalClaimantEmailVerified[index] ? "default" : "outline"}
                       size="sm"
-                      className="absolute top-6 right-2 h-8 px-3"
+                      className={`absolute top-6 right-2 h-8 px-3 ${additionalClaimantEmailVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                       onClick={additionalClaimantEmailVerified[index] ? undefined : () => sendAdditionalClaimantEmailVerification(index)}
                       disabled={additionalClaimantEmailVerified[index] || !watch(`additionalClaimants.${index}.email`) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch(`additionalClaimants.${index}.email`) || '')}
                     >
@@ -2753,7 +3104,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       type="button" 
                       variant={additionalClaimantPhoneVerified[index] ? "default" : "outline"}
                       size="sm"
-                      className="absolute top-6 right-2 h-8 px-3"
+                      className={`absolute top-6 right-2 h-8 px-3 ${additionalClaimantPhoneVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                       onClick={additionalClaimantPhoneVerified[index] ? undefined : () => sendAdditionalClaimantPhoneVerification(index)}
                       disabled={additionalClaimantPhoneVerified[index] || !watch(`additionalClaimants.${index}.phone`) || !/^\d{10}$/.test(watch(`additionalClaimants.${index}.phone`) || '')}
                     >
@@ -3384,126 +3735,9 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             </div>
           </div>
         )
-      case 6: // Documents/Evidence
+      case 6: // Prayers & Reliefs
         return (
-          <div className="space-y-6">
-            {/* Documents/Evidence Section */}
-            <div className="border rounded-lg p-4">
-              <h3 className="font-medium text-lg mb-4">Documents/Evidence</h3>
-              <p className="text-sm text-gray-600 mb-4">Upload documents and evidence supporting your claims. You can add multiple entries.</p>
-              
-              {documentsEvidenceFields.map((field, index) => (
-                <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-medium">Document/Evidence {index + 1}</h4>
-                    {documentsEvidenceFields.length > 1 && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeDocumentEvidence(index)}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Document Type"
-                        name={`documentsEvidence.${index}.documentType`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "agreement", label: "Agreement/Contract" },
-                          { value: "invoice", label: "Invoice" },
-                          { value: "receipt", label: "Receipt" },
-                          { value: "correspondence", label: "Correspondence" },
-                          { value: "legal_notice", label: "Legal Notice" },
-                          { value: "certificate", label: "Certificate" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Document ID"
-                        name={`documentsEvidence.${index}.documentId`}
-                        placeholder="Auto Generated"
-                        disabled
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Relevant Clause Number/Page Number"
-                        name={`documentsEvidence.${index}.relevantClauseNumber`}
-                        required
-                        placeholder="e.g., Clause 5.2 or Page 7"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Supporting Claim Number"
-                        name={`documentsEvidence.${index}.supportingClaimNumber`}
-                        required
-                        placeholder="Enter claim number this document supports"
-                      />
-                    </div>
-                    <div>
-                      <Controller
-                        control={control}
-                        name={`documentsEvidence.${index}.dateOfIssueSign`}
-                        render={({ field, fieldState }) => (
-                          <FormField
-                            label="Date of Issue/Sign of the document"
-                            name={`dateOfIssueSign_${index}`}
-                            type="date"
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            required
-                            max={new Date().toISOString().split('T')[0]}
-                            error={fieldState.error?.message}
-                          />
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <FileField
-                        label="Attach document(s)*"
-                        name={`documentsEvidence_${index}_attachedDocuments`}
-                        onChange={(files) => {
-                          const fileArray = Array.isArray(files) ? files : files ? [files] : [];
-                          setValue(`documentsEvidence.${index}.attachedDocuments`, fileArray);
-                          setFormChanged(true);
-                        }}
-                        multiple
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              <div className="flex justify-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addDocumentEvidence}
-                  className="mt-4"
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-          </div>
-        )
-      case 7: // Prayers & Reliefs
-        return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
             <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
             <div>
               <ControlledTextAreaField
@@ -3522,7 +3756,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             </div>
           </div>
         )
-      case 8: // Documents
+      case 7: // Documents
         // Create default issues in case arguments don't exist yet
         const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
           (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
@@ -3538,7 +3772,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   
         
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[7] = el; }}>
             <DocumentsTabs 
               control={control}
               watch={watch}
@@ -3546,9 +3780,9 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             />
           </div>
         )
-      case 9: // Payment
+      case 8: // Payment
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[8] = el; }}>
             <h3 className="font-medium text-lg mb-4">Payment</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -3591,11 +3825,11 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 />
               </div>
             </div>
-          </div>
-        )
-      case 10: // Arguments
+                      </div>
+          )
+      case 9: // Arguments
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
             <h3 className="font-medium text-lg mb-4">Arguments</h3>
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -3651,10 +3885,10 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
               </div>
             </div>
           </div>
-        )
-      case 11: // Review & Submit
+                  )
+      case 10: // Review & Submit
         return (
-          <div>
+          <div ref={(el) => { stepRefs.current[10] = el; }}>
             <h2 className="text-xl font-semibold mb-6">Review Your Petition</h2>
             
             {/* Save/Edit Status */}
@@ -3802,6 +4036,248 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* CRITICAL FIX: Enhanced preview with complete information */}
+                
+                <div>
+                  <h4 className="font-medium mb-2">Arbitration Agreement</h4>
+                  <div className="text-sm space-y-2">
+                    <div>
+                      <span className="font-medium">Agreement Date:</span> {arbitrationAgreement?.agreementDate || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement?.placeOfSigning || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement?.numberOfArbitrators || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Arbitration Text:</span> 
+                      <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                        {arbitrationAgreement?.arbitrationText || 'Not provided'}
+                      </div>
+                    </div>
+                    {files.agreementFile && (
+                      <div>
+                        <span className="font-medium">Agreement File:</span> 
+                        <div className="mt-1 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                          <span>📎 {files.agreementFile.name}</span>
+                          {files.agreementFile.isExisting && files.agreementFile.path && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(`/api/arbitration/files/${files.agreementFile.path.split('/').pop()}`, '_blank')}
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Nature of Dispute</h4>
+                  <div className="text-sm space-y-2">
+                    <div>
+                      <span className="font-medium">Category:</span> {natureOfDispute?.category || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Sub-category:</span> {natureOfDispute?.subCategory || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Nature of Dispute:</span> {natureOfDispute?.natureOfDispute || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Date when right to claim arose:</span> {natureOfDispute?.dateWhenRightToClaimArose || 'Not specified'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Dispute Descriptions</h4>
+                  {disputeDescriptions && disputeDescriptions.length > 0 ? (
+                    disputeDescriptions.map((description, index) => (
+                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
+                        <div>
+                          <span className="font-medium">Issue #{index + 1}:</span> {description.issueDescription || 'Not provided'}
+                        </div>
+                        <div className="mt-1">
+                          <span className="font-medium">Facts:</span> {description.factsOfDispute || 'Not provided'}
+                        </div>
+                        <div className="mt-1">
+                          <span className="font-medium">Relief Sought:</span> {description.reliefSought || 'Not provided'}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No dispute descriptions provided</div>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Documents Evidence</h4>
+                  {documentsEvidence && documentsEvidence.length > 0 ? (
+                    documentsEvidence.map((evidence, index) => (
+                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
+                        <div>
+                          <span className="font-medium">Document Type:</span> {evidence.documentType || 'Not specified'}
+                        </div>
+                        <div>
+                          <span className="font-medium">Relevant Clause:</span> {evidence.relevantClauseNumber || 'Not specified'}
+                        </div>
+                        <div>
+                          <span className="font-medium">Supporting Claim:</span> {evidence.supportingClaimNumber || 'Not specified'}
+                        </div>
+                        <div>
+                          <span className="font-medium">Date of Issue/Sign:</span> {evidence.dateOfIssueSign || 'Not specified'}
+                        </div>
+                        {evidence.attachedDocuments && evidence.attachedDocuments.length > 0 && (
+                          <div>
+                            <span className="font-medium">Attached Documents:</span>
+                            <div className="mt-1 space-y-1">
+                              {evidence.attachedDocuments.map((doc, docIndex) => {
+                                const fileKey = `documentsEvidence_${index}_attachedDocuments_${docIndex}`;
+                                const fileInfo = files[fileKey];
+                                return (
+                                  <div key={docIndex} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                                    <span>📎 {doc instanceof File ? doc.name : (doc?.name || fileInfo?.name || `Document ${docIndex + 1}`)}</span>
+                                    {fileInfo?.isExisting && fileInfo?.path && (
+                                      <button
+                                        type="button"
+                                        onClick={() => window.open(`/api/arbitration/files/${fileInfo.path.split('/').pop()}`, '_blank')}
+                                        className="text-blue-600 hover:text-blue-800 underline"
+                                      >
+                                        View
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No documents evidence provided</div>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Uploaded Files</h4>
+                  <div className="text-sm space-y-2">
+                    {files['claimant.coi'] && (
+                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                        <span>📎 Certificate of Incorporation: {files['claimant.coi'].name}</span>
+                        {files['claimant.coi'].isExisting && files['claimant.coi'].path && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.coi'].path.split('/').pop()}`, '_blank')}
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {files['claimant.panCard'] && (
+                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                        <span>📎 PAN Card: {files['claimant.panCard'].name}</span>
+                        {files['claimant.panCard'].isExisting && files['claimant.panCard'].path && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.panCard'].path.split('/').pop()}`, '_blank')}
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {files['claimant.gstCert'] && (
+                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                        <span>📎 GST Certificate: {files['claimant.gstCert'].name}</span>
+                        {files['claimant.gstCert'].isExisting && files['claimant.gstCert'].path && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.gstCert'].path.split('/').pop()}`, '_blank')}
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {Object.keys(files).filter(key => files[key] && !['claimant.coi', 'claimant.panCard', 'claimant.gstCert', 'agreementFile'].includes(key)).length > 0 && (
+                      <div>
+                        <span className="font-medium">Other Documents:</span>
+                        <div className="mt-1 space-y-1">
+                          {Object.entries(files)
+                            .filter(([key, file]) => file && !['claimant.coi', 'claimant.panCard', 'claimant.gstCert', 'agreementFile'].includes(key))
+                            .map(([key, file]) => (
+                              <div key={key} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                                <span>📎 {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}: {file!.name}</span>
+                                {file!.isExisting && file!.path && (
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(`/api/arbitration/files/${file!.path.split('/').pop()}`, '_blank')}
+                                    className="text-blue-600 hover:text-blue-800 underline"
+                                  >
+                                    View
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    {Object.keys(files).filter(key => files[key]).length === 0 && (
+                      <div className="text-gray-500">No files uploaded</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
+                  <div className="text-sm">
+                    <div className="p-2 bg-gray-50 rounded">
+                      {prayers?.prayers || 'Not provided'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Payment Details</h4>
+                  <div className="text-sm space-y-2">
+                    <div>
+                      <span className="font-medium">Payment Head:</span> {payment?.paymentHead || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Amount:</span> {payment?.paymentAmount || 'Not specified'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Details:</span> {payment?.paymentDetails || 'Not specified'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Arguments</h4>
+                  {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
+                    argumentsPerIssue.map((argument, index) => (
+                      <div key={index} className="mb-2 text-sm">
+                        <span className="font-medium">Argument {index + 1}:</span>
+                        <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                          {argument || 'Not provided'}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No arguments provided</div>
+                  )}
                 </div>
 
                 <div>

@@ -109,19 +109,37 @@ export const ScannedDocumentsForm: React.FC<ScannedDocumentsFormProps> = ({ cont
                 control={control}
                 name={`documents.scannedDocuments.${index}.file`}
                 render={({ field: { onChange, value } }) => (
-                  <FileField
-                    label="Document File"
-                    name={`scannedDoc_${index}`}
-                    onChange={(file) => {
-                      if (!Array.isArray(file)) {
-                        onChange(file);
-                        handleFileUpload(file, index);
-                      }
-                    }}
-                    required
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    error={!value ? "Document file is required" : ""}
-                  />
+                  <div>
+                    <FileField
+                      label="Document File"
+                      name={`scannedDoc_${index}`}
+                      onChange={(file) => {
+                        if (!Array.isArray(file)) {
+                          onChange(file);
+                          handleFileUpload(file, index);
+                        }
+                      }}
+                      required
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      error={!value ? "Document file is required" : ""}
+                    />
+                    {value && value.isExisting && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                        <div className="flex items-center justify-between">
+                          <span className="text-green-700 text-sm">✓ Previously uploaded: {value.name}</span>
+                          {value.path && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(`/api/arbitration/files/${value.path.split('/').pop()}`, '_blank')}
+                              className="text-blue-600 hover:text-blue-800 text-sm underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               />
             </div>

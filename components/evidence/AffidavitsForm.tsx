@@ -102,18 +102,36 @@ export const AffidavitsForm: React.FC<AffidavitsFormProps> = ({ control, dispute
                 control={control}
                 name={`documents.affidavits.${index}.file`}
                 render={({ field: { onChange, value } }) => (
-                  <FileField
-                    label="Affidavit File"
-                    name={`affidavit_${index}`}
-                    onChange={(file) => {
-                      if (!Array.isArray(file)) {
-                        onChange(file);
-                      }
-                    }}
-                    required
-                    accept=".pdf,.doc,.docx"
-                    error={!value ? "Affidavit file is required" : ""}
-                  />
+                  <div>
+                    <FileField
+                      label="Affidavit File"
+                      name={`affidavit_${index}`}
+                      onChange={(file) => {
+                        if (!Array.isArray(file)) {
+                          onChange(file);
+                        }
+                      }}
+                      required
+                      accept=".pdf,.doc,.docx"
+                      error={!value ? "Affidavit file is required" : ""}
+                    />
+                    {value && value.isExisting && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                        <div className="flex items-center justify-between">
+                          <span className="text-green-700 text-sm">✓ Previously uploaded: {value.name}</span>
+                          {value.path && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(`/api/arbitration/files/${value.path.split('/').pop()}`, '_blank')}
+                              className="text-blue-600 hover:text-blue-800 text-sm underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               />
             </div>

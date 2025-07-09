@@ -12,6 +12,25 @@ interface ProtectedRouteProps {
   requiredRole?: string
 }
 
+// Helper function to get the appropriate dashboard URL based on user role
+function getDashboardUrl(userRole: string): string {
+  switch (userRole?.toUpperCase()) {
+    case 'ADMIN':
+      return '/admin/dashboard';
+    case 'CASE_MANAGER':
+      return '/case-manager/dashboard';
+    case 'ARBITRATOR':
+      return '/arbitrator/dashboard';
+    case 'TEAM_MEMBER':
+      return '/team-member/dashboard';
+    case 'RESPONDENT':
+      return '/respondent/dashboard';
+    case 'CLAIMANT':
+    default:
+      return '/dashboard'; // Claimant uses the main dashboard
+  }
+}
+
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const router = useRouter()
   const { user, isLoading: authLoading, isAuthenticated } = useAuth()
@@ -53,7 +72,9 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
           
           if (userRole !== required && userRole !== 'admin') {
             toast.error(`Access denied. This section requires ${requiredRole} privileges.`)
-            router.push('/dashboard')
+            // Redirect to user's appropriate dashboard
+            const dashboardUrl = getDashboardUrl(currentUser.role as string)
+            router.push(dashboardUrl)
             return
           }
         }

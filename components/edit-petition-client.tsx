@@ -33,6 +33,15 @@ export default function EditPetitionClient({ petitionId }: EditPetitionClientPro
           throw new Error("No petition data found")
         }
         
+        console.log('🔧 Petition data loaded for editing:', {
+          id: data.id,
+          hasFileMetadata: !!data.fileMetadata,
+          fileMetadataKeys: data.fileMetadata ? Object.keys(data.fileMetadata) : [],
+          hasFiles: !!data.files,
+          filesKeys: data.files ? Object.keys(data.files) : [],
+          dataKeys: Object.keys(data)
+        });
+        
         setPetitionData(data)
       } catch (err: any) {
         setError(err.message || "Failed to load petition data")

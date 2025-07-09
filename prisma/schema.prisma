@@ -42,6 +42,43 @@ enum ProposedBy {
   ADMIN
 }
 
+// New enums for respondent functionality
+enum NotificationStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum NotificationType {
+  CASE_NOTICE
+  ARBITRATOR_PROPOSAL
+  HEARING_SCHEDULE
+  AWARD_ISSUED
+  REMINDER
+  SYSTEM_MESSAGE
+}
+
+enum ResponseStatus {
+  PENDING
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+}
+
+enum CasePhase {
+  NOTICE_SENT
+  RESPONSE_PENDING
+  RESPONSE_SUBMITTED
+  ARBITRATOR_SELECTION
+  EVIDENCE_PHASE
+  HEARING_PHASE
+  AWARD_PHASE
+  COMPLETED
+  APPEALED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -93,6 +130,12 @@ model User {
   
   // Add relation to case assignments
   caseAssignments CaseAssignment[]
+  
+  // New respondent-specific relations
+  respondentCases RespondentCase[]
+  sentNotifications CaseNotification[] @relation("NotificationSender")
+  receivedNotifications CaseNotification[] @relation("NotificationRecipient")
+  caseResponses CaseResponse[]
 }
 
 model ArbitratorFeedback {
@@ -157,6 +200,11 @@ model Arbitration {
   
   // Add relation to case assignments
   caseAssignments CaseAssignment[]
+  
+  // New respondent-specific relations
+  respondentCases RespondentCase[]
+  caseNotifications CaseNotification[]
+  caseResponses CaseResponse[]
 }
 
 // New model for tracking arbitrator proposals
@@ -209,6 +257,152 @@ model CaseAssignment {
   status String // PENDING, ACCEPTED, REJECTED
   respondedAt DateTime?
   notes String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// New models for respondent functionality
+
+// Model for tracking respondent-case relationships
+model RespondentCase {
+  id String @id @default(uuid())
+  
+  // Relations
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  respondentId String
+  respondent User @relation(fields: [respondentId], references: [id])
+  
+  // Respondent details for this case
+  respondentType String // Individual, Company, etc.
+  respondentName String
+  respondentEmail String
+  respondentPhone String?
+  respondentAddress Json? // Complete address details
+  
+  // Case-specific respondent status
+  notificationStatus NotificationStatus @default(SENT)
+  responseStatus ResponseStatus @default(PENDING)
+  currentPhase CasePhase @default(NOTICE_SENT)
+  
+  // Important dates
+  noticeServedAt DateTime @default(now())
+  responseDeadline DateTime?
+  respondedAt DateTime?
+  
+  // Tracking
+  noticeAttempts Int @default(1)
+  lastNoticeAt DateTime @default(now())
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Unique constraint to prevent duplicate respondent-case relationships
+  @@unique([caseId, respondentId])
+}
+
+// Model for case notifications (emails, SMS, etc.)
+model CaseNotification {
+  id String @id @default(uuid())
+  
+  // Relations
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  senderId String
+  sender User @relation("NotificationSender", fields: [senderId], references: [id])
+  recipientId String
+  recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  
+  // Notification details
+  type NotificationType
+  subject String
+  message String
+  status NotificationStatus @default(SENT)
+  
+  // Delivery tracking
+  sentAt DateTime @default(now())
+  deliveredAt DateTime?
+  readAt DateTime?
+  
+  // Email/SMS details
+  emailId String? // External email service ID
+  smsId String? // External SMS service ID
+  
+  // Metadata
+  metadata Json? // Additional data like attachments, etc.
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for respondent responses to arbitration cases
+model CaseResponse {
+  id String @id @default(uuid())
+  
+  // Relations
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  respondentId String
+  respondent User @relation(fields: [respondentId], references: [id])
+  
+  // Response content
+  responseOverview String // Summary of response
+  admitsClaimInFull Boolean @default(false)
+  admitsClaimInPart Boolean @default(false)
+  deniesClaimInFull Boolean @default(false)
+  
+  // Detailed responses
+  disputePointResponses Json[] // Response to each dispute point
+  counterClaims Json[] // Any counter-claims
+  
+  // Documents and evidence
+  documents Json[] // Uploaded documents
+  evidence Json[] // Evidence submissions
+  witnessStatements Json[] // Witness statements
+  
+  // Legal arguments
+  legalArguments String?
+  lawsReliedUpon Json[] // Legal precedents cited
+  
+  // Additional details
+  additionalNotes String?
+  requestedReliefs Json[] // What respondent is asking for
+  
+  // Status tracking
+  status ResponseStatus @default(PENDING)
+  submittedAt DateTime?
+  reviewedAt DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for tracking respondent registration and onboarding
+model RespondentRegistration {
+  id String @id @default(uuid())
+  
+  // Basic details
+  email String @unique
+  name String
+  phone String?
+  
+  // Registration source
+  caseId String? // If registering due to a specific case
+  invitationToken String? // Unique token for case invitation
+  
+  // Registration status
+  isRegistered Boolean @default(false)
+  registeredAt DateTime?
+  
+  // Verification
+  emailVerified Boolean @default(false)
+  phoneVerified Boolean @default(false)
+  verificationToken String?
   
   // Timestamps
   createdAt DateTime @default(now())

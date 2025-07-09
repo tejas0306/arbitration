@@ -115,7 +115,9 @@ export const initialDocuments = {
     linkedIssue: string,
     admissionStatus: "pending" | "admitted" | "denied",
     crossExaminationRef: string,
-    date: string
+    date: string,
+    extractedText?: string,
+    keyMetadata?: Array<{key: string, value: string}>
   }>,
   
   affidavits: [] as Array<{

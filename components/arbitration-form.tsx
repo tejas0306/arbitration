@@ -483,6 +483,7 @@ interface FileFieldProps {
   error?: string;
   accept?: string;
   multiple?: boolean;
+  existingFile?: any; // Add existingFile prop
 }
 
 export const FileField: React.FC<FileFieldProps> = ({
@@ -493,13 +494,18 @@ export const FileField: React.FC<FileFieldProps> = ({
   error,
   accept,
   multiple = false,
+  existingFile,
 }) => {
   const id = `field-${name}`;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
   
-  // Get existing file info from the parent component's files state
-  const existingFile = (window as any).currentFiles?.[name];
+  // Debug logging for existingFile prop
+  useEffect(() => {
+    if (existingFile) {
+      console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
+    }
+  }, [existingFile, name]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (multiple) {
@@ -760,7 +766,12 @@ const formSchema = z.object({
         isOCREnabled: z.boolean().default(false),
         linkedIssue: z.string().min(1, "Linked issue is required").optional(),
         admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
-        crossExaminationRef: z.string().optional()
+        crossExaminationRef: z.string().optional(),
+        extractedText: z.string().optional(),
+        keyMetadata: z.array(z.object({
+          key: z.string(),
+          value: z.string()
+        })).optional()
       })
     ).optional().default([]),
     
@@ -946,18 +957,65 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Keep track of processed pincodes to avoid infinite loading
   const processedPincodes = useRef<Record<string, boolean>>({});
   
-  // Location lookup state
-  const [stateOptions, setStateOptions] = useState<Array<{ value: string, label: string }>>([]);
-  const [districtOptions, setDistrictOptions] = useState<Array<{ value: string, label: string }>>([]);
-  const [cityOptions, setCityOptions] = useState<Array<{ value: string, label: string }>>([]);
-  const [countryOptions, setCountryOptions] = useState<Array<{ value: string, label: string }>>([]);
+  // Location options state - CRITICAL FIX: Separate options for each form section
+  const [claimantLocationOptions, setClaimantLocationOptions] = useState<{
+    states: Array<{ value: string, label: string }>;
+    districts: Array<{ value: string, label: string }>;
+    cities: Array<{ value: string, label: string }>;
+    countries: Array<{ value: string, label: string }>;
+  }>({
+    states: [],
+    districts: [],
+    cities: [],
+    countries: []
+  });
+  
+  const [respondentLocationOptions, setRespondentLocationOptions] = useState<{
+    [key: number]: {
+      states: Array<{ value: string, label: string }>;
+      districts: Array<{ value: string, label: string }>;
+      cities: Array<{ value: string, label: string }>;
+      countries: Array<{ value: string, label: string }>;
+    }
+  }>({});
+  
+  const [additionalClaimantLocationOptions, setAdditionalClaimantLocationOptions] = useState<{
+    [key: number]: {
+      states: Array<{ value: string, label: string }>;
+      districts: Array<{ value: string, label: string }>;
+      cities: Array<{ value: string, label: string }>;
+      countries: Array<{ value: string, label: string }>;
+    }
+  }>({});
   
   // File management state - Store files separately from form data
   const [files, setFiles] = useState<Record<string, File | null>>({});
   
+  // Initialize files state
+  useEffect(() => {
+    if (Object.keys(files).length === 0) {
+      setFiles({
+        'claimant.coi': null,
+        'claimant.panCard': null,
+        'claimant.gstCert': null,
+        'agreementFile': null,
+      });
+    }
+  }, []);
+  
   // Make files accessible to FileField components
   useEffect(() => {
     (window as any).currentFiles = files;
+  }, [files]);
+  
+  // Debug: Monitor files state changes
+  useEffect(() => {
+    console.log('🔧 Files state changed:', files);
+    console.log('🔧 Company files in state:', {
+      coi: files['claimant.coi'],
+      panCard: files['claimant.panCard'],
+      gstCert: files['claimant.gstCert']
+    });
   }, [files]);
   
   // Check authentication status on component mount - using an empty dependency array to run only once
@@ -1205,6 +1263,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             setValue('documentsEvidence', completeFormData.documentsEvidence);
           }
           
+          console.log('🔧 Initial data loaded:', {
+            hasFileMetadata: !!initialData.fileMetadata,
+            fileMetadataKeys: initialData.fileMetadata ? Object.keys(initialData.fileMetadata) : [],
+            hasFiles: !!initialData.files,
+            filesKeys: initialData.files ? Object.keys(initialData.files) : [],
+            completeFormData: completeFormData
+          });
+          
                                 // CRITICAL FIX: Restore file metadata for file visibility
           if (initialData.fileMetadata) {
             // Create a file metadata state for display purposes
@@ -1224,7 +1290,19 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
               }
             });
             
+            console.log('🔧 Loading file metadata for edit mode:', fileDisplayState);
+            console.log('🔧 Available file metadata keys:', Object.keys(initialData.fileMetadata));
             setFiles(fileDisplayState);
+            
+            // CRITICAL FIX: Expose files state globally for FileField components
+            (window as any).currentFiles = fileDisplayState;
+            
+            // Debug: Log the specific company document files
+            console.log('🔧 Company document files:', {
+              coi: fileDisplayState['claimant.coi'],
+              panCard: fileDisplayState['claimant.panCard'],
+              gstCert: fileDisplayState['claimant.gstCert']
+            });
             
             // ENHANCEMENT: Also populate DocumentsTabs file fields
             // Map backend field names to frontend form structure
@@ -1364,10 +1442,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
             
             // Convert to option objects for dropdowns
-            setCountryOptions([{ value: postOffice.Country, label: postOffice.Country }]);
-            setStateOptions([{ value: postOffice.State, label: postOffice.State }]);
-            setDistrictOptions([{ value: postOffice.District, label: postOffice.District }]);
-            setCityOptions(cities.map(city => ({ value: city, label: city })));
+            setClaimantLocationOptions({
+              states: [{ value: postOffice.State, label: postOffice.State }],
+              districts: [{ value: postOffice.District, label: postOffice.District }],
+              cities: cities.map(city => ({ value: city, label: city })),
+              countries: [{ value: postOffice.Country, label: postOffice.Country }]
+            });
             
             // Update form fields with new values
             setValue('claimant.country', postOffice.Country);
@@ -1412,43 +1492,22 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 // Extract unique cities from all post offices
                 const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
                 
+                // CRITICAL FIX: Update location options for respondent forms
+                setRespondentLocationOptions(prev => ({
+                  ...prev,
+                  [index]: {
+                    states: [{ value: postOffice.State, label: postOffice.State }],
+                    districts: [{ value: postOffice.District, label: postOffice.District }],
+                    cities: cities.map(city => ({ value: city, label: city })),
+                    countries: [{ value: postOffice.Country, label: postOffice.Country }]
+                  }
+                }));
+                
                 // Update form fields with new values for this specific respondent
                 setValue(`respondents.${index}.country`, postOffice.Country);
                 setValue(`respondents.${index}.state`, postOffice.State);
                 setValue(`respondents.${index}.district`, postOffice.District);
                 setValue(`respondents.${index}.city`, cities[0] || "");
-                
-                // CRITICAL FIX: Update location options for respondent forms
-                setCountryOptions(prev => {
-                  const existing = prev.find(opt => opt.value === postOffice.Country);
-                  if (!existing) {
-                    return [...prev, { value: postOffice.Country, label: postOffice.Country }];
-                  }
-                  return prev;
-                });
-                
-                setStateOptions(prev => {
-                  const existing = prev.find(opt => opt.value === postOffice.State);
-                  if (!existing) {
-                    return [...prev, { value: postOffice.State, label: postOffice.State }];
-                  }
-                  return prev;
-                });
-                
-                setDistrictOptions(prev => {
-                  const existing = prev.find(opt => opt.value === postOffice.District);
-                  if (!existing) {
-                    return [...prev, { value: postOffice.District, label: postOffice.District }];
-                  }
-                  return prev;
-                });
-                
-                setCityOptions(prev => {
-                  const newCities = cities.map(city => ({ value: city, label: city }));
-                  const existingValues = prev.map(opt => opt.value);
-                  const filteredNewCities = newCities.filter(city => !existingValues.includes(city.value));
-                  return [...prev, ...filteredNewCities];
-                });
                 
                 toast.success(`Respondent ${index + 1}: Pincode ${respPincode} found, location details loaded.`);
               } else {
@@ -1488,6 +1547,17 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 
                 // Extract unique cities from all post offices
                 const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
+                
+                // CRITICAL FIX: Update location options for additional claimant forms
+                setAdditionalClaimantLocationOptions(prev => ({
+                  ...prev,
+                  [index]: {
+                    states: [{ value: postOffice.State, label: postOffice.State }],
+                    districts: [{ value: postOffice.District, label: postOffice.District }],
+                    cities: cities.map(city => ({ value: city, label: city })),
+                    countries: [{ value: postOffice.Country, label: postOffice.Country }]
+                  }
+                }));
                 
                 // Update form fields with new values
                 setValue(`additionalClaimants.${index}.country`, postOffice.Country);
@@ -2093,8 +2163,10 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           return false;
         }
         break;
-      default:
+      case 10: // Review & Submit
+        // For the final step, just return true as validation is complete
         return true;
+        break;
     }
     
     if (fieldsToValidate.length > 0) {
@@ -2164,8 +2236,38 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           }
         }
       }
+      
+      // CRITICAL FIX: Also update React Hook Form state for scanned documents
+      if (fieldName.includes('scannedDoc_') && file) {
+        const matches = fieldName.match(/scannedDoc_(\d+)/);
+        if (matches) {
+          const docIndex = parseInt(matches[1]);
+          setValue(`documents.scannedDocuments.${docIndex}.file`, file);
+        }
+      }
+      
+      // CRITICAL FIX: Persist file state globally for step navigation
+      (window as any).currentFiles = {
+        ...(window as any).currentFiles,
+        [fieldName]: file
+      };
     }
   };
+  
+  // CRITICAL FIX: Effect to restore files when navigating between steps
+  useEffect(() => {
+    const restoreFiles = () => {
+      const globalFiles = (window as any).currentFiles;
+      if (globalFiles && typeof globalFiles === 'object') {
+        setFiles(prev => ({
+          ...prev,
+          ...globalFiles
+        }));
+      }
+    };
+    
+    restoreFiles();
+  }, [activeStep]); // Restore files when step changes
   
   // Form submission handler
   const onSubmit = async (data: FormData) => {
@@ -2912,7 +3014,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   label="City*"
                   name="claimant.city"
                   type="select"
-                  options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
+                  options={claimantLocationOptions.cities.length > 0 ? claimantLocationOptions.cities : [{ value: "", label: "Select City" }]}
                 />
               </div>
               <div>
@@ -2921,7 +3023,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   label="District*"
                   name="claimant.district"
                   type="select"
-                  options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
+                  options={claimantLocationOptions.districts.length > 0 ? claimantLocationOptions.districts : [{ value: "", label: "Select District" }]}
                 />
               </div>
               <div>
@@ -2930,7 +3032,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   label="State*"
                   name="claimant.state"
                   type="select"
-                  options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
+                  options={claimantLocationOptions.states.length > 0 ? claimantLocationOptions.states : [{ value: "", label: "Select State" }]}
                 />
               </div>
               <div>
@@ -2939,7 +3041,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   label="Country*"
                   name="claimant.country"
                   type="select"
-                  options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
+                  options={claimantLocationOptions.countries.length > 0 ? claimantLocationOptions.countries : [{ value: "", label: "Select Country" }]}
                 />
               </div>
               <div className="relative">
@@ -3024,6 +3126,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                     name="claimant.coi"
                     onChange={(file) => handleFileChange('claimant.coi', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    existingFile={files['claimant.coi']}
                   />
                 </div>
                 <div>
@@ -3032,6 +3135,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                     name="claimant.panCard"
                     onChange={(file) => handleFileChange('claimant.panCard', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    existingFile={files['claimant.panCard']}
                   />
                 </div>
                 <div className="col-span-2">
@@ -3040,6 +3144,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                     name="claimant.gstCert"
                     onChange={(file) => handleFileChange('claimant.gstCert', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    existingFile={files['claimant.gstCert']}
                   />
                 </div>
               </div>
@@ -3142,7 +3247,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="City*"
                         name={`additionalClaimants.${index}.city`}
                       type="select"
-                      options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
+                      options={additionalClaimantLocationOptions[index]?.cities.length > 0 ? additionalClaimantLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
                     />
                   </div>
                   <div>
@@ -3151,7 +3256,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="District*"
                         name={`additionalClaimants.${index}.district`}
                       type="select"
-                      options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
+                      options={additionalClaimantLocationOptions[index]?.districts.length > 0 ? additionalClaimantLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
                     />
                   </div>
                   <div>
@@ -3160,7 +3265,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="State*"
                         name={`additionalClaimants.${index}.state`}
                       type="select"
-                      options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
+                      options={additionalClaimantLocationOptions[index]?.states.length > 0 ? additionalClaimantLocationOptions[index].states : [{ value: "", label: "Select State" }]}
                     />
                   </div>
                   <div>
@@ -3169,7 +3274,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="Country*"
                         name={`additionalClaimants.${index}.country`}
                       type="select"
-                      options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
+                      options={additionalClaimantLocationOptions[index]?.countries.length > 0 ? additionalClaimantLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
                     />
                   </div>
                 </div>
@@ -3351,7 +3456,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="City*"
                         name={`respondents.${index}.city`}
                       type="select"
-                      options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
+                      options={respondentLocationOptions[index]?.cities.length > 0 ? respondentLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
                     />
                   </div>
                   <div>
@@ -3360,7 +3465,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="District*"
                         name={`respondents.${index}.district`}
                       type="select"
-                      options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
+                      options={respondentLocationOptions[index]?.districts.length > 0 ? respondentLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
                     />
                   </div>
                   <div>
@@ -3369,7 +3474,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="State*"
                         name={`respondents.${index}.state`}
                       type="select"
-                      options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
+                      options={respondentLocationOptions[index]?.states.length > 0 ? respondentLocationOptions[index].states : [{ value: "", label: "Select State" }]}
                     />
                   </div>
                   <div>
@@ -3378,7 +3483,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       label="Country*"
                         name={`respondents.${index}.country`}
                       type="select"
-                      options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
+                      options={respondentLocationOptions[index]?.countries.length > 0 ? respondentLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
                     />
                   </div>
                   <div>
@@ -3776,7 +3881,9 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             <DocumentsTabs 
               control={control}
               watch={watch}
+              setValue={setValue}
               disputeIssues={disputeIssues}
+              files={files}
             />
           </div>
         )
@@ -3885,7 +3992,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
               </div>
             </div>
           </div>
-                  )
+        )
       case 10: // Review & Submit
         return (
           <div ref={(el) => { stepRefs.current[10] = el; }}>
@@ -3940,475 +4047,230 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Additional Claimants</h4>
-                  {additionalClaimants.length > 0 ? (
-                    additionalClaimants.map((claimant, index) => (
-                      <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
-                        <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="font-medium">Name:</span> {claimant.name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Email:</span> {claimant.email}
-                        </div>
-                        <div>
-                            <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
-                          </div>
-                          <div>
-                            <span className="font-medium">Pincode:</span> {claimant.pincode}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-medium">Address:</span> {claimant.address1}
-                            {claimant.address2 && `, ${claimant.address2}`}, {claimant.city}, {claimant.district}, {claimant.state}, {claimant.country}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No additional claimants</div>
-                  )}
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Manager Details</h4>
-                  {managerDetails.length > 0 ? (
-                    managerDetails.map((manager, index) => (
-                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
-                        <p className="font-medium">Manager {index + 1}</p>
-                        <div className="grid grid-cols-2 gap-2 mt-1">
-                      <div>
-                            <span className="font-medium">Name:</span> {manager.name}
-                      </div>
-                      <div>
-                            <span className="font-medium">Designation:</span> {manager.designation}
-                      </div>
-                      <div>
-                            <span className="font-medium">Email:</span> {manager.email}
-                      </div>
-                      <div>
-                            <span className="font-medium">Authority:</span> {manager.authority}
-                      </div>
-                    </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No manager details provided</div>
-                  )}
-                </div>
-
-                {/* Respondents */}
-                <div>
                   <h4 className="font-medium mb-2">Respondents</h4>
                   {respondents.map((respondent, index) => (
                     <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
                       <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-medium">Type:</span> {respondent.type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Name:</span> {respondent.name}
-                      </div>
-                      <div>
-                        <span className="font-medium">Email:</span> {respondent.email}
-                      </div>
-                      <div>
+                        <div>
+                          <span className="font-medium">Type:</span> {respondent.type}
+                        </div>
+                        <div>
+                          <span className="font-medium">Name:</span> {respondent.name}
+                        </div>
+                        <div>
+                          <span className="font-medium">Email:</span> {respondent.email}
+                        </div>
+                        <div>
                           <span className="font-medium">Phone:</span> {respondent.phoneCountryCode} {respondent.phone}
                         </div>
                         <div className="col-span-2">
                           <span className="font-medium">Address:</span> {respondent.address1}
                           {respondent.address2 && `, ${respondent.address2}`}, {respondent.city}, {respondent.district}, {respondent.state}, {respondent.country} - {respondent.pincode}
                         </div>
-                        {respondent.gst && (
-                          <div>
-                            <span className="font-medium">GST:</span> {respondent.gst}
-                          </div>
-                        )}
-                        {respondent.pan && (
-                          <div>
-                            <span className="font-medium">PAN:</span> {respondent.pan}
-                          </div>
-                        )}
-                        {respondent.cin && (
-                          <div>
-                            <span className="font-medium">CIN:</span> {respondent.cin}
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* CRITICAL FIX: Enhanced preview with complete information */}
-                
                 <div>
-                  <h4 className="font-medium mb-2">Arbitration Agreement</h4>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="font-medium">Agreement Date:</span> {arbitrationAgreement?.agreementDate || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement?.placeOfSigning || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement?.numberOfArbitrators || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Arbitration Text:</span> 
-                      <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
-                        {arbitrationAgreement?.arbitrationText || 'Not provided'}
-                      </div>
-                    </div>
-                    {files.agreementFile && (
-                      <div>
-                        <span className="font-medium">Agreement File:</span> 
-                        <div className="mt-1 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                          <span>📎 {files.agreementFile.name}</span>
-                          {files.agreementFile.isExisting && files.agreementFile.path && (
+                  <h4 className="font-medium mb-2">📋 All Uploaded Documents</h4>
+                  
+                  {/* Company Documents */}
+                  <div className="mb-4">
+                    <h5 className="font-medium text-sm mb-2 text-gray-700">Company Documents</h5>
+                    <div className="space-y-2">
+                      {files['claimant.coi'] && (
+                        <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                          <span>📎 Certificate of Incorporation: {files['claimant.coi'].name}</span>
+                          {files['claimant.coi'].isExisting && files['claimant.coi'].path && (
                             <button
                               type="button"
-                              onClick={() => window.open(`/api/arbitration/files/${files.agreementFile.path.split('/').pop()}`, '_blank')}
+                              onClick={() => window.open(`/api/arbitration/files/${files['claimant.coi'].path.split('/').pop()}`, '_blank')}
                               className="text-blue-600 hover:text-blue-800 underline"
                             >
                               View
                             </button>
                           )}
                         </div>
-                      </div>
-                    )}
+                      )}
+                      {files['claimant.panCard'] && (
+                        <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                          <span>📎 PAN Card: {files['claimant.panCard'].name}</span>
+                          {files['claimant.panCard'].isExisting && files['claimant.panCard'].path && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(`/api/arbitration/files/${files['claimant.panCard'].path.split('/').pop()}`, '_blank')}
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {files['claimant.gstCert'] && (
+                        <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                          <span>📎 GST Certificate: {files['claimant.gstCert'].name}</span>
+                          {files['claimant.gstCert'].isExisting && files['claimant.gstCert'].path && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(`/api/arbitration/files/${files['claimant.gstCert'].path.split('/').pop()}`, '_blank')}
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <h4 className="font-medium mb-2">Nature of Dispute</h4>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="font-medium">Category:</span> {natureOfDispute?.category || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Sub-category:</span> {natureOfDispute?.subCategory || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Nature of Dispute:</span> {natureOfDispute?.natureOfDispute || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Date when right to claim arose:</span> {natureOfDispute?.dateWhenRightToClaimArose || 'Not specified'}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Dispute Descriptions</h4>
-                  {disputeDescriptions && disputeDescriptions.length > 0 ? (
-                    disputeDescriptions.map((description, index) => (
-                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
-                        <div>
-                          <span className="font-medium">Issue #{index + 1}:</span> {description.issueDescription || 'Not provided'}
-                        </div>
-                        <div className="mt-1">
-                          <span className="font-medium">Facts:</span> {description.factsOfDispute || 'Not provided'}
-                        </div>
-                        <div className="mt-1">
-                          <span className="font-medium">Relief Sought:</span> {description.reliefSought || 'Not provided'}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No dispute descriptions provided</div>
-                  )}
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Documents Evidence</h4>
-                  {documentsEvidence && documentsEvidence.length > 0 ? (
-                    documentsEvidence.map((evidence, index) => (
-                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
-                        <div>
-                          <span className="font-medium">Document Type:</span> {evidence.documentType || 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Relevant Clause:</span> {evidence.relevantClauseNumber || 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Supporting Claim:</span> {evidence.supportingClaimNumber || 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Date of Issue/Sign:</span> {evidence.dateOfIssueSign || 'Not specified'}
-                        </div>
-                        {evidence.attachedDocuments && evidence.attachedDocuments.length > 0 && (
-                          <div>
-                            <span className="font-medium">Attached Documents:</span>
-                            <div className="mt-1 space-y-1">
-                              {evidence.attachedDocuments.map((doc, docIndex) => {
-                                const fileKey = `documentsEvidence_${index}_attachedDocuments_${docIndex}`;
-                                const fileInfo = files[fileKey];
-                                return (
-                                  <div key={docIndex} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                                    <span>📎 {doc instanceof File ? doc.name : (doc?.name || fileInfo?.name || `Document ${docIndex + 1}`)}</span>
-                                    {fileInfo?.isExisting && fileInfo?.path && (
-                                      <button
-                                        type="button"
-                                        onClick={() => window.open(`/api/arbitration/files/${fileInfo.path.split('/').pop()}`, '_blank')}
-                                        className="text-blue-600 hover:text-blue-800 underline"
-                                      >
-                                        View
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                  {/* Scanned Documents with OCR */}
+                  {documents.scannedDocuments && documents.scannedDocuments.length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="font-medium text-sm mb-2 text-gray-700">📄 Scanned Documents with OCR</h5>
+                      <div className="space-y-3">
+                        {documents.scannedDocuments.map((doc, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="text-xs space-y-1">
+                              <div><span className="font-medium">Document:</span> {doc.file?.name || 'Unknown'}</div>
+                              <div><span className="font-medium">Description:</span> {doc.description || 'No description'}</div>
+                              <div><span className="font-medium">Linked Issue:</span> {doc.linkedIssue || 'Not linked'}</div>
+                              <div><span className="font-medium">OCR Enabled:</span> {doc.isOCREnabled ? 'Yes' : 'No'}</div>
+                              <div><span className="font-medium">Status:</span> {doc.admissionStatus || 'pending'}</div>
                             </div>
+                            
+                            {doc.extractedText && (
+                              <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
+                                <div className="font-medium mb-1">📝 Extracted OCR Text:</div>
+                                <div className="max-h-20 overflow-y-auto text-gray-700">
+                                  {doc.extractedText.substring(0, 200)}
+                                  {doc.extractedText.length > 200 && '...'}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {doc.keyMetadata && doc.keyMetadata.length > 0 && (
+                              <div className="mt-2 p-2 bg-green-50 rounded text-xs">
+                                <div className="font-medium mb-1">🔍 Key Metadata:</div>
+                                <div className="grid grid-cols-2 gap-1">
+                                  {doc.keyMetadata.slice(0, 4).map((meta, idx) => (
+                                    <div key={idx}>
+                                      <span className="font-medium">{meta.key}:</span> {meta.value}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No documents evidence provided</div>
+                    </div>
                   )}
-                </div>
 
-                <div>
-                  <h4 className="font-medium mb-2">Uploaded Files</h4>
-                  <div className="text-sm space-y-2">
-                    {files['claimant.coi'] && (
-                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                        <span>📎 Certificate of Incorporation: {files['claimant.coi'].name}</span>
-                        {files['claimant.coi'].isExisting && files['claimant.coi'].path && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.coi'].path.split('/').pop()}`, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {files['claimant.panCard'] && (
-                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                        <span>📎 PAN Card: {files['claimant.panCard'].name}</span>
-                        {files['claimant.panCard'].isExisting && files['claimant.panCard'].path && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.panCard'].path.split('/').pop()}`, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {files['claimant.gstCert'] && (
-                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                        <span>📎 GST Certificate: {files['claimant.gstCert'].name}</span>
-                        {files['claimant.gstCert'].isExisting && files['claimant.gstCert'].path && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.gstCert'].path.split('/').pop()}`, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {Object.keys(files).filter(key => files[key] && !['claimant.coi', 'claimant.panCard', 'claimant.gstCert', 'agreementFile'].includes(key)).length > 0 && (
-                      <div>
-                        <span className="font-medium">Other Documents:</span>
-                        <div className="mt-1 space-y-1">
-                          {Object.entries(files)
-                            .filter(([key, file]) => file && !['claimant.coi', 'claimant.panCard', 'claimant.gstCert', 'agreementFile'].includes(key))
-                            .map(([key, file]) => (
-                              <div key={key} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                                <span>📎 {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}: {file!.name}</span>
-                                {file!.isExisting && file!.path && (
+                  {/* Affidavits */}
+                  {documents.affidavits && documents.affidavits.length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="font-medium text-sm mb-2 text-gray-700">⚖️ Affidavits</h5>
+                      <div className="space-y-2">
+                        {documents.affidavits.map((affidavit, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="text-xs space-y-1">
+                              <div><span className="font-medium">Type:</span> {affidavit.type}</div>
+                              <div><span className="font-medium">Date:</span> {affidavit.date || 'Not specified'}</div>
+                              <div><span className="font-medium">Place:</span> {affidavit.place || 'Not specified'}</div>
+                              <div><span className="font-medium">Event:</span> {affidavit.event || 'Not specified'}</div>
+                              <div><span className="font-medium">Linked Issue:</span> {affidavit.linkedIssue || 'Not linked'}</div>
+                              <div><span className="font-medium">Verification Clause:</span> {affidavit.hasVerificationClause ? 'Yes' : 'No'}</div>
+                            </div>
+                            
+                            {files[`affidavit_${index}`] && (
+                              <div className="mt-2 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                                <span>📎 {files[`affidavit_${index}`].name}</span>
+                                {files[`affidavit_${index}`].isExisting && files[`affidavit_${index}`].path && (
                                   <button
                                     type="button"
-                                    onClick={() => window.open(`/api/arbitration/files/${file!.path.split('/').pop()}`, '_blank')}
+                                    onClick={() => window.open(`/api/arbitration/files/${files[`affidavit_${index}`].path.split('/').pop()}`, '_blank')}
                                     className="text-blue-600 hover:text-blue-800 underline"
                                   >
                                     View
                                   </button>
                                 )}
                               </div>
-                            ))}
-                        </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    {Object.keys(files).filter(key => files[key]).length === 0 && (
-                      <div className="text-gray-500">No files uploaded</div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
-                  <div className="text-sm">
-                    <div className="p-2 bg-gray-50 rounded">
-                      {prayers?.prayers || 'Not provided'}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Payment Details</h4>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="font-medium">Payment Head:</span> {payment?.paymentHead || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Amount:</span> {payment?.paymentAmount || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Details:</span> {payment?.paymentDetails || 'Not specified'}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Arguments</h4>
-                  {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
-                    argumentsPerIssue.map((argument, index) => (
-                      <div key={index} className="mb-2 text-sm">
-                        <span className="font-medium">Argument {index + 1}:</span>
-                        <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
-                          {argument || 'Not provided'}
-                        </div>
+                  {/* Electronic Evidence */}
+                  {documents.electronicEvidence && documents.electronicEvidence.length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="font-medium text-sm mb-2 text-gray-700">💻 Electronic Evidence</h5>
+                      <div className="space-y-2">
+                        {documents.electronicEvidence.map((evidence, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="text-xs space-y-1">
+                              <div><span className="font-medium">Linked Issue:</span> {evidence.linkedIssue || 'Not linked'}</div>
+                              <div><span className="font-medium">Tabulated List:</span> {evidence.tabulatedList || 'Not provided'}</div>
+                            </div>
+                            
+                            {files[`certificate_${index}`] && (
+                              <div className="mt-2 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                                <span>📎 Certificate: {files[`certificate_${index}`].name}</span>
+                                {files[`certificate_${index}`].isExisting && files[`certificate_${index}`].path && (
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(`/api/arbitration/files/${files[`certificate_${index}`].path.split('/').pop()}`, '_blank')}
+                                    className="text-blue-600 hover:text-blue-800 underline"
+                                  >
+                                    View
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No arguments provided</div>
+                    </div>
+                  )}
+
+                  {/* Other Documents */}
+                  {Object.keys(files).filter(key => files[key] && !key.includes('claimant.') && !key.includes('affidavit_') && !key.includes('certificate_')).length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="font-medium text-sm mb-2 text-gray-700">📁 Other Documents</h5>
+                      <div className="space-y-2">
+                        {Object.keys(files).filter(key => files[key] && !key.includes('claimant.') && !key.includes('affidavit_') && !key.includes('certificate_')).map((key) => {
+                          const file = files[key];
+                          if (!file) return null;
+                          return (
+                            <div key={key} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
+                              <span>📎 {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}: {file.name}</span>
+                              {file.isExisting && file.path && (
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(`/api/arbitration/files/${file.path.split('/').pop()}`, '_blank')}
+                                  className="text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  View
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {Object.keys(files).filter(key => files[key]).length === 0 && (
+                    <div className="text-gray-500 text-sm">No documents uploaded</div>
                   )}
                 </div>
 
-                <div>
-                  <h4 className="font-medium mb-2">Arbitration Agreement Details</h4>
-                  <div className="text-sm space-y-3">
-                    <div>
-                      <span className="font-medium">Date of Arbitration Agreement:</span> {arbitrationAgreement.agreementDate}
-                    </div>
-                    <div>
-                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement.placeOfSigning}
-                    </div>
-                    <div>
-                      <span className="font-medium">Text of Arbitration Agreement/clause:</span>
-                      <p className="mt-1 whitespace-pre-line">{arbitrationAgreement.arbitrationText}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">Stamp Duty Percentage/Amount:</span> {arbitrationAgreement.stampDutyPercentage}
-                    </div>
-                    <div>
-                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement.numberOfArbitrators}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Dispute Details</h4>
-                  {disputeDetails ? (
-                    <div className="text-sm grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-medium">Type:</span> {disputeDetails.disputeType || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Service Type:</span> {disputeDetails.serviceType || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Category:</span> {disputeDetails.disputeCategory || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Claim Type:</span> {disputeDetails.claimType || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount || '0'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Date:</span> {disputeDetails.disputeDate || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute || 'Not specified'}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Claim Reason:</span>
-                        <p className="mt-1">{disputeDetails.claimReason || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs?.join(', ') || 'Not specified'}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Laws Relied Upon:</span>
-                        <p className="mt-1">{disputeDetails.lawsReliedUpon || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Clause/Page Number:</span> {disputeDetails.clauseNumber || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Supporting Document:</span> {disputeDetails.documentSupportingClaim || 'Not specified'}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Clause Supporting Claim:</span>
-                        <p className="mt-1">{disputeDetails.clauseSupportingClaim || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Clause Text:</span>
-                        <p className="mt-1">{disputeDetails.clause || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Relief Sought:</span>
-                        <p className="mt-1">{disputeDetails.reliefSought || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Facts of the Case:</span>
-                        <p className="mt-1">{disputeDetails.factsOfCase || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Description:</span>
-                        <p className="mt-1">{disputeDetails.disputeDescription || 'Not specified'}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">
-                      No dispute details available
-                    </div>
-                  )}
-                </div>
-                
                 <div>
                   <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
                   <div className="text-sm">
                     <p className="whitespace-pre-line">{prayers.prayers}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Documents</h4>
-                  <div className="text-sm">
-                    <div className="mb-2">
-                      <span className="font-medium">Supporting Documents:</span> {documents.supportingDocuments.length} files
-                    </div>
-                    <div>
-                      <span className="font-medium">Evidence Files:</span> {documents.evidenceFiles?.length || 0} files
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Payment</h4>
-                  <div className="text-sm grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="font-medium">Payment Head:</span> {payment.paymentHead}
-                    </div>
-                    <div>
-                      <span className="font-medium">Amount:</span> ₹{payment.paymentAmount}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Payment Details:</span> {payment.paymentDetails}
-                    </div>
                   </div>
                 </div>
                 
@@ -4418,6 +4280,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                     {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
                       <div>
                         <span className="font-medium">{argumentsPerIssue.length} argument(s) provided</span>
+                        {argumentsPerIssue.map((arg, index) => (
+                          <div key={index} className="mt-2 p-2 bg-gray-50 rounded">
+                            <div className="font-medium text-xs mb-1">Argument {index + 1}:</div>
+                            <div className="text-xs">{arg.substring(0, 150)}{arg.length > 150 && '...'}</div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="text-gray-500">No arguments provided</div>
@@ -4460,13 +4328,21 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Effect to ensure form refreshes when a draft is loaded
   useEffect(() => {
     if (currentDraftId) {
-  
-      
       // Force UI to update
       const timer = setTimeout(() => {
         // Re-apply current form values to trigger a redraw
         const currentValues = watch();
+        
+        // CRITICAL FIX: Preserve files state before form reset
+        const currentFiles = { ...files };
+        
         reset({...currentValues});
+        
+        // CRITICAL FIX: Restore files state after form reset
+        // The files state should not be lost when form is reset
+        // This ensures that existing files remain visible in FileField components
+        setFiles(currentFiles);
+        (window as any).currentFiles = currentFiles;
         
         // Force active step to refresh
         const currentStep = activeStep;

@@ -224,7 +224,12 @@ export const documentsSchema = z.object({
       linkedIssue: z.string().min(1, "Linked issue is required").optional(),
       admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
       crossExaminationRef: z.string().optional(),
-      date: z.string().min(1, "Document date is required").optional()
+      date: z.string().min(1, "Document date is required").optional(),
+      extractedText: z.string().optional(),
+      keyMetadata: z.array(z.object({
+        key: z.string(),
+        value: z.string()
+      })).optional()
     })
   ).optional().default([]),
   

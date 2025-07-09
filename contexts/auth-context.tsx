@@ -134,8 +134,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user)
       refreshedRef.current = true
       
+      // Redirect based on user role
+      let redirectUrl = '/dashboard'; // Default fallback
+      
+      if (response.user.role === 'ADMIN') {
+        redirectUrl = '/admin/dashboard';
+      } else if (response.user.role === 'CASE_MANAGER') {
+        redirectUrl = '/case-manager/dashboard';
+      } else if (response.user.role === 'ARBITRATOR') {
+        redirectUrl = '/arbitrator/dashboard';
+      } else if (response.user.role === 'TEAM_MEMBER') {
+        redirectUrl = '/team-member/dashboard';
+      } else if (response.user.role === 'RESPONDENT') {
+        redirectUrl = '/respondent/dashboard';
+      } else if (response.user.role === 'CLAIMANT') {
+        redirectUrl = '/dashboard'; // Claimant uses the main dashboard
+      }
+      
       // Force a full page reload by using window.location instead of router.push
-      window.location.href = '/dashboard'
+      window.location.href = redirectUrl
     } catch (error) {
       throw error
     } finally {
@@ -168,8 +185,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user)
       refreshedRef.current = true
       
+      // Redirect based on user role
+      let redirectUrl = '/dashboard'; // Default fallback
+      
+      if (response.user.role === 'ADMIN') {
+        redirectUrl = '/admin/dashboard';
+      } else if (response.user.role === 'CASE_MANAGER') {
+        redirectUrl = '/case-manager/dashboard';
+      } else if (response.user.role === 'ARBITRATOR') {
+        redirectUrl = '/arbitrator/dashboard';
+      } else if (response.user.role === 'TEAM_MEMBER') {
+        redirectUrl = '/team-member/dashboard';
+      } else if (response.user.role === 'RESPONDENT') {
+        redirectUrl = '/respondent/dashboard';
+      } else if (response.user.role === 'CLAIMANT') {
+        redirectUrl = '/dashboard'; // Claimant uses the main dashboard
+      }
+      
       // Force a full page reload by using window.location instead of router.push
-      window.location.href = '/dashboard'
+      window.location.href = redirectUrl
     } catch (error) {
       throw error
     } finally {

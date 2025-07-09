@@ -290,18 +290,240 @@ Arbitration Portal Team
   }
 
   async sendPasswordResetLink(user: User, resetToken: string) {
-    const resetLink = `${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${resetToken}`;
+    const resetUrl = `${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${resetToken}`;
     
-    await this.transporter.sendMail({
+    const subject = `Password Reset Request - Arbitration Portal`;
+    const html = `
+      <p>Dear ${user.name},</p>
+      <p>You have requested to reset your password. Please click the link below to reset your password:</p>
+      <a href="${resetUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+        Reset Password
+      </a>
+      <p>If you did not request this, please ignore this email.</p>
+      <p>Best regards,<br>Arbitration Portal Team</p>
+    `;
+    
+    return this.sendEmail({
       to: user.email,
-      subject: 'Reset Your Password',
-      html: `
-        <h1>Password Reset Request</h1>
-        <p>Dear ${user.name},</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetLink}">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-      `,
+      subject,
+      html
+    });
+  }
+
+  // New respondent-specific email methods
+  async sendRespondentInvitation(email: string, name: string, caseData: any, invitationToken: string): Promise<boolean> {
+    const registrationUrl = `${this.configService.get<string>('FRONTEND_URL')}/respondent/register?token=${invitationToken}`;
+    
+    const subject = `Arbitration Case Notice - ${caseData.name}`;
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #dc2626;">Arbitration Case Notice</h1>
+        
+        <p>Dear ${name},</p>
+        
+        <p>You have been named as a respondent in an arbitration case. Please review the case details below:</p>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #374151;">Case Details</h3>
+          <p><strong>Case Name:</strong> ${caseData.name}</p>
+          <p><strong>Case Number:</strong> ${caseData.caseNumber || 'Pending'}</p>
+          <p><strong>Claimant:</strong> ${caseData.user.name}</p>
+          <p><strong>Filed Date:</strong> ${new Date(caseData.createdAt).toLocaleDateString()}</p>
+        </div>
+        
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>⚠️ Important:</strong> You need to register on our platform to access the case details and submit your response.</p>
+        </div>
+        
+        <a href="${registrationUrl}" style="display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+          Register & View Case
+        </a>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          If you have any questions about this case, please contact us or consult with legal counsel.
+        </p>
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          Best regards,<br>
+          Arbitration Portal Team
+        </p>
+      </div>
+    `;
+
+    const textContent = `
+Arbitration Case Notice
+
+Dear ${name},
+
+You have been named as a respondent in an arbitration case. Please review the case details below:
+
+Case Name: ${caseData.name}
+Case Number: ${caseData.caseNumber || 'Pending'}
+Claimant: ${caseData.user.name}
+Filed Date: ${new Date(caseData.createdAt).toLocaleDateString()}
+
+⚠️ Important: You need to register on our platform to access the case details and submit your response.
+
+Registration URL: ${registrationUrl}
+
+If you have any questions about this case, please contact us or consult with legal counsel.
+
+Best regards,
+Arbitration Portal Team
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      text: textContent,
+      html: htmlContent
+    });
+  }
+
+  async sendCaseNotification(email: string, name: string, caseData: any, notification: any): Promise<boolean> {
+    const caseUrl = `${this.configService.get<string>('FRONTEND_URL')}/respondent/case/${caseData.id}`;
+    
+    const subject = notification.title;
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #2563eb;">${notification.title}</h1>
+        
+        <p>Dear ${name},</p>
+        
+        <p>${notification.message}</p>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #374151;">Case Information</h3>
+          <p><strong>Case Name:</strong> ${caseData.name}</p>
+          <p><strong>Case Number:</strong> ${caseData.caseNumber || 'Pending'}</p>
+          <p><strong>Claimant:</strong> ${caseData.user.name}</p>
+        </div>
+        
+        <a href="${caseUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+          View Case Details
+        </a>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          Best regards,<br>
+          Arbitration Portal Team
+        </p>
+      </div>
+    `;
+
+    const textContent = `
+${notification.title}
+
+Dear ${name},
+
+${notification.message}
+
+Case Information:
+- Case Name: ${caseData.name}
+- Case Number: ${caseData.caseNumber || 'Pending'}
+- Claimant: ${caseData.user.name}
+
+View Case Details: ${caseUrl}
+
+Best regards,
+Arbitration Portal Team
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      text: textContent,
+      html: htmlContent
+    });
+  }
+
+  async sendArbitratorProposalNotification(email: string, name: string, proposal: any, notification: any): Promise<boolean> {
+    const proposalUrl = `${this.configService.get<string>('FRONTEND_URL')}/respondent/case/${proposal.caseId}`;
+    
+    const subject = notification.title;
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #2563eb;">${notification.title}</h1>
+        
+        <p>Dear ${name},</p>
+        
+        <p>${notification.message}</p>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #374151;">Arbitrator Details</h3>
+          <p><strong>Name:</strong> ${proposal.arbitrator.name}</p>
+          <p><strong>Email:</strong> ${proposal.arbitrator.email}</p>
+          <p><strong>Expertise:</strong> ${proposal.arbitrator.expertise || 'Not specified'}</p>
+          <p><strong>Experience:</strong> ${proposal.arbitrator.experience || 'Not specified'} years</p>
+          <p><strong>Proposed By:</strong> ${proposal.proposedBy.name} (${proposal.proposedBy.role})</p>
+        </div>
+        
+        <a href="${proposalUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+          Review Proposal
+        </a>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          Best regards,<br>
+          Arbitration Portal Team
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      html: htmlContent
+    });
+  }
+
+  async sendHearingNotification(email: string, name: string, hearing: any, notification: any): Promise<boolean> {
+    const hearingUrl = `${this.configService.get<string>('FRONTEND_URL')}/respondent/case/${hearing.caseId}`;
+    
+    const subject = notification.title;
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #2563eb;">${notification.title}</h1>
+        
+        <p>Dear ${name},</p>
+        
+        <p>${notification.message}</p>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #374151;">Hearing Details</h3>
+          <p><strong>Date & Time:</strong> ${new Date(hearing.scheduledDate).toLocaleString()}</p>
+          <p><strong>Type:</strong> ${hearing.type}</p>
+          <p><strong>Duration:</strong> ${hearing.duration} minutes</p>
+          <p><strong>Arbitrator:</strong> ${hearing.arbitrator.name}</p>
+          ${hearing.location ? `<p><strong>Location:</strong> ${hearing.location}</p>` : ''}
+          ${hearing.meetingLink ? `<p><strong>Meeting Link:</strong> <a href="${hearing.meetingLink}">${hearing.meetingLink}</a></p>` : ''}
+        </div>
+        
+        <a href="${hearingUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+          View Case Details
+        </a>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          Best regards,<br>
+          Arbitration Portal Team
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      html: htmlContent
     });
   }
 } 

@@ -40,6 +40,18 @@ const documentTypeOptions = [
 ];
 
 export const DocumentsTabs: React.FC<DocumentsTabsProps> = ({ control, disputeIssues, watch, setValue, files = {} }) => {
+  
+  // DEBUG: Log files prop when component renders
+  React.useEffect(() => {
+    console.log('🔧 DocumentsTabs received files prop:', {
+      filesReceived: files,
+      fileKeys: Object.keys(files),
+      hasScannedDocs: Object.keys(files).filter(key => key.startsWith('scannedDoc_')),
+      hasAffidavits: Object.keys(files).filter(key => key.startsWith('affidavit_')),
+      hasCertificates: Object.keys(files).filter(key => key.startsWith('certificate_'))
+    });
+  }, [files]);
+  
   // Generate dispute issues from the arguments if none provided
   const issues = useMemo(() => {
     if (disputeIssues && disputeIssues.length > 0) {

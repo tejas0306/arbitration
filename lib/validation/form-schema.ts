@@ -70,17 +70,23 @@ export const claimantSchema = z.object({
     .length(10, "Phone number must be exactly 10 digits")
     .regex(/^\d{10}$/, "Phone number must contain only digits"),
   gst: z.string()
-    .regex(gstRegex, "Invalid GST format. Should be like 22AAAAA0000A1Z5")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || gstRegex.test(val),
+      "Invalid GST format. Should be like 22AAAAA0000A1Z5"
+    ),
   pan: z.string()
-    .regex(panRegex, "Invalid PAN format. Should be like AAAPL1234C")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || panRegex.test(val),
+      "Invalid PAN format. Should be like AAAPL1234C"
+    ),
   cin: z.string()
-    .regex(cinRegex, "Invalid CIN format. Should be like U74140MH2014PTC123456")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || cinRegex.test(val),
+      "Invalid CIN format. Should be like U74140MH2014PTC123456"
+    ),
   coi: z.any().optional(),
   panCard: z.any().optional(),
   gstCert: z.any().optional(),
@@ -158,17 +164,23 @@ export const respondentSchema = z.object({
     .regex(/^\d{10}$/, "Phone number must contain only digits")
     .optional(),
   gst: z.string()
-    .regex(gstRegex, "Invalid GST format")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || gstRegex.test(val),
+      "Invalid GST format. Should be like 22AAAAA0000A1Z5"
+    ),
   pan: z.string()
-    .regex(panRegex, "Invalid PAN format")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || panRegex.test(val),
+      "Invalid PAN format. Should be like AAAPL1234C"
+    ),
   cin: z.string()
-    .regex(cinRegex, "Invalid CIN format")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || cinRegex.test(val),
+      "Invalid CIN format. Should be like U74140MH2014PTC123456"
+    ),
 });
 
 // Arbitration agreement schema
@@ -206,7 +218,13 @@ export const disputeDetailsSchema = z.object({
 
 // Prayers schema
 export const prayersSchema = z.object({
-  prayers: z.string().min(1, "Prayers is required").max(3000),
+  prayers: z.array(z.object({
+    id: z.string().default(() => Math.random().toString(36).substr(2, 9)),
+    title: z.string().min(1, "Prayer title is required").max(100, "Prayer title cannot exceed 100 characters"),
+    description: z.string().min(1, "Prayer description is required").max(1000, "Prayer description cannot exceed 1000 characters"),
+    amount: z.string().optional(),
+    reliefType: z.enum(["monetary", "specific_performance", "declaratory", "injunction", "costs", "interim", "other"]).default("monetary")
+  })).min(1, "At least one prayer is required"),
 });
 
 // Documents schema
@@ -288,7 +306,14 @@ export const paymentSchema = z.object({
 
 // Arguments schema
 export const argumentsSchema = z.object({
-  argumentsPerIssue: z.array(z.string()).min(1, "At least one argument is required"),
+  argumentsPerPrayer: z.array(z.object({
+    prayerId: z.string(),
+    prayerTitle: z.string(),
+    argument: z.string().min(1, "Argument is required").max(2000, "Argument cannot exceed 2000 characters"),
+    legalBasis: z.string().optional(),
+    factualBasis: z.string().optional(),
+    precedents: z.string().optional()
+  })).optional().default([]),
 });
 
 // Complete form schema

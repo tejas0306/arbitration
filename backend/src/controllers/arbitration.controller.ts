@@ -82,6 +82,31 @@ export class ArbitrationController {
         { name: 'evidenceFiles_2', maxCount: 1 },
         { name: 'evidenceFiles_3', maxCount: 1 },
         { name: 'evidenceFiles_4', maxCount: 1 },
+        // NEW: DocumentsTabs field names (matching draft endpoint)
+        // Scanned Documents
+        { name: 'scannedDoc_0', maxCount: 1 },
+        { name: 'scannedDoc_1', maxCount: 1 },
+        { name: 'scannedDoc_2', maxCount: 1 },
+        { name: 'scannedDoc_3', maxCount: 1 },
+        { name: 'scannedDoc_4', maxCount: 1 },
+        // Affidavits
+        { name: 'affidavit_0', maxCount: 1 },
+        { name: 'affidavit_1', maxCount: 1 },
+        { name: 'affidavit_2', maxCount: 1 },
+        { name: 'affidavit_3', maxCount: 1 },
+        { name: 'affidavit_4', maxCount: 1 },
+        // Electronic Evidence - Certificate files
+        { name: 'certificate_0', maxCount: 1 },
+        { name: 'certificate_1', maxCount: 1 },
+        { name: 'certificate_2', maxCount: 1 },
+        { name: 'certificate_3', maxCount: 1 },
+        { name: 'certificate_4', maxCount: 1 },
+        // Electronic Evidence - Supporting files (multiple files per evidence)
+        { name: 'supporting_files_0', maxCount: 10 },
+        { name: 'supporting_files_1', maxCount: 10 },
+        { name: 'supporting_files_2', maxCount: 10 },
+        { name: 'supporting_files_3', maxCount: 10 },
+        { name: 'supporting_files_4', maxCount: 10 },
         // Documents Evidence files
         { name: 'documentsEvidence_0_attachedDocuments_0', maxCount: 1 },
         { name: 'documentsEvidence_0_attachedDocuments_1', maxCount: 1 },

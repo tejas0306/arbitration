@@ -20,39 +20,59 @@ export default function EditPetitionClient({ petitionId }: EditPetitionClientPro
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchPetition = async () => {
-      if (!petitionId) return
-      
+    const loadPetition = async () => {
       try {
         setIsLoading(true)
         setError(null)
         
+        console.log('🔧 EditPetitionClient: Loading petition with ID:', petitionId);
+        
         const data = await arbitrationApi.getById(petitionId)
         
-        if (!data) {
-          throw new Error("No petition data found")
-        }
-        
-        console.log('🔧 Petition data loaded for editing:', {
-          id: data.id,
-          hasFileMetadata: !!data.fileMetadata,
-          fileMetadataKeys: data.fileMetadata ? Object.keys(data.fileMetadata) : [],
-          hasFiles: !!data.files,
-          filesKeys: data.files ? Object.keys(data.files) : [],
-          dataKeys: Object.keys(data)
+        console.log('🔧 EditPetitionClient: Received petition data:', {
+          hasData: !!data,
+          dataKeys: data ? Object.keys(data) : [],
+          hasDocuments: !!data?.documents,
+          documentsKeys: data?.documents ? Object.keys(data.documents) : [],
+          hasFileMetadata: !!data?.fileMetadata,
+          fileMetadataKeys: data?.fileMetadata ? Object.keys(data.fileMetadata) : [],
+          hasFiles: !!data?.files,
+          filesKeys: data?.files ? Object.keys(data.files) : [],
+          // Check specific document sections
+          hasCompanyDocs: !!data?.documents?.companyDocs,
+          hasAllFiles: !!data?.documents?.allFiles,
+          hasSupportingDocuments: !!data?.documents?.supportingDocuments,
+          hasScannedDocuments: !!data?.documents?.scannedDocuments,
+          hasAffidavits: !!data?.documents?.affidavits,
+          hasElectronicEvidence: !!data?.documents?.electronicEvidence,
+          sampleFileStructure: data?.fileMetadata ? Object.entries(data.fileMetadata).slice(0, 3) : 'none'
         });
         
         setPetitionData(data)
       } catch (err: any) {
-        setError(err.message || "Failed to load petition data")
-        toast.error("Could not load petition data. Please try again.")
+        console.error('🔧 EditPetitionClient: Error loading petition:', err);
+        setError(err.message || 'Failed to load petition')
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchPetition()
+    if (petitionId) {
+      loadPetition()
+    }
   }, [petitionId])
+
+  const handleSubmit = async (data: any) => {
+    try {
+      await arbitrationApi.update(petitionId, data)
+      toast.success('Petition updated successfully!')
+      router.push('/dashboard/my-cases')
+    } catch (err: any) {
+      console.error('Error updating petition:', err)
+      toast.error(err.message || 'Failed to update petition')
+      throw err
+    }
+  }
 
   const handleBack = () => {
     router.back()
@@ -121,7 +141,12 @@ export default function EditPetitionClient({ petitionId }: EditPetitionClientPro
         </CardContent>
       </Card>
 
-      <ArbitrationForm initialData={petitionData} petitionId={petitionId} />
+      <ArbitrationForm 
+        initialData={petitionData} 
+        petitionId={petitionId} 
+        mode="edit"
+        onSubmit={handleSubmit}
+      />
     </div>
   )
 } 

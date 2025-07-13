@@ -100,7 +100,15 @@ export const initialDocumentEvidence = {
 };
 
 export const initialPrayers = {
-  prayers: "",
+  prayers: [
+    {
+      id: Math.random().toString(36).substr(2, 9),
+      title: "",
+      description: "",
+      amount: "",
+      reliefType: "monetary" as const
+    }
+  ],
 };
 
 export const initialDocuments = {
@@ -161,7 +169,14 @@ export const initialPayment = {
 };
 
 export const initialArguments = {
-  argumentsPerIssue: [] as string[],
+  argumentsPerPrayer: [] as Array<{
+    prayerId: string;
+    prayerTitle: string;
+    argument: string;
+    legalBasis?: string;
+    factualBasis?: string;
+    precedents?: string;
+  }>,
 };
 
 export const initialFormState = {

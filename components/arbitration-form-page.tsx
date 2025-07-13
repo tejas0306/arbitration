@@ -1,15 +1,18 @@
 "use client"
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import ArbitrationForm from '@/components/arbitration-form';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import ProtectedRoute from '@/components/protected-route';
+import { arbitrationApi } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 
 export default function ArbitrationFormPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams?.get('draftId');
   const petitionId = searchParams?.get('petitionId');
@@ -24,6 +27,44 @@ export default function ArbitrationFormPage() {
       setTitle('Arbitration Petition Form');
     }
   }, [draftId, petitionId]);
+
+  // Handle form submission
+  const handleSubmit = async (data: any) => {
+    try {
+      if (draftId) {
+        // Update existing draft
+        await arbitrationApi.updateDraft(draftId, data);
+        toast({
+          title: "Success",
+          description: "Draft updated successfully!",
+        });
+      } else if (petitionId) {
+        // Update existing petition
+        await arbitrationApi.update(petitionId, data);
+        toast({
+          title: "Success", 
+          description: "Petition updated successfully!",
+        });
+        router.push('/dashboard/my-cases');
+      } else {
+        // Create new draft or submission
+        const result = await arbitrationApi.create(data);
+        toast({
+          title: "Success",
+          description: "Arbitration request submitted successfully!",
+        });
+        router.push('/dashboard/my-cases');
+      }
+    } catch (error: any) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit form. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
 
   // Restrict access to CLAIMANT role only
   if (session && session.user?.role !== 'CLAIMANT') {
@@ -67,7 +108,11 @@ export default function ArbitrationFormPage() {
                 : "Please fill out the petition form below to submit your arbitration request. This form will initiate the formal arbitration proceedings. All fields marked with an asterisk (*) are required."}
             </p>
             <div className="bg-white rounded-lg shadow-md p-6 border border-indigo-100">
-              <ArbitrationForm />
+              <ArbitrationForm 
+                onSubmit={handleSubmit}
+                mode={draftId ? 'edit' : petitionId ? 'edit' : 'create'}
+                petitionId={petitionId || undefined}
+              />
             </div>
           </div>
         </main>

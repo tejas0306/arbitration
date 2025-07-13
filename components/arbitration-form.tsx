@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { arbitrationApi, auth, api } from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -10,6 +12,9 @@ import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import DocumentsTabs from './evidence/DocumentsTabs';
+import { FormStepSidebar } from "@/components/ui/form-step-sidebar"
+import PrayersSection from "@/components/ui/prayers-section"
+import ArgumentsSection from "@/components/ui/arguments-section"
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -250,39 +255,132 @@ export const FormField: React.FC<FormFieldProps> = ({
     }
     // Handle PAN formatting (10 characters: AAAPL1234C)
     else if (name.includes('pan') && type === 'text') {
-      // Convert to uppercase
-      newValue = newValue.toUpperCase();
+      // Convert to uppercase and remove non-alphanumeric characters
+      newValue = newValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
       
       // Apply PAN format: 5 letters + 4 digits + 1 letter
+      let formattedValue = '';
+      
+      // First 5 characters: only letters
+      if (newValue.length > 0) {
+        const firstPart = newValue.slice(0, 5).replace(/[^A-Z]/g, '');
+        formattedValue += firstPart;
+      }
+      
+      // Next 4 characters: only digits  
       if (newValue.length > 5) {
-        // Allow only digits for the middle 4 characters (position 5-8)
-        const firstPart = newValue.slice(0, 5);
-        let middlePart = '';
-        let lastPart = '';
+        const middlePart = newValue.slice(5, 9).replace(/[^0-9]/g, '');
+        formattedValue += middlePart;
+      }
+      
+      // Last character: only letter
+      if (newValue.length > 9) {
+        const lastPart = newValue.slice(9, 10).replace(/[^A-Z]/g, '');
+        formattedValue += lastPart;
+      }
+      
+      newValue = formattedValue.slice(0, 10); // Limit to 10 characters
+    } 
+    // Handle GST formatting (15 characters: 22AAAAA0000A1Z5)
+    else if (name.includes('gst') && type === 'text') {
+      // Convert to uppercase and remove non-alphanumeric characters
+      newValue = newValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      
+      // Apply GST format: 2 digits + 10 chars + 1 digit + 1 char + 1 digit
+      let formattedValue = '';
+      
+      // First 2 characters: only digits (state code)
+      if (newValue.length > 0) {
+        const statePart = newValue.slice(0, 2).replace(/[^0-9]/g, '');
+        formattedValue += statePart;
+      }
+      
+      // Next 10 characters: PAN format (5 letters + 4 digits + 1 letter)
+      if (newValue.length > 2) {
+        const panPart = newValue.slice(2, 12);
+        let panFormatted = '';
         
-        // Extract digits for middle part (positions 5-8)
-        if (newValue.length > 5) {
-          const remainingChars = newValue.slice(5);
-          const digitsOnly = remainingChars.replace(/[^0-9]/g, '').slice(0, 4);
-          middlePart = digitsOnly;
-          
-          // Extract last character (should be a letter)
-          if (remainingChars.length > 4) {
-            const lastChar = remainingChars.slice(4).replace(/[^A-Z]/g, '').slice(0, 1);
-            lastPart = lastChar;
-          }
+        // 5 letters
+        if (panPart.length > 0) {
+          panFormatted += panPart.slice(0, 5).replace(/[^A-Z]/g, '');
+        }
+        // 4 digits
+        if (panPart.length > 5) {
+          panFormatted += panPart.slice(5, 9).replace(/[^0-9]/g, '');
+        }
+        // 1 letter
+        if (panPart.length > 9) {
+          panFormatted += panPart.slice(9, 10).replace(/[^A-Z]/g, '');
         }
         
-        newValue = firstPart + middlePart + lastPart;
+        formattedValue += panFormatted;
       }
+      
+      // Next character: only digit (entity number)
+      if (newValue.length > 12) {
+        const entityPart = newValue.slice(12, 13).replace(/[^0-9]/g, '');
+        formattedValue += entityPart;
+      }
+      
+      // Next character: letter or digit (default is Z)
+      if (newValue.length > 13) {
+        const defaultPart = newValue.slice(13, 14);
+        formattedValue += defaultPart;
+      }
+      
+      // Last character: digit (checksum)
+      if (newValue.length > 14) {
+        const checksumPart = newValue.slice(14, 15).replace(/[^0-9]/g, '');
+        formattedValue += checksumPart;
+      }
+      
+      newValue = formattedValue.slice(0, 15); // Limit to 15 characters
     } 
-    // Handle GST formatting (15 characters, convert to uppercase)
-    else if (name.includes('gst') && type === 'text') {
-      newValue = newValue.toUpperCase();
-    } 
-    // Handle CIN formatting (21 characters, convert to uppercase)
+    // Handle CIN formatting (21 characters: L17110DL1982PLC013403)
     else if (name.includes('cin') && type === 'text') {
-      newValue = newValue.toUpperCase();
+      // Convert to uppercase and remove non-alphanumeric characters
+      newValue = newValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      
+      // Apply CIN format: L + 5 digits + 2 letters + 4 digits + PLC/PTC + 6 digits
+      let formattedValue = '';
+      
+      // First character: L, U, or other letter
+      if (newValue.length > 0) {
+        const listingPart = newValue.slice(0, 1).replace(/[^A-Z]/g, '');
+        formattedValue += listingPart;
+      }
+      
+      // Next 5 characters: only digits (industry code)
+      if (newValue.length > 1) {
+        const industryPart = newValue.slice(1, 6).replace(/[^0-9]/g, '');
+        formattedValue += industryPart;
+      }
+      
+      // Next 2 characters: only letters (state code)
+      if (newValue.length > 6) {
+        const statePart = newValue.slice(6, 8).replace(/[^A-Z]/g, '');
+        formattedValue += statePart;
+      }
+      
+      // Next 4 characters: only digits (year)
+      if (newValue.length > 8) {
+        const yearPart = newValue.slice(8, 12).replace(/[^0-9]/g, '');
+        formattedValue += yearPart;
+      }
+      
+      // Next 3 characters: PLC, PTC, etc.
+      if (newValue.length > 12) {
+        const typePart = newValue.slice(12, 15).replace(/[^A-Z]/g, '');
+        formattedValue += typePart;
+      }
+      
+      // Last 6 characters: only digits (registration number)
+      if (newValue.length > 15) {
+        const regPart = newValue.slice(15, 21).replace(/[^0-9]/g, '');
+        formattedValue += regPart;
+      }
+      
+      newValue = formattedValue.slice(0, 21); // Limit to 21 characters
     }
     
     // Create a new event with the modified value
@@ -302,9 +400,9 @@ export const FormField: React.FC<FormFieldProps> = ({
   const isPhoneField = name.includes('phone') && !name.includes('phoneCountryCode');
   
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm mb-1">
-        {label}{required && '*'}
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        {label}{required && <span className="text-red-500 ml-1">*</span>}
       </label>
       
       {type === "select" ? (
@@ -313,7 +411,9 @@ export const FormField: React.FC<FormFieldProps> = ({
           name={name}
           value={value}
           onChange={handleChange}
-          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm transition duration-200 ${
+            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+          }`}
         >
           <option value="">{placeholder || `Select ${label}`}</option>
           {options?.map((option) => (
@@ -330,15 +430,23 @@ export const FormField: React.FC<FormFieldProps> = ({
           value={value}
           onChange={handleChange}
           maxLength={maxLength}
+          max={max}
           placeholder={placeholder}
           inputMode={name.includes('pincode') ? 'numeric' : undefined}
           pattern={name.includes('pincode') ? '[0-9]*' : undefined}
           style={isBusinessId ? { textTransform: 'uppercase' } : undefined}
-          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 ${
+            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+          }`}
         />
       )}
       
-      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+      {error && <div className="text-red-500 text-xs mt-1 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </div>}
     </div>
   );
 };
@@ -370,9 +478,9 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
   const id = `field-${name}`;
   
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm mb-1">
-        {label}{required && '*'}
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        {label}{required && <span className="text-red-500 ml-1">*</span>}
       </label>
       
       <textarea
@@ -383,10 +491,23 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
         maxLength={maxLength}
         placeholder={placeholder}
         rows={rows}
-        className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+        className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 resize-vertical ${
+          error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+        }`}
       />
       
-      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+      {maxLength && (
+        <div className="text-xs text-gray-500 text-right">
+          {value.length}/{maxLength} characters
+        </div>
+      )}
+      
+      {error && <div className="text-red-500 text-xs mt-1 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </div>}
     </div>
   );
 };
@@ -934,9 +1055,29 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
 interface ArbitrationFormProps {
   initialData?: any;
   petitionId?: string;
+  mode?: 'create' | 'edit';
+  onSubmit: (data: FormData) => Promise<void>;
 }
 
-function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {}) {
+function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }: ArbitrationFormProps) {
+  console.log('🔧 ArbitrationForm: Component mounted with:', {
+    mode,
+    hasInitialData: !!initialData,
+    initialDataKeys: initialData ? Object.keys(initialData) : [],
+    hasDocuments: !!initialData?.documents,
+    documentsKeys: initialData?.documents ? Object.keys(initialData.documents) : [],
+    hasFileMetadata: !!initialData?.fileMetadata,
+    fileMetadataKeys: initialData?.fileMetadata ? Object.keys(initialData.fileMetadata) : [],
+    hasFiles: !!initialData?.files,
+    filesKeys: initialData?.files ? Object.keys(initialData.files) : [],
+    sampleInitialData: initialData ? {
+      claimant: !!initialData.claimant,
+      arbitrationAgreement: !!initialData.arbitrationAgreement,
+      disputeDetails: !!initialData.disputeDetails,
+      respondents: !!initialData.respondents
+    } : 'none'
+  });
+
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   
@@ -1292,6 +1433,15 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             
             console.log('🔧 Loading file metadata for edit mode:', fileDisplayState);
             console.log('🔧 Available file metadata keys:', Object.keys(initialData.fileMetadata));
+            
+            // CRITICAL DEBUG: Log specific document files
+            console.log('🔧 Document files being set:', {
+              scannedDocs: Object.keys(fileDisplayState).filter(key => key.startsWith('scannedDoc_')),
+              affidavits: Object.keys(fileDisplayState).filter(key => key.startsWith('affidavit_')),
+              certificates: Object.keys(fileDisplayState).filter(key => key.startsWith('certificate_')),
+              allFiles: Object.keys(fileDisplayState)
+            });
+            
             setFiles(fileDisplayState);
             
             // CRITICAL FIX: Expose files state globally for FileField components
@@ -1638,6 +1788,61 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     }
   }, [additionalClaimants, initialData, editMode, petitionId, additionalClaimantEmailVerified, additionalClaimantPhoneVerified]);
   
+  // Reset verification when email/phone changes
+  useEffect(() => {
+    // Reset main claimant email verification if email changes (unless it's initial load)
+    if (currentEmail && !editMode && !petitionId) {
+      // Only reset if we're not in edit mode and this isn't the initial load
+      const previousEmail = formValues.claimant?.email;
+      if (previousEmail && previousEmail !== currentEmail && emailVerified) {
+        setEmailVerified(false);
+        toast.info('Email changed. Please verify your new email address.');
+      }
+    }
+  }, [currentEmail, editMode, petitionId, emailVerified, formValues.claimant?.email]);
+
+  useEffect(() => {
+    // Reset main claimant phone verification if phone changes (unless it's initial load)
+    if (currentPhone && !editMode && !petitionId) {
+      // Only reset if we're not in edit mode and this isn't the initial load
+      const previousPhone = formValues.claimant?.phone;
+      if (previousPhone && previousPhone !== currentPhone && phoneVerified) {
+        setPhoneVerified(false);
+        toast.info('Phone number changed. Please verify your new phone number.');
+      }
+    }
+  }, [currentPhone, editMode, petitionId, phoneVerified, formValues.claimant?.phone]);
+
+  // Reset additional claimant verification when their contact info changes
+  useEffect(() => {
+    additionalClaimants.forEach((claimant, index) => {
+      if (!editMode && !petitionId) {
+        // Check if email changed for this additional claimant
+        const previousClaimants = formValues.additionalClaimants || [];
+        const previousEmail = previousClaimants[index]?.email;
+        if (previousEmail && previousEmail !== claimant.email && additionalClaimantEmailVerified[index]) {
+          setAdditionalClaimantEmailVerified(prev => {
+            const newVerified = [...prev];
+            newVerified[index] = false;
+            return newVerified;
+          });
+          toast.info(`Additional Claimant ${index + 1}: Email changed. Please verify the new email address.`);
+        }
+
+        // Check if phone changed for this additional claimant
+        const previousPhone = previousClaimants[index]?.phone;
+        if (previousPhone && previousPhone !== claimant.phone && additionalClaimantPhoneVerified[index]) {
+          setAdditionalClaimantPhoneVerified(prev => {
+            const newVerified = [...prev];
+            newVerified[index] = false;
+            return newVerified;
+          });
+          toast.info(`Additional Claimant ${index + 1}: Phone number changed. Please verify the new phone number.`);
+        }
+      }
+    });
+  }, [additionalClaimants, editMode, petitionId, additionalClaimantEmailVerified, additionalClaimantPhoneVerified, formValues.additionalClaimants]);
+  
   // Helper functions for field arrays
   const addAdditionalClaimant = () => {
     appendAdditionalClaimant(initialAdditionalClaimant);
@@ -1959,16 +2164,46 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         
         // Check required document uploads (only when not saving draft)
         if (!isDraftSave) {
-          if (!files['claimant.coi']) {
-            toast.error('Certificate of Incorporation (COI) is required');
+          const claimantData = watch('claimant');
+          
+          // Smart document validation - only require documents for filled fields
+          if (claimantData.pan && !files['claimant.panCard']) {
+            toast.error('PAN Card document is required when PAN number is provided');
             return false;
           }
-          if (!files['claimant.panCard']) {
-            toast.error('PAN Card document is required');
+          
+          if (claimantData.gst && !files['claimant.gstCert']) {
+            toast.error('GST Registration Certificate is required when GST number is provided');
             return false;
           }
-          if (!files['claimant.gstCert']) {
-            toast.error('GST Registration Certificate is required');
+          
+          if (claimantData.cin && !files['claimant.coi']) {
+            toast.error('Certificate of Incorporation is required when CIN is provided');
+            return false;
+          }
+          
+          // At least one identification field must be filled and corresponding document uploaded
+          const hasAnyIdField = claimantData.pan || claimantData.gst || claimantData.cin;
+          const hasAnyIdDoc = (claimantData.pan && files['claimant.panCard']) || 
+                              (claimantData.gst && files['claimant.gstCert']) || 
+                              (claimantData.cin && files['claimant.coi']);
+          
+          if (!hasAnyIdField) {
+            toast.error('Please provide at least one identification number (PAN, GST, or CIN)');
+            return false;
+          }
+          
+          if (!hasAnyIdDoc) {
+            toast.error('Please upload the document for at least one identification field you have filled');
+            return false;
+          }
+        } else {
+          // Even for draft save, ensure if any field is filled, at least one field is provided
+          const claimantData = watch('claimant');
+          const hasAnyIdField = claimantData.pan || claimantData.gst || claimantData.cin;
+          
+          if (!hasAnyIdField) {
+            toast.error('Please provide at least one identification number (PAN, GST, or CIN) before proceeding');
             return false;
           }
         }
@@ -2076,93 +2311,122 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         }
         return true;
       case 6: // Prayers & Reliefs
-        fieldsToValidate = ['prayers.prayers'];
-        break;
-      case 7: // Documents
-        // Check at least one of the document types has been uploaded
-        const scannedDocs = watch('documents.scannedDocuments') || [];
-        const affidavits = watch('documents.affidavits') || [];
-        const electronicEvidence = watch('documents.electronicEvidence') || [];
-        const oldSupportingDocs = watch('documents.supportingDocuments') || [];
-        
-        // Ensure at least one document of any type exists
-        if (
-          scannedDocs.length === 0 &&
-          affidavits.length === 0 &&
-          electronicEvidence.length === 0 &&
-          oldSupportingDocs.length === 0
-        ) {
-          toast.error('Please upload at least one document or affidavit');
+        // Validate all prayers
+        const prayers = watch('prayers.prayers') || [];
+        if (prayers.length === 0) {
+          toast.error('Please add at least one prayer');
           return false;
         }
         
-        // Validate any scanned documents that exist
-        if (scannedDocs.length > 0) {
-          for (let i = 0; i < scannedDocs.length; i++) {
-            const fieldPaths = [
-              `documents.scannedDocuments.${i}.file`,
-              `documents.scannedDocuments.${i}.description`,
-              `documents.scannedDocuments.${i}.linkedIssue`,
-              `documents.scannedDocuments.${i}.date`
-            ];
-            const result = await trigger(fieldPaths as any);
-            if (!result) return false;
+        // Validate each prayer has required fields
+        for (let i = 0; i < prayers.length; i++) {
+          const prayer = prayers[i];
+          if (!prayer.title?.trim()) {
+            toast.error(`Prayer ${i + 1}: Title is required`);
+            return false;
+          }
+          if (!prayer.description?.trim()) {
+            toast.error(`Prayer ${i + 1}: Description is required`);
+            return false;
+          }
+          if (prayer.reliefType === 'monetary' && (!prayer.amount || parseFloat(prayer.amount) <= 0)) {
+            toast.error(`Prayer ${i + 1}: Amount is required for monetary relief`);
+            return false;
           }
         }
-        
-        // Validate any affidavits that exist
-        if (affidavits.length > 0) {
-          for (let i = 0; i < affidavits.length; i++) {
-            const fieldPaths = [
-              `documents.affidavits.${i}.file`,
-              `documents.affidavits.${i}.type`,
-              `documents.affidavits.${i}.deponentName`,
-              `documents.affidavits.${i}.date`,
-              `documents.affidavits.${i}.place`,
-              `documents.affidavits.${i}.event`,
-              `documents.affidavits.${i}.linkedIssue`
-            ];
-            const result = await trigger(fieldPaths as any);
-            if (!result) return false;
-          }
-        }
-        
-        // Validate any electronic evidence that exist
-        if (electronicEvidence.length > 0) {
-          for (let i = 0; i < electronicEvidence.length; i++) {
-            const fieldPaths = [
-              `documents.electronicEvidence.${i}.certificateFile`,
-              `documents.electronicEvidence.${i}.description`,
-              `documents.electronicEvidence.${i}.linkedIssue`,
-              `documents.electronicEvidence.${i}.tabulatedList`
-            ];
-            const result = await trigger(fieldPaths as any);
-            if (!result) return false;
-          }
-        }
-        
-        // For backward compatibility, check old supporting documents field
-        if (oldSupportingDocs.length > 0) {
-          await trigger('documents.supportingDocuments' as any);
-        }
-        
         return true;
+      case 6: // Prayers & Reliefs (Rendering)
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
+            <PrayersSection 
+              control={control}
+              name="prayers.prayers"
+            />
+          </div>
+        )
+      case 7: // Documents
+        // Create default issues in case arguments don't exist yet
+        const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
+          (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
+            value: `issue_${index + 1}`,
+            label: `Issue ${index + 1}${arg ? ` - ${arg.substring(0, 30)}...` : ''}`
+          })) : 
+          [
+            { value: "issue_default_1", label: "Issue 1 - Breach of Contract" },
+            { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
+            { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
+          ];
+          
+  
+        
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[7] = el; }}>
+            <DocumentsTabs 
+              control={control}
+              watch={watch}
+              setValue={setValue}
+              disputeIssues={disputeIssues}
+              files={files}
+            />
+          </div>
+        )
       case 8: // Payment
-        fieldsToValidate = [
-          'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
-        ];
-        break;
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[8] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Payment</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Payment Head"
+                  name="payment.paymentHead"
+                  type="select"
+                  required
+                  options={[
+                    { value: "filing_fee", label: "Filing Fee" },
+                    { value: "arbitrator_fee", label: "Arbitrator Fee" },
+                    { value: "administrative_fee", label: "Administrative Fee" },
+                    { value: "emergency_fee", label: "Emergency Arbitration Fee" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Payment Amount (INR)"
+                  name="payment.paymentAmount"
+                  type="number"
+                  required
+                  maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
+                  placeholder="Enter amount in INR"
+                />
+                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_PAYMENT_AMOUNT.toLocaleString()} INR</p>
+              </div>
+              <div>
+                <ControlledTextAreaField
+                  control={control}
+                  label="Payment Details"
+                  name="payment.paymentDetails"
+                  required
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Provide detailed payment information"
+                />
+              </div>
+            </div>
+                      </div>
+          )
       case 9: // Arguments
-        if (argumentFields.length > 0) {
-          argumentFields.forEach((_, index) => {
-            fieldsToValidate.push(`arguments.argumentsPerIssue.${index}`);
-          });
-        } else {
-          // If no argument fields yet, create an error
-          toast.error('Please add at least one argument');
-          return false;
-        }
-        break;
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
+            <ArgumentsSection 
+              control={control}
+              prayersName="prayers.prayers"
+              argumentsName="arguments.argumentsPerPrayer"
+            />
+          </div>
+        )
       case 10: // Review & Submit
         // For the final step, just return true as validation is complete
         return true;
@@ -2270,7 +2534,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   }, [activeStep]); // Restore files when step changes
   
   // Form submission handler
-  const onSubmit = async (data: FormData) => {
+  const handleFormSubmission = async (data: FormData) => {
     try {
       // Check authentication
       if (!isAuthenticated) {
@@ -2279,16 +2543,36 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         return;
       }
     
-      // Check if files are uploaded when required
+      // Check if files are uploaded when required (smart validation based on filled fields)
       const fileErrors: Record<string, string> = {};
       
-      // Check required files based on form structure (using correct field names)
-      if (!files['claimant.coi']) {
-        fileErrors.coi = "Certificate of Incorporation (COI) is required";
+      // First check that at least one identification field is filled
+      const hasAnyIdField = data.claimant.pan || data.claimant.gst || data.claimant.cin;
+      if (!hasAnyIdField) {
+        toast.error('Please provide at least one identification number (PAN, GST, or CIN)');
+        return;
       }
       
-      if (!files['claimant.panCard']) {
-        fileErrors.panCard = "PAN Card is required";
+      // Only require documents if corresponding fields are filled
+      if (data.claimant.pan && !files['claimant.panCard']) {
+        fileErrors.panCard = "PAN Card is required when PAN number is provided";
+      }
+      
+      if (data.claimant.gst && !files['claimant.gstCert']) {
+        fileErrors.gstCert = "GST Registration Certificate is required when GST number is provided";
+      }
+      
+      if (data.claimant.cin && !files['claimant.coi']) {
+        fileErrors.coi = "Certificate of Incorporation (COI) is required when CIN is provided";
+      }
+      
+      // At least one identification document is required
+      const hasAnyIdDoc = (data.claimant.pan && files['claimant.panCard']) || 
+                          (data.claimant.gst && files['claimant.gstCert']) || 
+                          (data.claimant.cin && files['claimant.coi']);
+      
+      if (!hasAnyIdDoc) {
+        fileErrors.identification = "Please upload the document for at least one identification field you have filled";
       }
       
       // Agreement file is only required if there's an arbitration agreement
@@ -2299,7 +2583,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       if (Object.keys(fileErrors).length > 0) {
         // Show specific error messages for missing files
         const missingFiles = Object.values(fileErrors).join(', ');
-        toast.error(`Please upload all required files: ${missingFiles}`);
+        toast.error(`Please upload required files: ${missingFiles}`);
         return;
       }
 
@@ -3062,7 +3346,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   {emailVerified ? "✓ Verified" : "Verify"}
                 </Button>
               </div>
-              <div className="relative">
+              <div className="space-y-2">
                 <PhoneField
                   control={control}
                   phoneFieldName="claimant.phone"
@@ -3070,16 +3354,18 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   label={phoneVerified ? "Phone* ✓" : "Phone*"}
                   error={!formValues.claimant.phone ? "Phone is required" : ""}
                 />
-                <Button 
-                  type="button" 
-                  variant={phoneVerified ? "default" : "outline"}
-                  size="sm"
-                  className={`absolute top-6 right-2 h-8 px-3 ${phoneVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                  onClick={phoneVerified ? undefined : sendPhoneVerification}
-                  disabled={phoneVerified || !watch('claimant.phone') || !/^\d{10}$/.test(watch('claimant.phone') || '')}
-                >
-                  {phoneVerified ? "✓ Verified" : "Verify"}
-                </Button>
+                <div className="flex justify-end">
+                  <Button 
+                    type="button" 
+                    variant={phoneVerified ? "default" : "outline"}
+                    size="sm"
+                    className={`h-8 px-3 ${phoneVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                    onClick={phoneVerified ? undefined : sendPhoneVerification}
+                    disabled={phoneVerified || !watch('claimant.phone') || !/^\d{10}$/.test(watch('claimant.phone') || '')}
+                  >
+                    {phoneVerified ? "✓ Verified" : "Verify"}
+                  </Button>
+                </div>
               </div>
               <div>
                 <ControlledFormField
@@ -3119,10 +3405,13 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             {/* Document Upload Section */}
             <div className="mt-6 border-t pt-6">
               <h4 className="font-medium text-md mb-4">Document Upload</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Upload documents only for the fields you have filled above. At least one identification document is required.
+              </p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <FileField
-                    label="Certificate of Incorporation (COI)*"
+                    label={watch('claimant.cin') ? "Certificate of Incorporation (COI)*" : "Certificate of Incorporation (COI) - Only if CIN provided"}
                     name="claimant.coi"
                     onChange={(file) => handleFileChange('claimant.coi', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
@@ -3131,7 +3420,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 </div>
                 <div>
                   <FileField
-                    label="PAN Card*"
+                    label={watch('claimant.pan') ? "PAN Card*" : "PAN Card - Only if PAN provided"}
                     name="claimant.panCard"
                     onChange={(file) => handleFileChange('claimant.panCard', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
@@ -3140,7 +3429,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 </div>
                 <div className="col-span-2">
                   <FileField
-                    label="GST Registration Certificate*"
+                    label={watch('claimant.gst') ? "GST Registration Certificate*" : "GST Registration Certificate - Only if GST provided"}
                     name="claimant.gstCert"
                     onChange={(file) => handleFileChange('claimant.gstCert', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
@@ -3197,24 +3486,26 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       {additionalClaimantEmailVerified[index] ? "✓ Verified" : "Verify"}
                     </Button>
                   </div>
-                  <div className="relative">
-                      <PhoneField
-                        control={control}
-                        phoneFieldName={`additionalClaimants.${index}.phone`}
-                        countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
-                        label={additionalClaimantPhoneVerified[index] ? "Phone* ✓" : "Phone*"}
+                  <div className="space-y-2">
+                    <PhoneField
+                      control={control}
+                      phoneFieldName={`additionalClaimants.${index}.phone`}
+                      countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
+                      label={additionalClaimantPhoneVerified[index] ? "Phone* ✓" : "Phone*"}
                       required
-                      />
-                    <Button 
-                      type="button" 
-                      variant={additionalClaimantPhoneVerified[index] ? "default" : "outline"}
-                      size="sm"
-                      className={`absolute top-6 right-2 h-8 px-3 ${additionalClaimantPhoneVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                      onClick={additionalClaimantPhoneVerified[index] ? undefined : () => sendAdditionalClaimantPhoneVerification(index)}
-                      disabled={additionalClaimantPhoneVerified[index] || !watch(`additionalClaimants.${index}.phone`) || !/^\d{10}$/.test(watch(`additionalClaimants.${index}.phone`) || '')}
-                    >
-                      {additionalClaimantPhoneVerified[index] ? "✓ Verified" : "Verify"}
-                    </Button>
+                    />
+                    <div className="flex justify-end">
+                      <Button 
+                        type="button" 
+                        variant={additionalClaimantPhoneVerified[index] ? "default" : "outline"}
+                        size="sm"
+                        className={`h-8 px-3 ${additionalClaimantPhoneVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                        onClick={additionalClaimantPhoneVerified[index] ? undefined : () => sendAdditionalClaimantPhoneVerification(index)}
+                        disabled={additionalClaimantPhoneVerified[index] || !watch(`additionalClaimants.${index}.phone`) || !/^\d{10}$/.test(watch(`additionalClaimants.${index}.phone`) || '')}
+                      >
+                        {additionalClaimantPhoneVerified[index] ? "✓ Verified" : "Verify"}
+                      </Button>
+                    </div>
                   </div>
                   <div>
                       <ControlledFormField
@@ -3843,22 +4134,10 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       case 6: // Prayers & Reliefs
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
-            <div>
-              <ControlledTextAreaField
-                control={control}
-                label="Prayers & Reliefs Sought"
-                name="prayers.prayers"
-                required
-                maxLength={3000}
-                placeholder="Detail the specific remedies, compensation, or actions you are seeking from the arbitral tribunal"
-                rows={6}
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Clearly state each prayer point separately, including monetary claims, specific performance requests, 
-                declaratory reliefs, costs, and any interim measures sought.
-              </p>
-            </div>
+            <PrayersSection 
+              control={control}
+              name="prayers.prayers"
+            />
           </div>
         )
       case 7: // Documents
@@ -3937,60 +4216,11 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       case 9: // Arguments
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Arguments</h3>
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-sm">
-                  Present your arguments in support of your claims, organized by issue.
-                </p>
-                <Button onClick={addArgument} variant="outline" size="sm">
-                  Add Argument
-                </Button>
-              </div>
-              
-              {argumentFields.length > 0 ? (
-                argumentFields.map((field, index) => (
-                  <div key={field.id} className="border p-4 rounded-lg space-y-2 mb-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Issue/Argument {index + 1}</h4>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeArgumentField(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <ControlledTextAreaField
-                      control={control}
-                      label={`Argument ${index + 1}`}
-                      name={`arguments.argumentsPerIssue.${index}`}
-                      required
-                      rows={6}
-                      maxLength={2000}
-                      placeholder={`Present your argument for issue ${index + 1} (limit: 1 page)`}
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="border p-4 rounded-lg text-center">
-                  <p className="text-gray-500 mb-4">No arguments added yet</p>
-                  <Button onClick={addArgument} variant="outline">
-                    Add Your First Argument
-                  </Button>
-                </div>
-              )}
-              
-              <div className="text-xs text-gray-500 mt-4">
-                Tips:
-                <ul className="list-disc pl-5 mt-1 space-y-1">
-                  <li>Structure each argument around a specific issue or claim</li>
-                  <li>Reference relevant facts, laws, and contract clauses</li>
-                  <li>Limit each argument to approximately one page</li>
-                  <li>Present your strongest arguments first</li>
-                </ul>
-              </div>
-            </div>
+            <ArgumentsSection 
+              control={control}
+              prayersName="prayers.prayers"
+              argumentsName="arguments.argumentsPerPrayer"
+            />
           </div>
         )
       case 10: // Review & Submit
@@ -4072,205 +4302,162 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   ))}
                 </div>
 
-                <div>
-                  <h4 className="font-medium mb-2">📋 All Uploaded Documents</h4>
-                  
-                  {/* Company Documents */}
-                  <div className="mb-4">
-                    <h5 className="font-medium text-sm mb-2 text-gray-700">Company Documents</h5>
-                    <div className="space-y-2">
-                      {files['claimant.coi'] && (
-                        <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                          <span>📎 Certificate of Incorporation: {files['claimant.coi'].name}</span>
-                          {files['claimant.coi'].isExisting && files['claimant.coi'].path && (
-                            <button
-                              type="button"
-                              onClick={() => window.open(`/api/arbitration/files/${files['claimant.coi'].path.split('/').pop()}`, '_blank')}
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              View
-                            </button>
-                          )}
+                {/* Additional Claimants Section */}
+                {additionalClaimants && additionalClaimants.length > 0 && additionalClaimants[0].name && (
+                  <div>
+                    <h4 className="font-medium mb-2">Additional Claimants</h4>
+                    {additionalClaimants.map((claimant, index) => (
+                      claimant.name && (
+                        <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="font-medium">Name:</span> {claimant.name}
+                            </div>
+                            <div>
+                              <span className="font-medium">Email:</span> {claimant.email}
+                            </div>
+                            <div>
+                              <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                            </div>
+                            <div className="col-span-2">
+                              <span className="font-medium">Address:</span> {claimant.address1}
+                              {claimant.address2 && `, ${claimant.address2}`}, {claimant.city}, {claimant.district}, {claimant.state}, {claimant.country} - {claimant.pincode}
+                            </div>
+                          </div>
                         </div>
+                      )
+                    ))}
+                  </div>
+                )}
+
+                {/* Arbitration Agreement Section */}
+                {arbitrationAgreement && Object.values(arbitrationAgreement).some(val => val) && (
+                  <div>
+                    <h4 className="font-medium mb-2">Arbitration Agreement</h4>
+                    <div className="text-sm space-y-2">
+                      {arbitrationAgreement.agreementDate && (
+                        <div><span className="font-medium">Agreement Date:</span> {arbitrationAgreement.agreementDate}</div>
                       )}
-                      {files['claimant.panCard'] && (
-                        <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                          <span>📎 PAN Card: {files['claimant.panCard'].name}</span>
-                          {files['claimant.panCard'].isExisting && files['claimant.panCard'].path && (
-                            <button
-                              type="button"
-                              onClick={() => window.open(`/api/arbitration/files/${files['claimant.panCard'].path.split('/').pop()}`, '_blank')}
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              View
-                            </button>
-                          )}
-                        </div>
+                      {arbitrationAgreement.placeOfSigning && (
+                        <div><span className="font-medium">Place of Signing:</span> {arbitrationAgreement.placeOfSigning}</div>
                       )}
-                      {files['claimant.gstCert'] && (
-                        <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                          <span>📎 GST Certificate: {files['claimant.gstCert'].name}</span>
-                          {files['claimant.gstCert'].isExisting && files['claimant.gstCert'].path && (
-                            <button
-                              type="button"
-                              onClick={() => window.open(`/api/arbitration/files/${files['claimant.gstCert'].path.split('/').pop()}`, '_blank')}
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              View
-                            </button>
-                          )}
+                      {arbitrationAgreement.numberOfArbitrators && (
+                        <div><span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement.numberOfArbitrators}</div>
+                      )}
+                      {arbitrationAgreement.arbitrationText && (
+                        <div>
+                          <span className="font-medium">Arbitration Clause:</span>
+                          <p className="mt-1 p-2 bg-gray-50 rounded text-xs max-h-20 overflow-y-auto">
+                            {arbitrationAgreement.arbitrationText}
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
+                )}
 
-                  {/* Scanned Documents with OCR */}
-                  {documents.scannedDocuments && documents.scannedDocuments.length > 0 && (
-                    <div className="mb-4">
-                      <h5 className="font-medium text-sm mb-2 text-gray-700">📄 Scanned Documents with OCR</h5>
-                      <div className="space-y-3">
-                        {documents.scannedDocuments.map((doc, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                            <div className="text-xs space-y-1">
-                              <div><span className="font-medium">Document:</span> {doc.file?.name || 'Unknown'}</div>
-                              <div><span className="font-medium">Description:</span> {doc.description || 'No description'}</div>
-                              <div><span className="font-medium">Linked Issue:</span> {doc.linkedIssue || 'Not linked'}</div>
-                              <div><span className="font-medium">OCR Enabled:</span> {doc.isOCREnabled ? 'Yes' : 'No'}</div>
-                              <div><span className="font-medium">Status:</span> {doc.admissionStatus || 'pending'}</div>
-                            </div>
-                            
-                            {doc.extractedText && (
-                              <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                                <div className="font-medium mb-1">📝 Extracted OCR Text:</div>
-                                <div className="max-h-20 overflow-y-auto text-gray-700">
-                                  {doc.extractedText.substring(0, 200)}
-                                  {doc.extractedText.length > 200 && '...'}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {doc.keyMetadata && doc.keyMetadata.length > 0 && (
-                              <div className="mt-2 p-2 bg-green-50 rounded text-xs">
-                                <div className="font-medium mb-1">🔍 Key Metadata:</div>
-                                <div className="grid grid-cols-2 gap-1">
-                                  {doc.keyMetadata.slice(0, 4).map((meta, idx) => (
-                                    <div key={idx}>
-                                      <span className="font-medium">{meta.key}:</span> {meta.value}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                {/* Nature of Dispute Section */}
+                {natureOfDispute && Object.values(natureOfDispute).some(val => val) && (
+                  <div>
+                    <h4 className="font-medium mb-2">Nature of Dispute</h4>
+                    <div className="text-sm space-y-2">
+                      {natureOfDispute.category && (
+                        <div><span className="font-medium">Category:</span> {natureOfDispute.category}</div>
+                      )}
+                      {natureOfDispute.subCategory && (
+                        <div><span className="font-medium">Sub-category:</span> {natureOfDispute.subCategory}</div>
+                      )}
+                      {natureOfDispute.dateWhenRightToClaimArose && (
+                        <div><span className="font-medium">Date When Right to Claim Arose:</span> {natureOfDispute.dateWhenRightToClaimArose}</div>
+                      )}
+                      {natureOfDispute.natureOfDispute && (
+                        <div>
+                          <span className="font-medium">Description:</span>
+                          <p className="mt-1 p-2 bg-gray-50 rounded text-xs max-h-20 overflow-y-auto">
+                            {natureOfDispute.natureOfDispute}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Affidavits */}
-                  {documents.affidavits && documents.affidavits.length > 0 && (
-                    <div className="mb-4">
-                      <h5 className="font-medium text-sm mb-2 text-gray-700">⚖️ Affidavits</h5>
-                      <div className="space-y-2">
-                        {documents.affidavits.map((affidavit, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                            <div className="text-xs space-y-1">
-                              <div><span className="font-medium">Type:</span> {affidavit.type}</div>
-                              <div><span className="font-medium">Date:</span> {affidavit.date || 'Not specified'}</div>
-                              <div><span className="font-medium">Place:</span> {affidavit.place || 'Not specified'}</div>
-                              <div><span className="font-medium">Event:</span> {affidavit.event || 'Not specified'}</div>
-                              <div><span className="font-medium">Linked Issue:</span> {affidavit.linkedIssue || 'Not linked'}</div>
-                              <div><span className="font-medium">Verification Clause:</span> {affidavit.hasVerificationClause ? 'Yes' : 'No'}</div>
+                {/* Dispute Descriptions Section */}
+                {disputeDescriptions && disputeDescriptions.length > 0 && disputeDescriptions.some(desc => Object.values(desc).some(val => val)) && (
+                  <div>
+                    <h4 className="font-medium mb-2">Dispute Descriptions</h4>
+                    {disputeDescriptions.map((description, index) => (
+                      Object.values(description).some(val => val) && (
+                        <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
+                          {description.claimType && (
+                            <div className="mb-1"><span className="font-medium">Claim Type:</span> {description.claimType}</div>
+                          )}
+                          {description.claimReason && (
+                            <div className="mb-1">
+                              <span className="font-medium">Claim Reason:</span>
+                              <p className="mt-1 p-2 bg-gray-50 rounded text-xs max-h-16 overflow-y-auto">
+                                {description.claimReason}
+                              </p>
                             </div>
-                            
-                            {files[`affidavit_${index}`] && (
-                              <div className="mt-2 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                                <span>📎 {files[`affidavit_${index}`].name}</span>
-                                {files[`affidavit_${index}`].isExisting && files[`affidavit_${index}`].path && (
-                                  <button
-                                    type="button"
-                                    onClick={() => window.open(`/api/arbitration/files/${files[`affidavit_${index}`].path.split('/').pop()}`, '_blank')}
-                                    className="text-blue-600 hover:text-blue-800 underline"
-                                  >
-                                    View
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                          )}
+                          {description.reliefSought && (
+                            <div className="mb-1">
+                              <span className="font-medium">Relief Sought:</span>
+                              <p className="mt-1 p-2 bg-gray-50 rounded text-xs max-h-16 overflow-y-auto">
+                                {description.reliefSought}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
 
-                  {/* Electronic Evidence */}
-                  {documents.electronicEvidence && documents.electronicEvidence.length > 0 && (
-                    <div className="mb-4">
-                      <h5 className="font-medium text-sm mb-2 text-gray-700">💻 Electronic Evidence</h5>
-                      <div className="space-y-2">
-                        {documents.electronicEvidence.map((evidence, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                            <div className="text-xs space-y-1">
-                              <div><span className="font-medium">Linked Issue:</span> {evidence.linkedIssue || 'Not linked'}</div>
-                              <div><span className="font-medium">Tabulated List:</span> {evidence.tabulatedList || 'Not provided'}</div>
-                            </div>
-                            
-                            {files[`certificate_${index}`] && (
-                              <div className="mt-2 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                                <span>📎 Certificate: {files[`certificate_${index}`].name}</span>
-                                {files[`certificate_${index}`].isExisting && files[`certificate_${index}`].path && (
-                                  <button
-                                    type="button"
-                                    onClick={() => window.open(`/api/arbitration/files/${files[`certificate_${index}`].path.split('/').pop()}`, '_blank')}
-                                    className="text-blue-600 hover:text-blue-800 underline"
-                                  >
-                                    View
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                {/* Payment Section */}
+                {payment && Object.values(payment).some(val => val) && (
+                  <div>
+                    <h4 className="font-medium mb-2">Payment Information</h4>
+                    <div className="text-sm space-y-2">
+                      {payment.paymentHead && (
+                        <div><span className="font-medium">Payment Head:</span> {payment.paymentHead}</div>
+                      )}
+                      {payment.paymentAmount && (
+                        <div><span className="font-medium">Amount:</span> ₹{parseFloat(payment.paymentAmount).toLocaleString('en-IN')}</div>
+                      )}
+                      {payment.paymentDetails && (
+                        <div>
+                          <span className="font-medium">Payment Details:</span>
+                          <p className="mt-1 p-2 bg-gray-50 rounded text-xs max-h-16 overflow-y-auto">
+                            {payment.paymentDetails}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {/* Other Documents */}
-                  {Object.keys(files).filter(key => files[key] && !key.includes('claimant.') && !key.includes('affidavit_') && !key.includes('certificate_')).length > 0 && (
-                    <div className="mb-4">
-                      <h5 className="font-medium text-sm mb-2 text-gray-700">📁 Other Documents</h5>
-                      <div className="space-y-2">
-                        {Object.keys(files).filter(key => files[key] && !key.includes('claimant.') && !key.includes('affidavit_') && !key.includes('certificate_')).map((key) => {
-                          const file = files[key];
-                          if (!file) return null;
-                          return (
-                            <div key={key} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                              <span>📎 {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}: {file.name}</span>
-                              {file.isExisting && file.path && (
-                                <button
-                                  type="button"
-                                  onClick={() => window.open(`/api/arbitration/files/${file.path.split('/').pop()}`, '_blank')}
-                                  className="text-blue-600 hover:text-blue-800 underline"
-                                >
-                                  View
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {Object.keys(files).filter(key => files[key]).length === 0 && (
-                    <div className="text-gray-500 text-sm">No documents uploaded</div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div>
                   <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
                   <div className="text-sm">
-                    <p className="whitespace-pre-line">{prayers.prayers}</p>
+                    {prayers.prayers && prayers.prayers.length > 0 ? (
+                      <div className="space-y-2">
+                        {prayers.prayers.map((prayer, index) => (
+                          <div key={prayer.id || index} className="p-2 bg-gray-50 rounded">
+                            <div className="font-medium text-xs mb-1">Prayer {index + 1}: {prayer.title}</div>
+                            <div className="text-xs text-gray-600 mb-1">{prayer.description}</div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{prayer.reliefType?.replace('_', ' ')}</span>
+                              {prayer.reliefType === 'monetary' && prayer.amount && (
+                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded">₹{parseFloat(prayer.amount).toLocaleString('en-IN')}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-gray-500">No prayers added</div>
+                    )}
                   </div>
                 </div>
                 
@@ -4291,6 +4478,88 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                       <div className="text-gray-500">No arguments provided</div>
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">📋 All Uploaded Documents</h4>
+                  
+                  {(() => {
+                    const uploadedFiles = Object.keys(files).filter(key => files[key]);
+                    
+                    if (uploadedFiles.length === 0) {
+                      return <div className="text-gray-500 text-sm">No documents uploaded</div>;
+                    }
+
+                    // Group files by category for better organization
+                    const companyFiles = uploadedFiles.filter(key => key.startsWith('claimant.'));
+                    const agreementFiles = uploadedFiles.filter(key => key.includes('agreement'));
+                    const supportingFiles = uploadedFiles.filter(key => key.includes('supporting'));
+                    const evidenceFiles = uploadedFiles.filter(key => key.includes('evidence'));
+                    const affidavitFiles = uploadedFiles.filter(key => key.includes('affidavit'));
+                    const scannedFiles = uploadedFiles.filter(key => key.includes('scanned'));
+                    const electronicFiles = uploadedFiles.filter(key => key.includes('electronic'));
+                    const otherFiles = uploadedFiles.filter(key => 
+                      !key.startsWith('claimant.') && 
+                      !key.includes('agreement') && 
+                      !key.includes('supporting') && 
+                      !key.includes('evidence') && 
+                      !key.includes('affidavit') && 
+                      !key.includes('scanned') && 
+                      !key.includes('electronic')
+                    );
+
+                    const renderFileGroup = (title: string, fileKeys: string[], bgColor = 'bg-blue-50') => {
+                      if (fileKeys.length === 0) return null;
+                      
+                      return (
+                        <div className="mb-4">
+                          <h5 className="font-medium text-sm mb-2 text-gray-700">{title}</h5>
+                          <div className="space-y-2">
+                            {fileKeys.map(key => {
+                              const file = files[key];
+                              if (!file) return null;
+                              
+                              // Generate a user-friendly label
+                              let label = key;
+                              if (key === 'claimant.coi') label = 'Certificate of Incorporation';
+                              else if (key === 'claimant.panCard') label = 'PAN Card';
+                              else if (key === 'claimant.gstCert') label = 'GST Certificate';
+                              else if (key.includes('agreement')) label = 'Arbitration Agreement Document';
+                              else label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, ' ');
+                              
+                              return (
+                                <div key={key} className={`p-2 ${bgColor} rounded text-xs flex items-center justify-between`}>
+                                  <span>📎 {label}: {file.name}</span>
+                                  {file.isExisting && file.path && (
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(`/api/arbitration/files/${file.path.split('/').pop()}`, '_blank')}
+                                      className="text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                      View
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div>
+                        {renderFileGroup('Company Documents', companyFiles, 'bg-blue-50')}
+                        {renderFileGroup('Arbitration Agreement', agreementFiles, 'bg-purple-50')}
+                        {renderFileGroup('Supporting Documents', supportingFiles, 'bg-green-50')}
+                        {renderFileGroup('Evidence Files', evidenceFiles, 'bg-yellow-50')}
+                        {renderFileGroup('Affidavits', affidavitFiles, 'bg-orange-50')}
+                        {renderFileGroup('Scanned Documents', scannedFiles, 'bg-pink-50')}
+                        {renderFileGroup('Electronic Evidence', electronicFiles, 'bg-cyan-50')}
+                        {renderFileGroup('Other Documents', otherFiles, 'bg-gray-50')}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -4357,58 +4626,55 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   }, [currentDraftId]);
 
   return (
-    <div className="max-w-3xl mx-auto py-8">
-      {/* Add draft list at the top if there are drafts */}
-      {draftList.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-bold mb-4">Your Drafts</h2>
-            {isLoadingDrafts ? (
-              <p>Loading drafts...</p>
-            ) : (
-              <div className="space-y-2">
-                {draftList.map((draft) => (
-                  <div key={draft.id} className="flex items-center justify-between border-b pb-2">
-                    <div>
-                      <p className="font-medium">{draft.name || 'Untitled Draft'}</p>
-                      <p className="text-sm text-gray-500">
-                        Last edited: {new Date(draft.lastEditedAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <Button 
-                      onClick={() => loadDraft(draft.id)}
-                      variant="outline"
-                    >
-                      Continue Editing
-                    </Button>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <FormStepSidebar
+        currentStep={activeStep}
+        completedSteps={[]} // Will implement step completion logic
+        onStepClick={(stepIndex) => {
+          // Allow navigation to previous steps or current step
+          if (stepIndex <= activeStep) {
+            setActiveStep(stepIndex);
+          }
+        }}
+      />
+      
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto py-8 px-6">
+          {/* Add draft list at the top if there are drafts */}
+          {draftList.length > 0 && (
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-bold mb-4">Your Drafts</h2>
+                {isLoadingDrafts ? (
+                  <p>Loading drafts...</p>
+                ) : (
+                  <div className="space-y-2">
+                    {draftList.map((draft) => (
+                      <div key={draft.id} className="flex items-center justify-between border-b pb-2">
+                        <div>
+                          <p className="font-medium">{draft.name || 'Untitled Draft'}</p>
+                          <p className="text-sm text-gray-500">
+                            Last edited: {new Date(draft.lastEditedAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <Button 
+                          onClick={() => loadDraft(draft.id)}
+                          variant="outline"
+                        >
+                          Continue Editing
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-      <div className="flex items-center justify-between mb-8">
-        {steps.map((label, idx) => (
-          <div key={label} className="flex-1 flex flex-col items-center">
-            <div
-              className={`rounded-full w-8 h-8 flex items-center justify-center text-white text-sm font-bold ${
-                idx === activeStep
-                  ? "bg-blue-600"
-                  : idx < activeStep
-                  ? "bg-green-500"
-                  : "bg-gray-300"
-              }`}
-            >
-              {idx + 1}
-            </div>
-            <span className="text-xs mt-2 text-center w-20 truncate">{label}</span>
-          </div>
-        ))}
-      </div>
       <Card>
-        <CardContent className="p-8 min-h-[300px] flex flex-col justify-between">
+        <CardContent className="p-8 min-h-[600px] flex flex-col justify-between">
           <div className="flex-1">
             {renderFormContent()}
           </div>
@@ -4456,174 +4722,236 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                   {isSubmitting ? 'Submitting...' : 'Submit'}
                 </Button>
               ) : (
-                <Button
-                  variant="outline"
-                onClick={handleNext}
-                disabled={isSubmitting}
-              >
+                <Button onClick={handleNext} variant="default">
                   Next
-              </Button>
+                </Button>
               )}
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Email OTP Modal */}
-      {showEmailOTP && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Email Verification</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the 6-digit OTP sent to {watch('claimant.email')}
-            </p>
-            <input
-              type="text"
-              value={emailOTP}
-              onChange={(e) => setEmailOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="Enter 6-digit OTP"
-              className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
-              maxLength={6}
-            />
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowEmailOTP(false);
-                  setEmailOTP("");
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={verifyEmailOTP}
-                disabled={emailOTP.length !== 6}
-                className="flex-1"
-              >
-                Verify
-              </Button>
-            </div>
-          </div>
         </div>
-      )}
+      </div>
 
-      {/* Phone OTP Modal */}
-      {showPhoneOTP && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Phone Verification</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the 6-digit OTP sent to {watch('claimant.phoneCountryCode')} {watch('claimant.phone')}
-            </p>
-            <input
-              type="text"
-              value={phoneOTP}
-              onChange={(e) => setPhoneOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="Enter 6-digit OTP"
-              className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
-              maxLength={6}
-            />
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowPhoneOTP(false);
-                  setPhoneOTP("");
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={verifyPhoneOTP}
-                disabled={phoneOTP.length !== 6}
-                className="flex-1"
-              >
-                Verify
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Additional Claimant Email OTP Modals */}
-      {showAdditionalEmailOTP.map((show, index) => 
-        show && (
-          <div key={`email-${index}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Email Verification - Additional Claimant {index + 1}</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Enter the 6-digit OTP sent to {watch(`additionalClaimants.${index}.email`)}
-              </p>
-              <input
+      {/* Email OTP Verification Modal */}
+      <Dialog open={showEmailOTP} onOpenChange={(open) => {
+        // Only allow closing via Cancel button
+        if (!open) {
+          setShowEmailOTP(false);
+          setEmailOTP("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+          // Completely prevent closing on outside click
+          e.preventDefault();
+        }}>
+          <DialogHeader>
+            <DialogTitle>Verify Email Address</DialogTitle>
+            <DialogDescription>
+              Please enter the OTP sent to your email address to verify it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Enter OTP</label>
+              <Input
                 type="text"
-                value={additionalEmailOTP[index] || ""}
-                onChange={(e) => handleAdditionalEmailOTPChange(index, e.target.value)}
+                value={emailOTP}
+                onChange={(e) => setEmailOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="Enter 6-digit OTP"
-                className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
                 maxLength={6}
+                className="mt-1"
+                autoFocus
+                onFocus={(e) => e.target.select()}
               />
-              <div className="flex space-x-2">
+              <p className="text-xs text-gray-500 mt-1">
+                Tip: You can copy the OTP from your email and paste it here. Click Cancel to close this modal.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEmailOTP(false);
+                setEmailOTP("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={verifyEmailOTP} disabled={emailOTP.length !== 6}>
+              Verify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phone OTP Verification Modal */}
+      <Dialog open={showPhoneOTP} onOpenChange={(open) => {
+        // Only allow closing via Cancel button
+        if (!open) {
+          setShowPhoneOTP(false);
+          setPhoneOTP("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+          // Completely prevent closing on outside click
+          e.preventDefault();
+        }}>
+          <DialogHeader>
+            <DialogTitle>Verify Phone Number</DialogTitle>
+            <DialogDescription>
+              Please enter the OTP sent to your phone number to verify it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Enter OTP</label>
+              <Input
+                type="text"
+                value={phoneOTP}
+                onChange={(e) => setPhoneOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter 6-digit OTP"
+                maxLength={6}
+                className="mt-1"
+                autoFocus
+                onFocus={(e) => e.target.select()}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Tip: You can copy the OTP from your SMS and paste it here. Click Cancel to close this modal.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPhoneOTP(false);
+                setPhoneOTP("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={verifyPhoneOTP} disabled={phoneOTP.length !== 6}>
+              Verify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Additional Claimant Email OTP Verification Modals */}
+      {showAdditionalEmailOTP.map((show, index) => (
+        show && (
+          <Dialog key={`email-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeAdditionalEmailModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Email Address</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Additional Claimant {index + 1}'s email address.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
+                    type="text"
+                    value={additionalEmailOTP[index] || ""}
+                    onChange={(e) => handleAdditionalEmailOTPChange(index, e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from the email and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
                 <Button
                   variant="outline"
                   onClick={() => closeAdditionalEmailModal(index)}
-                  className="flex-1"
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={() => verifyAdditionalClaimantEmailOTP(index)}
+                <Button 
+                  onClick={() => verifyAdditionalClaimantEmailOTP(index)} 
                   disabled={(additionalEmailOTP[index] || "").length !== 6}
-                  className="flex-1"
                 >
                   Verify
                 </Button>
-              </div>
-            </div>
-          </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )
-      )}
+      ))}
 
-      {/* Additional Claimant Phone OTP Modals */}
-      {showAdditionalPhoneOTP.map((show, index) => 
+      {/* Additional Claimant Phone OTP Verification Modals */}
+      {showAdditionalPhoneOTP.map((show, index) => (
         show && (
-          <div key={`phone-${index}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Phone Verification - Additional Claimant {index + 1}</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Enter the 6-digit OTP sent to {watch(`additionalClaimants.${index}.phoneCountryCode`)} {watch(`additionalClaimants.${index}.phone`)}
-              </p>
-              <input
-                type="text"
-                value={additionalPhoneOTP[index] || ""}
-                onChange={(e) => handleAdditionalPhoneOTPChange(index, e.target.value)}
-                placeholder="Enter 6-digit OTP"
-                className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
-                maxLength={6}
-              />
-              <div className="flex space-x-2">
+          <Dialog key={`phone-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeAdditionalPhoneModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Phone Number</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Additional Claimant {index + 1}'s phone number.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
+                    type="text"
+                    value={additionalPhoneOTP[index] || ""}
+                    onChange={(e) => handleAdditionalPhoneOTPChange(index, e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from SMS and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
                 <Button
                   variant="outline"
                   onClick={() => closeAdditionalPhoneModal(index)}
-                  className="flex-1"
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={() => verifyAdditionalClaimantPhoneOTP(index)}
+                <Button 
+                  onClick={() => verifyAdditionalClaimantPhoneOTP(index)} 
                   disabled={(additionalPhoneOTP[index] || "").length !== 6}
-                  className="flex-1"
                 >
                   Verify
                 </Button>
-              </div>
-            </div>
-          </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )
-      )}
+      ))}
     </div>
-  )
+  );
 }
 
 // Export with dynamic to disable SSR

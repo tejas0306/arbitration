@@ -551,7 +551,17 @@ export class ArbitrationService {
       throw new NotFoundException(`Arbitration case with ID ${id} not found`);
     }
 
-    return arbitration;
+    // CRITICAL FIX: Add fileMetadata extraction for submitted cases 
+    // This ensures that uploaded documents are visible in petition edit mode
+    const transformedCase = {
+      ...arbitration,
+      // Convert file metadata to a format the frontend can use
+      fileMetadata: this.extractFileMetadata(arbitration.documents),
+      // Ensure documents structure is properly formatted
+      documents: this.formatDocumentsForFrontend(arbitration.documents),
+    };
+
+    return transformedCase;
   }
 
   async findByCaseNumber(caseNumber: string) {

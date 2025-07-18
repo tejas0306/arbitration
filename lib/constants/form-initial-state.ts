@@ -22,6 +22,7 @@ export const initialClaimant = {
 };
 
 export const initialAdditionalClaimant = {
+  type: "",
   name: "",
   email: "",
   phoneCountryCode: "+91",
@@ -33,16 +34,33 @@ export const initialAdditionalClaimant = {
   district: "",
   state: "",
   country: "",
+  gst: "",
+  pan: "",
+  cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 };
 
 export const initialManagerDetails = {
+  type: "",
   name: "",
   email: "",
   phoneCountryCode: "+91",
   phone: "",
-  address: "",
-  designation: "",
-  authority: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
+  gst: "",
+  pan: "",
+  cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 };
 
 export const initialRespondent = {
@@ -61,6 +79,9 @@ export const initialRespondent = {
   gst: "",
   pan: "",
   cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 };
 
 export const initialArbitrationAgreement = {
@@ -71,13 +92,13 @@ export const initialArbitrationAgreement = {
   numberOfArbitrators: "",
 };
 
-export const initialNatureOfDispute = {
+export const initialNatureOfDispute = [{
   category: "",
   subCategory: "",
   natureOfDispute: "",
   dateWhenRightToClaimArose: "",
   standardisedPrayerClauses: "",
-};
+}];
 
 export const initialDisputeDescription = {
   claimType: "",
@@ -190,4 +211,45 @@ export const initialFormState = {
   documents: initialDocuments,
   payment: initialPayment,
   arguments: initialArguments,
+}; 
+
+export const initialDisputeWithDocument = {
+  id: undefined,
+  title: "",
+  description: "",
+  category: "",
+  subCategory: "",
+  dateWhenRightToClaimArose: "",
+  prayer: {
+    id: undefined,
+    title: "",
+    description: "",
+    reliefType: "monetary" as const,
+    amount: "",
+  },
+  evidence: {
+    id: undefined,
+    documentType: "",
+    relevantClauseNumber: "",
+    dateOfIssue: "",
+    description: "",
+    attachedDocuments: [],
+  },
+};
+
+export const initialArgumentWithPrayers = {
+  id: undefined,
+  title: "",
+  description: "",
+  legalBasis: "",
+  prayers: [
+    {
+      id: undefined,
+      title: "",
+      description: "",
+      reliefType: "monetary" as const,
+      amount: "",
+      priority: 1,
+    },
+  ],
 }; 

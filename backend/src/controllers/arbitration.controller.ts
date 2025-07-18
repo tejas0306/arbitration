@@ -136,6 +136,9 @@ export class ArbitrationController {
       // Parse the JSON data
       const arbitrationData = JSON.parse(arbitrationDataString);
       
+      // Check for skipDuplicateCheck flag in the request body
+      const skipDuplicateCheck = req.body.skipDuplicateCheck === 'true';
+      
       // Map file paths
       const fileData = {};
       if (files) {
@@ -162,10 +165,10 @@ export class ArbitrationController {
       
       // Get user ID from request
       const userId = req.user.id;
-      this.logger.log(`Creating arbitration case for user ${userId}`);
+      this.logger.log(`Creating arbitration case for user ${userId}, skipDuplicateCheck: ${skipDuplicateCheck}`);
       
       // Save to database
-      return this.arbitrationService.create(combinedData, userId);
+      return this.arbitrationService.create(combinedData, userId, skipDuplicateCheck);
     } catch (error) {
       this.logger.error(`Error processing arbitration submission: ${error.message}`, error.stack);
       throw error;
@@ -316,6 +319,26 @@ export class ArbitrationController {
       return result;
     } catch (error) {
       this.logger.error(`Error saving draft: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Post('check-duplicates')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async checkDuplicates(@Req() req, @Body() formData: any) {
+    try {
+      const userId = req.user.id;
+      this.logger.log(`Checking for duplicate cases for user ${userId}`);
+      
+      const result = await this.arbitrationService.checkDuplicates(formData, userId);
+      
+      return {
+        success: true,
+        ...result
+      };
+    } catch (error) {
+      this.logger.error(`Error checking duplicates: ${error.message}`, error.stack);
       throw error;
     }
   }

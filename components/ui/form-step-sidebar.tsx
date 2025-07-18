@@ -22,67 +22,67 @@ interface FormStepSidebarProps {
 const defaultSteps: Step[] = [
   {
     id: 0,
-    title: "Claimant Details",
+    title: "Step 1: Claimant Details",
     description: "Personal and business information",
     icon: <Users className="w-5 h-5" />
   },
   {
     id: 1,
-    title: "Additional Claimants",
+    title: "Step 2: Additional Claimants",
     description: "Co-claimants and authorized managers",
     icon: <Users className="w-5 h-5" />
   },
   {
     id: 2,
-    title: "Respondent Details",
+    title: "Step 3: Respondent Details",
     description: "Opposing party information",
     icon: <Users className="w-5 h-5" />
   },
   {
     id: 3,
-    title: "Arbitration Agreement",
+    title: "Step 4: Arbitration Agreement",
     description: "Agreement terms and arbitrator selection",
     icon: <Gavel className="w-5 h-5" />
   },
   {
     id: 4,
-    title: "Nature of Dispute",
+    title: "Step 5: Nature of Dispute",
     description: "Category and background details",
     icon: <Scale className="w-5 h-5" />
   },
   {
     id: 5,
-    title: "Dispute Description",
+    title: "Step 6: Dispute Description",
     description: "Detailed claims and supporting facts",
     icon: <FileText className="w-5 h-5" />
   },
   {
     id: 6,
-    title: "Prayers & Reliefs",
+    title: "Step 7: Prayers & Reliefs",
     description: "Specific remedies sought",
     icon: <Scale className="w-5 h-5" />
   },
   {
     id: 7,
-    title: "Documents",
+    title: "Step 8: Documents",
     description: "Evidence and supporting files",
     icon: <FileText className="w-5 h-5" />
   },
   {
     id: 8,
-    title: "Payment",
+    title: "Step 9: Payment",
     description: "Fee structure and payment details",
     icon: <DollarSign className="w-5 h-5" />
   },
   {
     id: 9,
-    title: "Arguments",
+    title: "Step 10: Arguments",
     description: "Legal arguments for each prayer",
     icon: <MessageSquare className="w-5 h-5" />
   },
   {
     id: 10,
-    title: "Review & Submit",
+    title: "Step 11: Review & Submit",
     description: "Final review before submission",
     icon: <Eye className="w-5 h-5" />
   }

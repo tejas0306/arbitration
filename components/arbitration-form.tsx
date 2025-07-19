@@ -167,6 +167,9 @@ const initialAdditionalClaimant = {
   district: "",
   state: "",
   country: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialManagerDetails = {
@@ -184,6 +187,10 @@ const initialManagerDetails = {
   address2: "",
   designation: "",
   authority: "",
+  managerId: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialRespondent = {
@@ -202,6 +209,9 @@ const initialRespondent = {
   gst: "",
   pan: "",
   cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialArbitrationAgreement = {
@@ -241,7 +251,7 @@ const initialDocumentEvidence = {
 };
 
 const initialPrayers = {
-  prayers: "",
+  prayers: [],
 }
 
 const initialDocuments = {
@@ -258,6 +268,7 @@ const initialPayment = {
 
 const initialArguments = {
   argumentsPerIssue: [] as string[],
+  argumentsPerPrayer: [] as any[],
 };
 
 const countryCodes = [
@@ -702,8 +713,11 @@ export const FileField: React.FC<FileFieldProps> = ({
   
   // Debug logging for existingFile prop
   useEffect(() => {
+    console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
     if (existingFile) {
-      console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
+      console.log(`🔧 FileField ${name} has existingFile with name:`, existingFile.name);
+    } else {
+      console.log(`🔧 FileField ${name} has NO existingFile`);
     }
   }, [existingFile, name]);
   
@@ -821,8 +835,8 @@ const formSchema = z.object({
   additionalClaimants: z.array(z.object({
     type: z.string().min(1, "Type is required"),
     name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
-    email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH),
-    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    email: z.string().min(1, "Email is required").email("Must be a valid email").max(MAX_EMAIL_LENGTH),
+    phone: z.string().min(10, "Phone is required").regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
     phoneCountryCode: z.string().default("+91"),
     pincode: z.string()
       .min(6, "Pincode must be 6 digits")
@@ -839,6 +853,16 @@ const formSchema = z.object({
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).default([]),
   
   // Manager details - change to array
@@ -860,9 +884,21 @@ const formSchema = z.object({
     district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
     state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
     country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
+    // Manager ID Number - NEW MANDATORY FIELD
+    managerId: z.string().min(1, "Manager ID Number is required").max(50, "Manager ID must be less than 50 characters"),
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).default([]),
   
   // Respondent details
@@ -883,11 +919,21 @@ const formSchema = z.object({
     country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
     email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
       .email("Must be a valid email address"),
-    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
+    phone: z.string().min(10, "Phone is required").regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    phoneCountryCode: z.string().default("+91"),
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
-    phoneCountryCode: z.string().default("+91"),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).min(1, "At least one respondent is required"),
   
   // Arbitration Agreement
@@ -966,6 +1012,14 @@ const formSchema = z.object({
   arguments: z.object({
     argumentsPerIssue: z.array(z.string().max(2000))
       .min(1, "At least one argument is required"),
+    argumentsPerPrayer: z.array(z.object({
+      prayerId: z.string(),
+      prayerTitle: z.string(),
+      argument: z.string().max(2000),
+      legalBasis: z.string().max(1000).optional(),
+      factualBasis: z.string().max(1000).optional(),
+      precedents: z.string().max(1000).optional()
+    })).optional(),
   }),
   
   documents: z.object({
@@ -1227,6 +1281,13 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   
   // File management state - Store files separately from form data
   const [files, setFiles] = useState<Record<string, File | null>>({});
+  
+  // Submission confirmation modal state
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<{
+    caseId: string;
+    applicationNumber: string;
+  } | null>(null);
   
   // Initialize files state
   useEffect(() => {
@@ -2915,9 +2976,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             // Dismiss the loading toast
             toast.dismiss();
             
-            // Show success message
+            // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
-            toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+            showSubmissionSuccess(caseId);
             
             // Generate and download PDF
             try {
@@ -2939,8 +3000,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               toast.error('PDF generation failed, but your application was submitted successfully.');
             }
             
-            // Navigate to case details
-            router.push(`/dashboard/case/${currentDraftId}`);
             return;
           } catch (error: any) {
             toast.dismiss();
@@ -2955,10 +3014,10 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           // Dismiss the loading toast
           toast.dismiss();
           
-            // Show success message
+            // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id;
         if (caseId) {
-              toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+              showSubmissionSuccess(caseId);
               
               // Generate and download PDF
               try {
@@ -2984,7 +3043,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             }
             
             // Navigate back to cases
-            router.push('/dashboard/my-cases');
             return;
           } catch (error: any) {
         toast.dismiss();
@@ -3000,9 +3058,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           // Dismiss the loading toast
           toast.dismiss();
           
-          // Show success message
+          // Show success modal
           const caseId = response.caseId || response.caseNumber || response.id;
-          toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+          showSubmissionSuccess(caseId);
           
           // Generate and download PDF
           try {
@@ -3024,8 +3082,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             toast.error('PDF generation failed, but your application was submitted successfully.');
           }
           
-          // Navigate to cases page
-          router.push('/dashboard/my-cases');
           return;
         } catch (error: any) {
           toast.dismiss();
@@ -3347,6 +3403,10 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       
       // CRITICAL FIX: Restore file metadata for file visibility
       if (draft.fileMetadata) {
+        // DEBUG: Log what file metadata we received from backend
+        console.log('🔧 RECEIVED FILE METADATA FROM BACKEND:', draft.fileMetadata);
+        console.log('🔧 FILE METADATA KEYS:', Object.keys(draft.fileMetadata));
+        
         // Create a file metadata state for display purposes
         const fileDisplayState: Record<string, any> = {};
         
@@ -3422,6 +3482,138 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             }
           });
         }
+
+        // CRITICAL FIX: Handle Additional Claimants documents
+        if (completeFormData.additionalClaimants) {
+          completeFormData.additionalClaimants.forEach((ac: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `additionalClaimants.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `additionalClaimants.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `additionalClaimants.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // CRITICAL FIX: Handle Manager Details documents
+        if (completeFormData.managerDetails) {
+          completeFormData.managerDetails.forEach((manager: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `managerDetails.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `managerDetails.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `managerDetails.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // CRITICAL FIX: Handle Respondent Details documents
+        if (completeFormData.respondents) {
+          completeFormData.respondents.forEach((respondent: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `respondents.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `respondents.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `respondents.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // DEBUG: Log the complete file display state being set
+        console.log('🔧 CRITICAL DEBUG - Complete fileDisplayState being set:', fileDisplayState);
+        console.log('🔧 CRITICAL DEBUG - Additional Claimants files:', Object.keys(fileDisplayState).filter(key => key.includes('additionalClaimants')));
+        console.log('🔧 CRITICAL DEBUG - Manager Details files:', Object.keys(fileDisplayState).filter(key => key.includes('managerDetails')));
+        console.log('🔧 CRITICAL DEBUG - Respondent files:', Object.keys(fileDisplayState).filter(key => key.includes('respondents')));
+
+        // Update the files state with all file information
+        setFiles(fileDisplayState);
       } else if (draft.files) {
         // Fallback to old format
         setFiles(draft.files);
@@ -3429,6 +3621,29 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       
       // Set edit mode
       setEditMode(true);
+
+      // CRITICAL FIX: Restore verification states if available
+      if (draft.verificationStates) {
+        setEmailVerified(draft.verificationStates.emailVerified || false);
+        setPhoneVerified(draft.verificationStates.phoneVerified || false);
+        setAdditionalClaimantEmailVerified(draft.verificationStates.additionalClaimantEmailVerified || []);
+        setAdditionalClaimantPhoneVerified(draft.verificationStates.additionalClaimantPhoneVerified || []);
+      } else {
+        // For existing data without verification states, assume verified if email/phone exist
+        const hasEmail = completeFormData.claimant?.email;
+        const hasPhone = completeFormData.claimant?.phone;
+        
+        if (hasEmail) setEmailVerified(true);
+        if (hasPhone) setPhoneVerified(true);
+        
+        // Set verification for additional claimants based on existing data
+        if (completeFormData.additionalClaimants) {
+          const emailStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.email);
+          const phoneStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.phone);
+          setAdditionalClaimantEmailVerified(emailStates);
+          setAdditionalClaimantPhoneVerified(phoneStates);
+        }
+      }
       
       toast.success('Draft loaded successfully');
     } catch (error: any) {
@@ -3436,6 +3651,26 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     } finally {
       setIsLoadingDrafts(false);
     }
+  };
+
+  // Show submission success modal
+  const showSubmissionSuccess = (caseId: string) => {
+    setSubmissionResult({
+      caseId: caseId,
+      applicationNumber: caseId
+    });
+    setShowSubmissionModal(true);
+  };
+
+  // Handle modal actions
+  const handleViewDashboard = () => {
+    setShowSubmissionModal(false);
+    router.push('/dashboard');
+  };
+
+  const handleGoToMyCases = () => {
+    setShowSubmissionModal(false);
+    router.push('/dashboard/my-cases');
   };
 
   // Render form steps
@@ -3941,6 +4176,16 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     maxLength={MAX_NAME_LENGTH}
                   />
                 </div>
+                <div>
+                    <ControlledFormField
+                      control={control}
+                    label="Manager ID Number *"
+                        name={`managerDetails.${index}.managerId`}
+                      required
+                    maxLength={50}
+                    placeholder="Enter unique manager ID"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                 <div>
                     <ControlledFormField
@@ -4376,97 +4621,97 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     )}
                   </div>
                   
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <ControlledFormField
-                    control={control}
+                                <div className="space-y-4">
+                    <div>
+                      <ControlledFormField
+                        control={control}
                         label="5.1 Category"
                         name={`natureOfDispute.${index}.category`}
-                    required
-                    type="select"
-                    options={[
-                      { value: "commercial", label: "Commercial" },
-                      { value: "construction", label: "Construction" },
-                      { value: "employment", label: "Employment" },
-                      { value: "intellectual_property", label: "Intellectual Property" },
-                      { value: "corporate", label: "Corporate" },
-                      { value: "real_estate", label: "Real Estate" },
-                      { value: "banking", label: "Banking & Finance" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <ControlledFormField
-                    control={control}
+                        required
+                        type="select"
+                        options={[
+                          { value: "commercial", label: "Commercial" },
+                          { value: "construction", label: "Construction" },
+                          { value: "employment", label: "Employment" },
+                          { value: "intellectual_property", label: "Intellectual Property" },
+                          { value: "corporate", label: "Corporate" },
+                          { value: "real_estate", label: "Real Estate" },
+                          { value: "banking", label: "Banking & Finance" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
                         label="5.2 Sub Category"
                         name={`natureOfDispute.${index}.subCategory`}
-                    required
-                    type="select"
-                    options={[
-                      { value: "breach", label: "Breach of Contract" },
-                      { value: "payment", label: "Payment Dispute" },
-                      { value: "quality", label: "Quality/Performance Issue" },
-                      { value: "delivery", label: "Delivery Delay" },
-                      { value: "warranty", label: "Warranty Claim" },
-                      { value: "termination", label: "Contract Termination" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <ControlledFormField
-                    control={control}
+                        required
+                        type="select"
+                        options={[
+                          { value: "breach", label: "Breach of Contract" },
+                          { value: "payment", label: "Payment Dispute" },
+                          { value: "quality", label: "Quality/Performance Issue" },
+                          { value: "delivery", label: "Delivery Delay" },
+                          { value: "warranty", label: "Warranty Claim" },
+                          { value: "termination", label: "Contract Termination" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
                         label="5.3 Nature of Dispute"
                         name={`natureOfDispute.${index}.natureOfDispute`}
-                    required
-                    type="select"
-                    options={[
-                      { value: "civil", label: "Civil" },
-                      { value: "commercial", label: "Commercial" },
-                      { value: "constitutional", label: "Constitutional" },
-                      { value: "family", label: "Family" },
-                      { value: "property", label: "Property" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <Controller
-                    control={control}
+                        required
+                        type="select"
+                        options={[
+                          { value: "civil", label: "Civil" },
+                          { value: "commercial", label: "Commercial" },
+                          { value: "constitutional", label: "Constitutional" },
+                          { value: "family", label: "Family" },
+                          { value: "property", label: "Property" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <Controller
+                        control={control}
                         name={`natureOfDispute.${index}.dateWhenRightToClaimArose`}
-                    render={({ field, fieldState }) => (
-                      <FormField
+                        render={({ field, fieldState }) => (
+                          <FormField
                             label="5.4 Date when right to claim arose"
                             name={`dateWhenRightToClaimArose_${index}`}
-                        type="date"
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                        required
-                        max={new Date().toISOString().split('T')[0]}
-                        error={fieldState.error?.message}
+                            type="date"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            required
+                            max={new Date().toISOString().split('T')[0]}
+                            error={fieldState.error?.message}
+                          />
+                        )}
                       />
-                    )}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <ControlledFormField
-                    control={control}
+                    </div>
+                    <div>
+                      <ControlledFormField
+                        control={control}
                         label="5.5 Standardised prayer clauses"
                         name={`natureOfDispute.${index}.standardisedPrayerClauses`}
-                    required
-                    type="select"
-                    options={[
-                      { value: "monetary_relief", label: "Monetary Relief" },
-                      { value: "specific_performance", label: "Specific Performance" },
-                      { value: "declaratory_relief", label: "Declaratory Relief" },
-                      { value: "injunctive_relief", label: "Injunctive Relief" },
-                      { value: "damages", label: "Damages" },
-                      { value: "costs", label: "Costs and Expenses" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
-                </div>
+                        required
+                        type="select"
+                        options={[
+                          { value: "monetary_relief", label: "Monetary Relief" },
+                          { value: "specific_performance", label: "Specific Performance" },
+                          { value: "declaratory_relief", label: "Declaratory Relief" },
+                          { value: "injunctive_relief", label: "Injunctive Relief" },
+                          { value: "damages", label: "Damages" },
+                          { value: "costs", label: "Costs and Expenses" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -4507,11 +4752,11 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div>
                       <ControlledFormField
                         control={control}
-                        label="Claim Type"
+                        label="6.1 Claim Type"
                         name={`disputeDescriptions.${index}.claimType`}
                         required
                         type="select"
@@ -4528,17 +4773,17 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     <div>
                       <ControlledTextAreaField
                         control={control}
-                        label="Claim Reason"
+                        label="6.2 Claim Reason"
                         name={`disputeDescriptions.${index}.claimReason`}
                         required
                         rows={2}
                         placeholder="Provide the primary reason for this claim"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div>
                       <ControlledTextAreaField
                         control={control}
-                        label="Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
+                        label="6.3 Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
                         name={`disputeDescriptions.${index}.lawReliedUpon`}
                         required
                         rows={3}
@@ -4548,7 +4793,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     <div>
                       <ControlledFormField
                         control={control}
-                        label="Relevant Clause Number/Page Number"
+                        label="6.4 Relevant Clause Number/Page Number"
                         name={`disputeDescriptions.${index}.relevantClauseNumber`}
                         required
                         placeholder="e.g., Clause 5.2 or Page 7"
@@ -4557,17 +4802,17 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     <div>
                       <ControlledTextAreaField
                         control={control}
-                        label="Clause Supporting Claim"
+                        label="6.5 Clause Supporting Claim"
                         name={`disputeDescriptions.${index}.clauseSupportingClaim`}
                         required
                         rows={2}
                         placeholder="Describe how this clause supports your claim"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div>
                       <ControlledTextAreaField
                         control={control}
-                        label="Clause"
+                        label="6.6 Clause"
                         name={`disputeDescriptions.${index}.clause`}
                         required
                         rows={3}
@@ -4577,7 +4822,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     <div>
                       <ControlledFormField
                         control={control}
-                        label="Document Supporting Claim"
+                        label="6.7 Document Supporting Claim"
                         name={`disputeDescriptions.${index}.documentSupportingClaim`}
                         required
                         placeholder="Name/reference of supporting document"
@@ -4876,29 +5121,103 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                           <h4 className="font-semibold text-gray-900 mb-3">Additional Claimant {index + 1}</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}a. Name</label>
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}a. Type</label>
+                              <p className="text-gray-900 capitalize">{ac.type || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}b. Name</label>
                               <p className="text-gray-900">{ac.name}</p>
                             </div>
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}b. Email</label>
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}c. Email</label>
                               <p className="text-gray-900">{ac.email || 'Not specified'}</p>
                             </div>
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}c. Phone</label>
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}d. Phone</label>
                               <p className="text-gray-900">{ac.phoneCountryCode} {ac.phone || 'Not specified'}</p>
                             </div>
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}d. Address</label>
-                              <p className="text-gray-900">
-                                {ac.address1}
-                                {ac.address2 && `, ${ac.address2}`}
-                                {ac.city && `, ${ac.city}`}
-                                {ac.district && `, ${ac.district}`}
-                                {ac.state && `, ${ac.state}`}
-                                {ac.country && `, ${ac.country}`}
-                                {ac.pincode && ` - ${ac.pincode}`}
-                              </p>
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}e. Address</label>
+                              <p className="text-gray-900">{ac.address1 ? `${ac.address1}${ac.address2 ? ', ' + ac.address2 : ''}` : 'Not specified'}</p>
                             </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}f. City, State</label>
+                              <p className="text-gray-900">{ac.city && ac.state ? `${ac.city}, ${ac.state}` : 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}g. Country</label>
+                              <p className="text-gray-900">{ac.country || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.{index + 1}h. Pincode</label>
+                              <p className="text-gray-900">{ac.pincode || 'Not specified'}</p>
+                            </div>
+                            {ac.gst && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.{index + 1}i. GST Number</label>
+                                <p className="text-gray-900">{ac.gst}</p>
+                              </div>
+                            )}
+                            {ac.pan && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.{index + 1}j. PAN Number</label>
+                                <p className="text-gray-900">{ac.pan}</p>
+                              </div>
+                            )}
+                            {ac.cin && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.{index + 1}k. CIN</label>
+                                <p className="text-gray-900">{ac.cin}</p>
+                              </div>
+                            )}
+
+                          {/* Additional Claimant Documents */}
+                          {(files[`additionalClaimants.${index}.coi`] || files[`additionalClaimants.${index}.panCard`] || files[`additionalClaimants.${index}.gstCert`]) && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <h5 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h5>
+                              <div className="space-y-2">
+                                {files[`additionalClaimants.${index}.coi`] && (
+                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                    <div className="flex items-center">
+                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">Certificate of Incorporation</p>
+                                        <p className="text-xs text-gray-500">{files[`additionalClaimants.${index}.coi`].name}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {files[`additionalClaimants.${index}.panCard`] && (
+                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                    <div className="flex items-center">
+                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">PAN Card</p>
+                                        <p className="text-xs text-gray-500">{files[`additionalClaimants.${index}.panCard`].name}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {files[`additionalClaimants.${index}.gstCert`] && (
+                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                    <div className="flex items-center">
+                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">GST Certificate</p>
+                                        <p className="text-xs text-gray-500">{files[`additionalClaimants.${index}.gstCert`].name}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           </div>
                         </div>
                       )
@@ -4923,17 +5242,111 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                           <h4 className="font-semibold text-gray-900 mb-3">Manager {index + 1}</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}a. Name</label>
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}a. Type</label>
+                              <p className="text-gray-900 capitalize">{manager.type || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}b. Name</label>
                               <p className="text-gray-900">{manager.name}</p>
                             </div>
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}b. Email</label>
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}c. Email</label>
                               <p className="text-gray-900">{manager.email || 'Not specified'}</p>
                             </div>
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}c. Phone</label>
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}d. Phone</label>
                               <p className="text-gray-900">{manager.phoneCountryCode} {manager.phone || 'Not specified'}</p>
                             </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}e. Designation</label>
+                              <p className="text-gray-900">{manager.designation || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}f. Authority</label>
+                              <p className="text-gray-900">{manager.authority || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}g. Address</label>
+                              <p className="text-gray-900">{manager.address1 ? `${manager.address1}${manager.address2 ? ', ' + manager.address2 : ''}` : 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}h. City, State</label>
+                              <p className="text-gray-900">{manager.city && manager.state ? `${manager.city}, ${manager.state}` : 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}i. Country</label>
+                              <p className="text-gray-900">{manager.country || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.{index + 1}j. Pincode</label>
+                              <p className="text-gray-900">{manager.pincode || 'Not specified'}</p>
+                            </div>
+                            {manager.gst && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.{index + 1}k. GST Number</label>
+                                <p className="text-gray-900">{manager.gst}</p>
+                              </div>
+                            )}
+                            {manager.pan && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.{index + 1}l. PAN Number</label>
+                                <p className="text-gray-900">{manager.pan}</p>
+                              </div>
+                            )}
+                            {manager.cin && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.{index + 1}m. CIN</label>
+                                <p className="text-gray-900">{manager.cin}</p>
+                              </div>
+                            )}
+
+                          {/* Manager Documents */}
+                          {(files[`managerDetails.${index}.coi`] || files[`managerDetails.${index}.panCard`] || files[`managerDetails.${index}.gstCert`]) && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <h5 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h5>
+                              <div className="space-y-2">
+                                {files[`managerDetails.${index}.coi`] && (
+                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                    <div className="flex items-center">
+                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">Certificate of Incorporation</p>
+                                        <p className="text-xs text-gray-500">{files[`managerDetails.${index}.coi`].name}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {files[`managerDetails.${index}.panCard`] && (
+                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                    <div className="flex items-center">
+                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">PAN Card</p>
+                                        <p className="text-xs text-gray-500">{files[`managerDetails.${index}.panCard`].name}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {files[`managerDetails.${index}.gstCert`] && (
+                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                    <div className="flex items-center">
+                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">GST Certificate</p>
+                                        <p className="text-xs text-gray-500">{files[`managerDetails.${index}.gstCert`].name}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           </div>
                         </div>
                       )
@@ -4971,40 +5384,89 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                           <label className="text-sm font-medium text-gray-600">4.{index + 1}d. Phone</label>
                           <p className="text-gray-900">{respondent?.phoneCountryCode} {respondent?.phone || 'Not specified'}</p>
                         </div>
-                        <div className="bg-white p-3 rounded md:col-span-2">
+                        <div className="bg-white p-3 rounded">
                           <label className="text-sm font-medium text-gray-600">4.{index + 1}e. Address</label>
-                          <p className="text-gray-900">
-                            {respondent?.address1 && (
-                              <>
-                                {respondent.address1}
-                                {respondent.address2 && `, ${respondent.address2}`}
-                                {respondent.city && `, ${respondent.city}`}
-                                {respondent.district && `, ${respondent.district}`}
-                                {respondent.state && `, ${respondent.state}`}
-                                {respondent.country && `, ${respondent.country}`}
-                                {respondent.pincode && ` - ${respondent.pincode}`}
-                              </>
-                            ) || 'Not specified'}
-                          </p>
+                          <p className="text-gray-900">{respondent?.address1 ? `${respondent.address1}${respondent.address2 ? ', ' + respondent.address2 : ''}` : 'Not specified'}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">4.{index + 1}f. City, State</label>
+                          <p className="text-gray-900">{respondent?.city && respondent?.state ? `${respondent.city}, ${respondent.state}` : 'Not specified'}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">4.{index + 1}g. Country</label>
+                          <p className="text-gray-900">{respondent?.country || 'Not specified'}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">4.{index + 1}h. Pincode</label>
+                          <p className="text-gray-900">{respondent?.pincode || 'Not specified'}</p>
                         </div>
                         {respondent?.gst && (
                           <div className="bg-white p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">4.{index + 1}f. GST Number</label>
+                            <label className="text-sm font-medium text-gray-600">4.{index + 1}i. GST Number</label>
                             <p className="text-gray-900">{respondent.gst}</p>
                           </div>
                         )}
                         {respondent?.pan && (
                           <div className="bg-white p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">4.{index + 1}g. PAN Number</label>
+                            <label className="text-sm font-medium text-gray-600">4.{index + 1}j. PAN Number</label>
                             <p className="text-gray-900">{respondent.pan}</p>
                           </div>
                         )}
                         {respondent?.cin && (
                           <div className="bg-white p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">4.{index + 1}h. CIN Number</label>
+                            <label className="text-sm font-medium text-gray-600">4.{index + 1}k. CIN</label>
                             <p className="text-gray-900">{respondent.cin}</p>
                           </div>
                         )}
+
+                        {/* Respondent Documents */}
+                        {(files[`respondents.${index}.coi`] || files[`respondents.${index}.panCard`] || files[`respondents.${index}.gstCert`]) && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h5 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h5>
+                            <div className="space-y-2">
+                              {files[`respondents.${index}.coi`] && (
+                                <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                  <div className="flex items-center">
+                                    <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <div>
+                                      <p className="font-medium text-gray-900 text-sm">Certificate of Incorporation</p>
+                                      <p className="text-xs text-gray-500">{files[`respondents.${index}.coi`].name}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {files[`respondents.${index}.panCard`] && (
+                                <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                  <div className="flex items-center">
+                                    <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <div>
+                                      <p className="font-medium text-gray-900 text-sm">PAN Card</p>
+                                      <p className="text-xs text-gray-500">{files[`respondents.${index}.panCard`].name}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {files[`respondents.${index}.gstCert`] && (
+                                <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                                  <div className="flex items-center">
+                                    <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <div>
+                                      <p className="font-medium text-gray-900 text-sm">GST Certificate</p>
+                                      <p className="text-xs text-gray-500">{files[`respondents.${index}.gstCert`].name}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     </div>
                   ))}
@@ -5253,14 +5715,49 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                   </h3>
                 </div>
                 <div className="p-6">
-                  {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
+                  {argumentsData?.argumentsPerPrayer && argumentsData.argumentsPerPrayer.length > 0 ? (
                     <div className="space-y-4">
-                      {argumentsPerIssue.map((arg, index) => (
+                      {argumentsData.argumentsPerPrayer.map((arg: any, index: number) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-900 mb-3">10.{index + 1}. Argument {index + 1}</h4>
-                          <div className="bg-white p-3 rounded border text-sm max-h-32 overflow-y-auto">
-                            {arg}
-                          </div>
+                          <h4 className="font-semibold text-gray-900 mb-3">10.{index + 1}. Argument for Prayer {index + 1}</h4>
+                          {arg.prayerTitle && (
+                            <div className="mb-3">
+                              <label className="text-xs font-medium text-gray-600">Prayer:</label>
+                              <p className="text-sm font-medium text-blue-600">{arg.prayerTitle}</p>
+                            </div>
+                          )}
+                          {arg.argument && (
+                            <div className="mb-3">
+                              <label className="text-xs font-medium text-gray-600">Main Argument:</label>
+                              <div className="bg-white p-3 rounded border text-sm max-h-32 overflow-y-auto mt-1">
+                                {arg.argument}
+                              </div>
+                            </div>
+                          )}
+                          {arg.legalBasis && (
+                            <div className="mb-3">
+                              <label className="text-xs font-medium text-gray-600">Legal Basis:</label>
+                              <div className="bg-white p-3 rounded border text-sm max-h-24 overflow-y-auto mt-1">
+                                {arg.legalBasis}
+                              </div>
+                            </div>
+                          )}
+                          {arg.factualBasis && (
+                            <div className="mb-3">
+                              <label className="text-xs font-medium text-gray-600">Factual Basis:</label>
+                              <div className="bg-white p-3 rounded border text-sm max-h-24 overflow-y-auto mt-1">
+                                {arg.factualBasis}
+                              </div>
+                            </div>
+                          )}
+                          {arg.precedents && (
+                            <div>
+                              <label className="text-xs font-medium text-gray-600">Precedents & Case Law:</label>
+                              <div className="bg-white p-3 rounded border text-sm max-h-24 overflow-y-auto mt-1">
+                                {arg.precedents}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -5523,7 +6020,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           const response = await arbitrationApi.update(currentDraftId, formDataForSubmission);
           toast.dismiss();
           const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
-          toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+          showSubmissionSuccess(caseId);
           
           // Generate and download PDF
           try {
@@ -5551,7 +6048,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           toast.dismiss();
           const caseId = response.caseId || response.caseNumber || response.id;
           if (caseId) {
-            toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+            showSubmissionSuccess(caseId);
             try {
               const currentFormData = watch();
               const pdfBlob = await generateApplicationPDF(currentFormData, caseId);
@@ -5563,14 +6060,14 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           } else {
             toast.success('Your application is submitted successfully! The PDF of the form is sent to your registered email ID as well as to all managers and respondents.');
           }
-          router.push('/dashboard/my-cases');
+
         }
       } else {
         // Creating a new case
         const response = await arbitrationApi.create(formDataForSubmission, { skipDuplicateCheck: true });
         toast.dismiss();
         const caseId = response.caseId || response.caseNumber || response.id;
-        toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+        showSubmissionSuccess(caseId);
         
         // Generate and download PDF
         try {
@@ -5581,8 +6078,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           console.error('PDF generation failed:', pdfError);
           toast.error('PDF generation failed, but your application was submitted successfully.');
         }
-        
-        router.push('/dashboard/my-cases');
       }
     } catch (error: any) {
       toast.dismiss();
@@ -5990,6 +6485,53 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       ))}
 
       {/* Duplicate Check Dialog */}
+      {/* Submission Success Modal */}
+      {showSubmissionModal && submissionResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.5 12.75l6 6 9-13.5"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Application Submitted Successfully!
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Your application is submitted successfully. Your application number is{' '}
+                <span className="font-semibold text-gray-900">{submissionResult.applicationNumber}</span>.
+                A PDF copy of your application has been sent to your registered email ID, as well as to all managers and respondents.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleViewDashboard}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  View Dashboard
+                </button>
+                <button
+                  onClick={handleGoToMyCases}
+                  className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Go to My Cases
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDuplicateDialog && duplicateCheckResult && (
         <DuplicateCheckDialog
           isOpen={showDuplicateDialog}

@@ -141,6 +141,13 @@ export class ArbitrationService {
           .reduce((acc, key) => {
             acc[key] = fileReferences[key];
             return acc;
+          }, {}),
+        // Respondent Details document files
+        respondentsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('respondents.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
           }, {})
       };
       
@@ -244,6 +251,13 @@ export class ArbitrationService {
         // Manager Details document files  
         managerDetailsFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('managerDetails.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Respondent Details document files
+        respondentsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('respondents.'))
           .reduce((acc, key) => {
             acc[key] = fileReferences[key];
             return acc;

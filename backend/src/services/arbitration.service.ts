@@ -127,7 +127,21 @@ export class ArbitrationService {
         // Evidence files
         evidenceFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('evidenceFiles_'))
-          .map(key => fileReferences[key])
+          .map(key => fileReferences[key]),
+        // Additional Claimants document files
+        additionalClaimantsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('additionalClaimants.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Manager Details document files  
+        managerDetailsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('managerDetails.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {})
       };
       
       // Create the arbitration agreement structure
@@ -216,6 +230,20 @@ export class ArbitrationService {
           }, {}),
         electronicEvidence: Object.keys(fileReferences)
           .filter(key => key.startsWith('certificate_') || key.startsWith('supporting_files_'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Additional Claimants document files
+        additionalClaimantsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('additionalClaimants.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Manager Details document files  
+        managerDetailsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('managerDetails.'))
           .reduce((acc, key) => {
             acc[key] = fileReferences[key];
             return acc;

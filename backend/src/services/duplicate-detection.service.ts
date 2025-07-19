@@ -49,7 +49,7 @@ export class DuplicateDetectionService {
         caseNumber: true,
         userId: true,
         createdAt: true,
-        claimant: true,
+        additionalClaimants: true,
         respondents: true,
         disputeDetails: true,
         formData: true,
@@ -93,7 +93,8 @@ export class DuplicateDetectionService {
     let maxScore = 0;
 
     // Parse existing case data
-    const existingClaimant = existingCase.claimant || {};
+    const existingClaimants = existingCase.additionalClaimants || [];
+    const existingClaimant = existingClaimants.length > 0 ? existingClaimants[0] : {};
     const existingRespondents = existingCase.respondents || [];
     const existingDispute = existingCase.disputeDetails || {};
     const existingFormData = existingCase.formData || {};
@@ -252,7 +253,7 @@ export class DuplicateDetectionService {
   }
 
   private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = [];
+    const matrix: number[][] = [];
     
     for (let i = 0; i <= str2.length; i++) {
       matrix[i] = [i];
@@ -286,7 +287,8 @@ export class DuplicateDetectionService {
   private getMatchReasons(request: DuplicateCheckRequest, existingCase: any, score: number): string[] {
     const reasons: string[] = [];
     
-    const existingClaimant = existingCase.claimant || {};
+    const existingClaimants = existingCase.additionalClaimants || [];
+    const existingClaimant = existingClaimants.length > 0 ? existingClaimants[0] : {};
     const existingRespondents = existingCase.respondents || [];
     const existingDispute = existingCase.disputeDetails || {};
 

@@ -192,8 +192,14 @@ export class ArbitrationController {
       if (files) {
         Object.keys(files).forEach(key => {
           const file = files[key][0];
-          // Handle nested field names (e.g., 'claimant.coi' -> 'coi')
-          const normalizedKey = key.includes('.') ? key.split('.')[1] : key;
+          // CRITICAL FIX: Keep full field names for proper restoration
+          // Only normalize simple claimant fields like 'claimant.coi' -> 'coi'
+          // Keep complex ones like 'additionalClaimants.0.coi' as is
+          let normalizedKey = key;
+          if (key.startsWith('claimant.') && !key.includes('additionalClaimants') && !key.includes('managerDetails') && !key.includes('respondents')) {
+            normalizedKey = key.split('.')[1]; // Only for direct claimant fields
+          }
+          
           fileData[normalizedKey] = {
             filename: file.filename,
             originalName: file.originalname,
@@ -387,8 +393,14 @@ export class ArbitrationController {
         this.logger.log('🔥 BACKEND: Processing files:', Object.keys(files));
         Object.keys(files).forEach(key => {
           const file = files[key][0];
-          // Handle nested field names (e.g., 'claimant.coi' -> 'coi')
-          const normalizedKey = key.includes('.') ? key.split('.')[1] : key;
+          // CRITICAL FIX: Keep full field names for proper restoration
+          // Only normalize simple claimant fields like 'claimant.coi' -> 'coi'
+          // Keep complex ones like 'additionalClaimants.0.coi' as is
+          let normalizedKey = key;
+          if (key.startsWith('claimant.') && !key.includes('additionalClaimants') && !key.includes('managerDetails') && !key.includes('respondents')) {
+            normalizedKey = key.split('.')[1]; // Only for direct claimant fields
+          }
+          
           fileData[normalizedKey] = {
             filename: file.filename,
             originalName: file.originalname,

@@ -2391,68 +2391,169 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         }
         break;
       case 1: // Additional Claimants & Manager
-        // Validate managers if any exist
-        managerFields.forEach((_, index) => {
-          // If name is provided, validate required fields
-          if (formValues.managerDetails?.[index]?.name) {
+        // CRITICAL FIX: Enforce mandatory validation for Additional Claimants
+        additionalClaimantFields.forEach((_, index) => {
+          const claimant = formValues.additionalClaimants?.[index];
+          
+          // If any field is filled, ALL mandatory fields must be filled
+          if (claimant && (claimant.name || claimant.email || claimant.phone || claimant.address1)) {
             fieldsToValidate.push(
-              `managerDetails.${index}.name`,
-              `managerDetails.${index}.designation`,
-              `managerDetails.${index}.authority`
+              `additionalClaimants.${index}.name`,
+              `additionalClaimants.${index}.email`,
+              `additionalClaimants.${index}.phone`,
+              `additionalClaimants.${index}.address1`
             );
             
-            // If email is provided, validate it's in correct format
-            if (formValues.managerDetails?.[index]?.email) {
-              fieldsToValidate.push(`managerDetails.${index}.email`);
-            }
-            
-            // If phone is provided, validate it's in correct format
-            if (formValues.managerDetails?.[index]?.phone) {
-              fieldsToValidate.push(`managerDetails.${index}.phone`);
+            // Smart document validation - same logic as claimant
+            if (!isDraftSave) {
+              // Check specific ID field requirements
+              if (claimant.pan && !claimant.panCard) {
+                toast.error(`PAN Card document is required for Additional Claimant ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (claimant.gst && !claimant.gstCert) {
+                toast.error(`GST Registration Certificate is required for Additional Claimant ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (claimant.cin && !claimant.coi) {
+                toast.error(`Certificate of Incorporation is required for Additional Claimant ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = claimant.pan || claimant.gst || claimant.cin;
+              const hasAnyIdDoc = (claimant.pan && claimant.panCard) || 
+                                  (claimant.gst && claimant.gstCert) || 
+                                  (claimant.cin && claimant.coi);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Additional Claimant ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Additional Claimant ${index + 1}`);
+                return false;
+              }
             }
           }
         });
         
-        // Validate additional claimants if any exist
-        additionalClaimantFields.forEach((_, index) => {
-          fieldsToValidate.push(
-            `additionalClaimants.${index}.name`,
-            `additionalClaimants.${index}.email`,
-            `additionalClaimants.${index}.phone`,
-            `additionalClaimants.${index}.pincode`,
-            `additionalClaimants.${index}.address1`,
-            `additionalClaimants.${index}.city`,
-            `additionalClaimants.${index}.district`,
-            `additionalClaimants.${index}.state`,
-            `additionalClaimants.${index}.country`
-          );
+        // CRITICAL FIX: Enforce mandatory validation for Manager Details
+        managerFields.forEach((_, index) => {
+          const manager = formValues.managerDetails?.[index];
+          
+          // If any field is filled, ALL mandatory fields must be filled
+          if (manager && (manager.name || manager.email || manager.phone || manager.address1 || manager.managerId)) {
+            fieldsToValidate.push(
+              `managerDetails.${index}.name`,
+              `managerDetails.${index}.email`,
+              `managerDetails.${index}.phone`,
+              `managerDetails.${index}.address1`,
+              `managerDetails.${index}.managerId`
+            );
+            
+            // Smart document validation - same logic as claimant
+            if (!isDraftSave) {
+              // Check specific ID field requirements
+              if (manager.pan && !manager.panCard) {
+                toast.error(`PAN Card document is required for Manager ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (manager.gst && !manager.gstCert) {
+                toast.error(`GST Registration Certificate is required for Manager ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (manager.cin && !manager.coi) {
+                toast.error(`Certificate of Incorporation is required for Manager ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = manager.pan || manager.gst || manager.cin;
+              const hasAnyIdDoc = (manager.pan && manager.panCard) || 
+                                  (manager.gst && manager.gstCert) || 
+                                  (manager.cin && manager.coi);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Manager ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Manager ${index + 1}`);
+                return false;
+              }
+            }
+          }
         });
         
         // Check if additional claimant email and phone are verified (skip if already verified or in edit mode)
         for (let index = 0; index < additionalClaimantFields.length; index++) {
-          if (!additionalClaimantEmailVerified[index]) {
+          const claimant = formValues.additionalClaimants?.[index];
+          if (claimant && claimant.email && !additionalClaimantEmailVerified[index]) {
             toast.error(`Please verify email for Additional Claimant ${index + 1}`);
             return false;
           }
-          if (!additionalClaimantPhoneVerified[index]) {
+          if (claimant && claimant.phone && !additionalClaimantPhoneVerified[index]) {
             toast.error(`Please verify phone number for Additional Claimant ${index + 1}`);
             return false;
           }
         }
         break;
       case 2: // Respondent Details
+        // CRITICAL FIX: Enforce mandatory validation for Respondents
         respondentFields.forEach((_, index) => {
-          fieldsToValidate.push(
-            `respondents.${index}.type`,
-            `respondents.${index}.name`, 
-            `respondents.${index}.email`,
-            `respondents.${index}.pincode`,
-            `respondents.${index}.address1`,
-            `respondents.${index}.city`,
-            `respondents.${index}.district`,
-            `respondents.${index}.state`,
-            `respondents.${index}.country`
-          );
+          const respondent = formValues.respondents?.[index];
+          
+          // If any field is filled, ALL mandatory fields must be filled
+          if (respondent && (respondent.name || respondent.email || respondent.phone || respondent.address1)) {
+            fieldsToValidate.push(
+              `respondents.${index}.name`, 
+              `respondents.${index}.email`,
+              `respondents.${index}.phone`,
+              `respondents.${index}.address1`
+            );
+            
+            // Smart document validation - same logic as claimant
+            if (!isDraftSave) {
+              // Check specific ID field requirements
+              if (respondent.pan && !respondent.panCard) {
+                toast.error(`PAN Card document is required for Respondent ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (respondent.gst && !respondent.gstCert) {
+                toast.error(`GST Registration Certificate is required for Respondent ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (respondent.cin && !respondent.coi) {
+                toast.error(`Certificate of Incorporation is required for Respondent ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = respondent.pan || respondent.gst || respondent.cin;
+              const hasAnyIdDoc = (respondent.pan && respondent.panCard) || 
+                                  (respondent.gst && respondent.gstCert) || 
+                                  (respondent.cin && respondent.coi);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Respondent ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Respondent ${index + 1}`);
+                return false;
+              }
+            }
+          }
         });
         break;
       case 3: // Arbitration Agreement
@@ -3039,10 +3140,10 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                 toast.error('PDF generation failed, but your application was submitted successfully.');
               }
         } else {
-              toast.success('Your application is submitted successfully! The PDF of the form is sent to your registered email ID as well as to all managers and respondents.');
+              // Show success modal even if no caseId
+              showSubmissionSuccess('DRAFT_SUBMITTED');
             }
             
-            // Navigate back to cases
             return;
           } catch (error: any) {
         toast.dismiss();
@@ -3173,6 +3274,52 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           formData.append(backendKey, file);
         }
       });
+      
+      // CRITICAL FIX: Add Additional Claimants, Manager Details, and Respondent files
+      // Additional Claimants files
+      if (data.additionalClaimants && Array.isArray(data.additionalClaimants)) {
+        data.additionalClaimants.forEach((claimant, index) => {
+          if (claimant && claimant.coi instanceof File) {
+            formData.append(`additionalClaimants.${index}.coi`, claimant.coi);
+          }
+          if (claimant && claimant.panCard instanceof File) {
+            formData.append(`additionalClaimants.${index}.panCard`, claimant.panCard);
+          }
+          if (claimant && claimant.gstCert instanceof File) {
+            formData.append(`additionalClaimants.${index}.gstCert`, claimant.gstCert);
+          }
+        });
+      }
+      
+      // Manager Details files
+      if (data.managerDetails && Array.isArray(data.managerDetails)) {
+        data.managerDetails.forEach((manager, index) => {
+          if (manager && manager.coi instanceof File) {
+            formData.append(`managerDetails.${index}.coi`, manager.coi);
+          }
+          if (manager && manager.panCard instanceof File) {
+            formData.append(`managerDetails.${index}.panCard`, manager.panCard);
+          }
+          if (manager && manager.gstCert instanceof File) {
+            formData.append(`managerDetails.${index}.gstCert`, manager.gstCert);
+          }
+        });
+      }
+      
+      // Respondent Details files
+      if (data.respondents && Array.isArray(data.respondents)) {
+        data.respondents.forEach((respondent, index) => {
+          if (respondent && respondent.coi instanceof File) {
+            formData.append(`respondents.${index}.coi`, respondent.coi);
+          }
+          if (respondent && respondent.panCard instanceof File) {
+            formData.append(`respondents.${index}.panCard`, respondent.panCard);
+          }
+          if (respondent && respondent.gstCert instanceof File) {
+            formData.append(`respondents.${index}.gstCert`, respondent.gstCert);
+          }
+        });
+      }
       
       // CRITICAL FIX: Add file metadata to indicate which files are present
       const fileMetadata = {
@@ -3944,7 +4091,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="2.2 Name"
+                      label="2.2 Name *"
                         name={`additionalClaimants.${index}.name`}
                       required
                       maxLength={MAX_NAME_LENGTH}
@@ -4163,8 +4310,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                 <div>
                     <ControlledFormField
                       control={control}
-                      label="Name"
+                      label="Name *"
                         name={`managerDetails.${index}.name`}
+                      required
                     maxLength={MAX_NAME_LENGTH}
                   />
                 </div>
@@ -4190,8 +4338,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                 <div>
                     <ControlledFormField
                       control={control}
-                    label="Email"
+                    label="Email *"
                         name={`managerDetails.${index}.email`}
+                      required
                     maxLength={MAX_EMAIL_LENGTH}
                   />
                 </div>
@@ -4200,15 +4349,17 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                       control={control}
                         phoneFieldName={`managerDetails.${index}.phone`}
                         countryCodeFieldName={`managerDetails.${index}.phoneCountryCode`}
-                    label="Phone"
+                    label="Phone *"
+                      required
                     />
                   </div>
                 </div>
                 <div>
                     <ControlledFormField
                       control={control}
-                    label="Address"
-                        name={`managerDetails.${index}.address`}
+                    label="Address *"
+                        name={`managerDetails.${index}.address1`}
+                      required
                     maxLength={MAX_ADDRESS_LENGTH}
                   />
                 </div>
@@ -4346,7 +4497,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                   <div>
                       <ControlledFormField
                         control={control}
-                      label="3.2 Name"
+                      label="3.2 Name *"
                         name={`respondents.${index}.name`}
                       required
                       maxLength={MAX_NAME_LENGTH}
@@ -4356,7 +4507,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                   <div>
                       <ControlledFormField
                         control={control}
-                        label="3.3 Email"
+                        label="3.3 Email *"
                         name={`respondents.${index}.email`}
                       required
                       maxLength={MAX_EMAIL_LENGTH}
@@ -4367,7 +4518,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                         control={control}
                         phoneFieldName={`respondents.${index}.phone`}
                         countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
-                        label="3.4 Mobile Number"
+                        label="3.4 Mobile Number *"
+                        required
                       />
                     </div>
                   </div>
@@ -4384,8 +4536,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     <div>
                       <ControlledFormField
                         control={control}
-                        label="3.6 Address Line 1"
+                        label="3.6 Address Line 1 *"
                         name={`respondents.${index}.address1`}
+                        required
                       maxLength={MAX_ADDRESS_LENGTH}
                     />
                   </div>
@@ -5516,7 +5669,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               )}
 
               {/* Step 6: Nature of Dispute */}
-              {natureOfDispute && Object.values(natureOfDispute).some(val => val) && (
+              {natureOfDispute && Array.isArray(natureOfDispute) && natureOfDispute.length > 0 && natureOfDispute.some(dispute => Object.values(dispute || {}).some(val => val)) && (
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                   <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg">
                     <h3 className="text-lg font-semibold flex items-center">
@@ -5524,42 +5677,49 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                       Nature of Dispute
                     </h3>
                   </div>
-                                     <div className="p-6">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       {natureOfDispute?.category && (
-                         <div className="bg-gray-50 p-3 rounded">
-                           <label className="text-sm font-medium text-gray-600">6a. Category</label>
-                           <p className="text-gray-900">{natureOfDispute.category}</p>
-                         </div>
-                       )}
-                       {natureOfDispute?.subCategory && (
-                         <div className="bg-gray-50 p-3 rounded">
-                           <label className="text-sm font-medium text-gray-600">6b. Sub-category</label>
-                           <p className="text-gray-900">{natureOfDispute.subCategory}</p>
-                         </div>
-                       )}
-                       {natureOfDispute?.dateWhenRightToClaimArose && (
-                         <div className="bg-gray-50 p-3 rounded">
-                           <label className="text-sm font-medium text-gray-600">6c. Date When Right to Claim Arose</label>
-                           <p className="text-gray-900">{natureOfDispute.dateWhenRightToClaimArose}</p>
-                         </div>
-                       )}
-                       {natureOfDispute?.standardisedPrayerClauses && (
-                         <div className="bg-gray-50 p-3 rounded">
-                           <label className="text-sm font-medium text-gray-600">6d. Standardised Prayer Clauses</label>
-                           <p className="text-gray-900">{natureOfDispute.standardisedPrayerClauses}</p>
-                         </div>
-                       )}
-                       {natureOfDispute?.natureOfDispute && (
-                         <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                           <label className="text-sm font-medium text-gray-600">6e. Description</label>
-                           <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
-                             {natureOfDispute.natureOfDispute}
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   </div>
+                  <div className="p-6 space-y-6">
+                    {natureOfDispute.map((dispute: any, index: number) => (
+                      Object.values(dispute || {}).some(val => val) && (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Nature of Dispute {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {dispute?.category && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.{index + 1}a. Category</label>
+                                <p className="text-gray-900">{dispute.category}</p>
+                              </div>
+                            )}
+                            {dispute?.subCategory && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.{index + 1}b. Sub-category</label>
+                                <p className="text-gray-900">{dispute.subCategory}</p>
+                              </div>
+                            )}
+                            {dispute?.dateWhenRightToClaimArose && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.{index + 1}c. Date When Right to Claim Arose</label>
+                                <p className="text-gray-900">{dispute.dateWhenRightToClaimArose}</p>
+                              </div>
+                            )}
+                            {dispute?.standardisedPrayerClauses && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.{index + 1}d. Standardised Prayer Clauses</label>
+                                <p className="text-gray-900">{dispute.standardisedPrayerClauses}</p>
+                              </div>
+                            )}
+                            {dispute?.natureOfDispute && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">6.{index + 1}e. Description</label>
+                                <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.natureOfDispute}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
                 </div>
               )}
 

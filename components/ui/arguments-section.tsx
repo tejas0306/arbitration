@@ -25,20 +25,20 @@ export const ArgumentsSection: React.FC<ArgumentsSectionProps> = ({
     name: argumentsName,
   });
 
-  // Sync arguments with prayers
+  // Sync arguments with prayers - only run once on mount
   useEffect(() => {
-    if (prayers.length > 0) {
+    if (prayers.length > 0 && fields.length === 0) {
       const newArguments = prayers.map((prayer: any, index: number) => ({
         prayerId: prayer.id || `prayer_${index}`,
         prayerTitle: prayer.title || `Prayer ${index + 1}`,
-        argument: fields[index]?.argument || "",
-        legalBasis: fields[index]?.legalBasis || "",
-        factualBasis: fields[index]?.factualBasis || "",
-        precedents: fields[index]?.precedents || ""
+        argument: "",
+        legalBasis: "",
+        factualBasis: "",
+        precedents: ""
       }));
       replace(newArguments);
     }
-  }, [prayers, replace]);
+  }, [prayers.length, replace, fields.length]);
 
   if (prayers.length === 0) {
     return (
@@ -73,7 +73,7 @@ export const ArgumentsSection: React.FC<ArgumentsSectionProps> = ({
       </div>
 
       <div className="space-y-6">
-        {prayers.map((prayer: any, index: number) => (
+        {prayers.filter((prayer: any) => prayer && typeof prayer === 'object' && !('argument' in prayer)).map((prayer: any, index: number) => (
           <Card key={prayer.id || index} className="border border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-start gap-4 mb-6">

@@ -12,11 +12,13 @@ import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import DocumentsTabs from './evidence/DocumentsTabs';
-import { FormStepSidebar } from "@/components/ui/form-step-sidebar"
+
 import PrayersSection from "@/components/ui/prayers-section"
 import ArgumentsSection from "@/components/ui/arguments-section"
 import { generateApplicationPDF, downloadPDF } from "@/lib/utils/pdf-generator";
 import DuplicateCheckDialog from "./duplicate-check-dialog";
+import { FormStepSidebar } from "@/components/ui/form-step-sidebar";
+import { Users, Gavel, Scale, FileText, DollarSign, MessageSquare, Eye } from 'lucide-react';
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -69,68 +71,68 @@ const sidebarSteps = [
     id: 0,
     title: "Step 1: Claimant Details",
     description: "Personal and business information",
-    icon: null
+    icon: <Users className="w-5 h-5" />
   },
   {
     id: 1,
     title: "Step 2: Additional Claimants",
     description: "Co-claimants and authorized managers",
-    icon: null
+    icon: <Users className="w-5 h-5" />
   },
   {
     id: 2,
     title: "Step 3: Respondent Details",
     description: "Opposing party information",
-    icon: null
+    icon: <Users className="w-5 h-5" />
   },
   {
     id: 3,
     title: "Step 4: Arbitration Agreement",
     description: "Agreement terms and arbitrator selection",
-    icon: null
+    icon: <Gavel className="w-5 h-5" />
   },
   {
     id: 4,
     title: "Step 5: Nature of Dispute",
     description: "Category and background details",
-    icon: null
+    icon: <Scale className="w-5 h-5" />
   },
   {
     id: 5,
     title: "Step 6: Dispute Description",
     description: "Detailed claims and supporting facts",
-    icon: null
+    icon: <FileText className="w-5 h-5" />
   },
   {
     id: 6,
     title: "Step 7: Prayers & Reliefs",
     description: "Specific remedies sought",
-    icon: null
+    icon: <Scale className="w-5 h-5" />
   },
   {
     id: 7,
     title: "Step 8: Documents",
     description: "Evidence and supporting files",
-    icon: null
+    icon: <FileText className="w-5 h-5" />
   },
   {
     id: 8,
     title: "Step 9: Payment",
     description: "Fee structure and payment details",
-    icon: null
+    icon: <DollarSign className="w-5 h-5" />
   },
   {
     id: 9,
     title: "Step 10: Arguments",
     description: "Legal arguments for each prayer",
-    icon: null
+    icon: <MessageSquare className="w-5 h-5" />
   },
   {
     id: 10,
     title: "Step 11: Review & Submit",
     description: "Final review before submission",
-    icon: null
-  }
+    icon: <Eye className="w-5 h-5" />
+  },
 ]
 
 const initialClaimant = {
@@ -251,13 +253,30 @@ const initialDocumentEvidence = {
 };
 
 const initialPrayers = {
-  prayers: [],
+  prayers: [{
+    id: Math.random().toString(36).substr(2, 9),
+    title: "Default Prayer",
+    description: "Please describe the relief sought",
+    amount: "",
+    reliefType: "monetary"
+  }]
 }
 
 const initialDocuments = {
   supportingDocuments: [] as File[],
   evidenceFiles: [] as File[],
   documentTypes: {} as Record<string, string>,
+  scannedDocuments: [{
+    documentType: "Default Document",
+    date: "",
+    file: null,
+    linkedIssue: "",
+    admissionStatus: "pending" as const,
+    description: "Default document description",
+    isOCREnabled: false,
+    extractedText: "",
+    keyMetadata: []
+  }]
 }
 
 const initialPayment = {
@@ -501,8 +520,8 @@ export const FormField: React.FC<FormFieldProps> = ({
           name={name}
           value={value}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm transition duration-200 ${
-            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+          className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm transition duration-200 ${
+            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'hover:border-gray-300'
           }`}
         >
           <option value="">{placeholder || `Select ${label}`}</option>
@@ -525,8 +544,8 @@ export const FormField: React.FC<FormFieldProps> = ({
           inputMode={name.includes('pincode') ? 'numeric' : undefined}
           pattern={name.includes('pincode') ? '[0-9]*' : undefined}
           style={isBusinessId ? { textTransform: 'uppercase' } : undefined}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 ${
-            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+          className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 ${
+            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'hover:border-gray-300'
           }`}
         />
       )}
@@ -581,8 +600,8 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
         maxLength={maxLength}
         placeholder={placeholder}
         rows={rows}
-        className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 resize-vertical ${
-          error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+        className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 resize-vertical ${
+          error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'hover:border-gray-300'
         }`}
       />
       
@@ -713,7 +732,7 @@ export const FileField: React.FC<FileFieldProps> = ({
   
   // Debug logging for existingFile prop
   useEffect(() => {
-    console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
+      console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
     if (existingFile) {
       console.log(`🔧 FileField ${name} has existingFile with name:`, existingFile.name);
     } else {
@@ -993,7 +1012,13 @@ const formSchema = z.object({
   
   // Prayers & Reliefs
   prayers: z.object({
-    prayers: z.string().min(1, "Prayers & reliefs is required").max(3000),
+    prayers: z.array(z.object({
+      id: z.string(),
+      title: z.string().min(1, "Prayer title is required"),
+      description: z.string().min(1, "Prayer description is required"),
+      amount: z.string().optional(),
+      reliefType: z.enum(["monetary", "specific_performance", "declaratory", "injunction", "costs", "interim", "other"])
+    })).min(1, "At least one prayer is required"),
   }),
   
   // Documents - Handled separately as they are File objects
@@ -1205,11 +1230,12 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
 interface ArbitrationFormProps {
   initialData?: any;
   petitionId?: string;
+  draftId?: string;
   mode?: 'create' | 'edit';
   onSubmit: (data: FormData) => Promise<void>;
 }
 
-function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }: ArbitrationFormProps) {
+function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, draftId }: ArbitrationFormProps) {
   console.log('🔧 ArbitrationForm: Component mounted with:', {
     mode,
     hasInitialData: !!initialData,
@@ -1373,6 +1399,14 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   const [additionalClaimantEmailVerified, setAdditionalClaimantEmailVerified] = useState<boolean[]>([]);
   const [additionalClaimantPhoneVerified, setAdditionalClaimantPhoneVerified] = useState<boolean[]>([]);
   
+  // Manager verification states (arrays to handle multiple managers)
+  const [managerEmailVerified, setManagerEmailVerified] = useState<boolean[]>([]);
+  const [managerPhoneVerified, setManagerPhoneVerified] = useState<boolean[]>([]);
+  
+  // Respondent verification states (arrays to handle multiple respondents)
+  const [respondentEmailVerified, setRespondentEmailVerified] = useState<boolean[]>([]);
+  const [respondentPhoneVerified, setRespondentPhoneVerified] = useState<boolean[]>([]);
+  
   // Main claimant verification states
   const [showEmailOTP, setShowEmailOTP] = useState(false);
   const [showPhoneOTP, setShowPhoneOTP] = useState(false);
@@ -1389,10 +1423,36 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   const [sentAdditionalEmailOTP, setSentAdditionalEmailOTP] = useState<string[]>([]);
   const [sentAdditionalPhoneOTP, setSentAdditionalPhoneOTP] = useState<string[]>([]);
 
+  // Respondent modal states
+  const [showRespondentEmailModal, setShowRespondentEmailModal] = useState<boolean[]>([]);
+  const [showRespondentPhoneModal, setShowRespondentPhoneModal] = useState<boolean[]>([]);
+  const [respondentEmailOTPs, setRespondentEmailOTPs] = useState<string[]>([]);
+  const [respondentPhoneOTPs, setRespondentPhoneOTPs] = useState<string[]>([]);
+  const [respondentEmailOTPInputs, setRespondentEmailOTPInputs] = useState<string[]>([]);
+  const [respondentPhoneOTPInputs, setRespondentPhoneOTPInputs] = useState<string[]>([]);
+
   // Duplicate check dialog state
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateCheckResult, setDuplicateCheckResult] = useState<any>(null);
   const [pendingSubmissionData, setPendingSubmissionData] = useState<any>(null);
+  
+  // Draft list modal state
+  const [showDraftList, setShowDraftList] = useState(false);
+  
+  // Define steps for navigation
+  const steps = [
+    { id: 0, title: "Step 1: Claimant Details", description: "Personal and business information" },
+    { id: 1, title: "Step 2: Additional Claimants", description: "Co-claimants and authorized managers" },
+    { id: 2, title: "Step 3: Respondent Details", description: "Opposing party information" },
+    { id: 3, title: "Step 4: Arbitration Agreement", description: "Agreement terms and arbitrator selection" },
+    { id: 4, title: "Step 5: Nature of Dispute", description: "Category and background details" },
+    { id: 5, title: "Step 6: Dispute Description", description: "Detailed claims and supporting facts" },
+    { id: 6, title: "Step 7: Prayers & Reliefs", description: "Specific remedies sought" },
+    { id: 7, title: "Step 8: Documents", description: "Evidence and supporting files" },
+    { id: 8, title: "Step 9: Payment", description: "Fee structure and payment details" },
+    { id: 9, title: "Step 10: Arguments", description: "Legal arguments for each prayer" },
+    { id: 10, title: "Step 11: Review & Submit", description: "Final review before submission" }
+  ];
   
   const stepRefs = useRef<(HTMLElement | null)[]>(Array(steps.length).fill(null));
   
@@ -1414,17 +1474,13 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       managerDetails: [initialManagerDetails],
       respondents: [initialRespondent],
       arbitrationAgreement: initialArbitrationAgreement,
-      natureOfDispute: initialNatureOfDispute,
+      natureOfDispute: [initialNatureOfDispute], // Add default nature of dispute
       disputeDescriptions: [initialDisputeDescription],
       documentsEvidence: [initialDocumentEvidence],
       prayers: initialPrayers,
       payment: initialPayment,
       arguments: initialArguments,
-      documents: {
-        supportingDocuments: [],
-        evidenceFiles: [],
-        documentTypes: {},
-      },
+      documents: initialDocuments,
     }
   });
   
@@ -1485,10 +1541,32 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     name: "natureOfDispute",
   });
 
+  // Field array for prayers
+  const { 
+    fields: prayerFields, 
+    append: appendPrayer,
+    remove: removePrayer
+  } = useFieldArray({
+    control,
+    name: "prayers.prayers",
+  });
+
+  // Field array for documents
+  const { 
+    fields: documentFields, 
+    append: appendDocument,
+    remove: removeDocument
+  } = useFieldArray({
+    control,
+    name: "documents.scannedDocuments",
+  });
+
   // Removed documentsEvidence field array since we eliminated the duplicate Documents/Evidence step
   
   // Watch form values
   const formValues = watch();
+
+
 
   // Effect to load initial data when in edit mode (after useForm is defined)
   useEffect(() => {
@@ -1734,6 +1812,14 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       loadInitialData();
     }
   }, [initialData, petitionId]); // Removed reset and setValue from dependencies to avoid circular dependency
+  
+  // Load draft when draftId is provided
+  useEffect(() => {
+    if (draftId && isAuthenticated) {
+      console.log('🔧 ArbitrationForm: Loading draft with ID:', draftId);
+      loadDraft(draftId);
+    }
+  }, [draftId, isAuthenticated]);
   
   // Watch for pincode changes and fetch location data
   const pincode = watch('claimant.pincode');
@@ -2046,6 +2132,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   
   const addManager = () => {
     appendManager(initialManagerDetails);
+    // Add verification states for the new manager
+    setManagerEmailVerified(prev => [...prev, false]);
+    setManagerPhoneVerified(prev => [...prev, false]);
   };
   
   const addRespondent = () => {
@@ -2067,6 +2156,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       pan: "",
       cin: "",
     });
+    // Add verification states for the new respondent
+    setRespondentEmailVerified(prev => [...prev, false]);
+    setRespondentPhoneVerified(prev => [...prev, false]);
   };
   
   const addArgument = () => {
@@ -2157,6 +2249,35 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       toast.success('Phone verified successfully!');
     } else {
       toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  // Draft management functions
+  const hasSavedDraft = () => {
+    if (typeof window === 'undefined') return false;
+    return !!localStorage.getItem('arbitration_draft_timestamp');
+  };
+
+  const loadLocalDraft = () => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const draftData = localStorage.getItem('arbitration_draft_data');
+      const savedStep = localStorage.getItem('arbitration_draft_step');
+      
+      if (draftData) {
+        const parsedData = JSON.parse(draftData);
+        reset(parsedData);
+        
+        if (savedStep) {
+          setActiveStep(parseInt(savedStep));
+        }
+        
+        toast.success('Draft loaded successfully');
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+      toast.error('Failed to load draft');
     }
   };
 
@@ -2320,9 +2441,236 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     setShowAdditionalPhoneOTP(newShowModals);
     setAdditionalPhoneOTP(newOTPs);
   };
+
+  // Manager verification functions
+  const sendManagerPhoneVerification = async (index: number) => {
+    const phone = watch(`managerDetails.${index}.phone`);
+    const countryCode = watch(`managerDetails.${index}.phoneCountryCode`);
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      toast.success(`Demo OTP sent to ${countryCode} ${phone}: ${otp}`);
+      
+      // Mark as verified for demo
+      setManagerPhoneVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      toast.success(`Phone verified successfully for Manager ${index + 1}`);
+    } catch (error) {
+      toast.error('Failed to send verification SMS');
+    }
+  };
+
+  const sendManagerEmailVerification = async (index: number) => {
+    const email = watch(`managerDetails.${index}.email`);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      toast.success(`Demo OTP sent to ${email}: ${otp}`);
+      
+      // Mark as verified for demo
+      setManagerEmailVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      toast.success(`Email verified successfully for Manager ${index + 1}`);
+    } catch (error) {
+      toast.error('Failed to send verification email');
+    }
+  };
+
+  // Respondent verification functions
+  const sendRespondentPhoneVerification = async (index: number) => {
+    const phone = watch(`respondents.${index}.phone`);
+    const countryCode = watch(`respondents.${index}.phoneCountryCode`);
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      // Store OTP for verification
+      setRespondentPhoneOTPs(prev => {
+        const newOTPs = [...prev];
+        newOTPs[index] = otp;
+        return newOTPs;
+      });
+      
+      // Show OTP modal
+      setShowRespondentPhoneModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = true;
+        return newModals;
+      });
+      
+      toast.success(`Demo OTP sent to ${countryCode} ${phone}: ${otp}`);
+    } catch (error) {
+      toast.error('Failed to send verification SMS');
+    }
+  };
+
+  const sendRespondentEmailVerification = async (index: number) => {
+    const email = watch(`respondents.${index}.email`);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      // Store OTP for verification
+      setRespondentEmailOTPs(prev => {
+        const newOTPs = [...prev];
+        newOTPs[index] = otp;
+        return newOTPs;
+      });
+      
+      // Show OTP modal
+      setShowRespondentEmailModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = true;
+        return newModals;
+      });
+      
+      toast.success(`Demo OTP sent to ${email}: ${otp}`);
+    } catch (error) {
+      toast.error('Failed to send verification email');
+    }
+  };
+
+  const verifyRespondentEmailOTP = (index: number) => {
+    const enteredOTP = respondentEmailOTPInputs[index];
+    const correctOTP = respondentEmailOTPs[index];
+    
+    if (enteredOTP === correctOTP) {
+      setRespondentEmailVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      // Clear OTP input
+      setRespondentEmailOTPInputs(prev => {
+        const newInputs = [...prev];
+        newInputs[index] = '';
+        return newInputs;
+      });
+      
+      // Close modal
+      setShowRespondentEmailModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = false;
+        return newModals;
+      });
+      
+      toast.success(`Email verified successfully for Respondent ${index + 1}`);
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const verifyRespondentPhoneOTP = (index: number) => {
+    const enteredOTP = respondentPhoneOTPInputs[index];
+    const correctOTP = respondentPhoneOTPs[index];
+    
+    if (enteredOTP === correctOTP) {
+      setRespondentPhoneVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      // Clear OTP input
+      setRespondentPhoneOTPInputs(prev => {
+        const newInputs = [...prev];
+        newInputs[index] = '';
+        return newInputs;
+      });
+      
+      // Close modal
+      setShowRespondentPhoneModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = false;
+        return newModals;
+      });
+      
+      toast.success(`Phone verified successfully for Respondent ${index + 1}`);
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const handleRespondentEmailOTPChange = (index: number, value: string) => {
+    setRespondentEmailOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = value;
+      return newInputs;
+    });
+  };
+
+  const handleRespondentPhoneOTPChange = (index: number, value: string) => {
+    setRespondentPhoneOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = value;
+      return newInputs;
+    });
+  };
+
+  const closeRespondentEmailModal = (index: number) => {
+    setShowRespondentEmailModal(prev => {
+      const newModals = [...prev];
+      newModals[index] = false;
+      return newModals;
+    });
+    
+    // Clear OTP input
+    setRespondentEmailOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = '';
+      return newInputs;
+    });
+  };
+
+  const closeRespondentPhoneModal = (index: number) => {
+    setShowRespondentPhoneModal(prev => {
+      const newModals = [...prev];
+      newModals[index] = false;
+      return newModals;
+    });
+    
+    // Clear OTP input
+    setRespondentPhoneOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = '';
+      return newInputs;
+    });
+  };
   
   // Validate current step
   const validateCurrentStep = async (isDraftSave = false) => {
+    console.log('🔧 validateCurrentStep: Starting validation for step', activeStep, 'isDraftSave:', isDraftSave);
     let fieldsToValidate: Array<keyof FormData | string> = [];
     
     switch (activeStep) {
@@ -2335,14 +2683,27 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         ];
         
         // Check if email and phone are verified (skip if already verified or in edit mode)
-        if (!emailVerified) {
+        console.log('🔧 Claimant verification check:', {
+          emailVerified,
+          phoneVerified,
+          editMode,
+          mode
+        });
+        
+        if (!emailVerified && mode !== 'edit') {
+          console.log('🔧 EMAIL NOT VERIFIED - blocking progression');
           toast.error('Please verify your email address before proceeding');
+          console.log('🔧 About to return false for email verification');
           return false;
         }
-        if (!phoneVerified) {
+        if (!phoneVerified && mode !== 'edit') {
+          console.log('🔧 PHONE NOT VERIFIED - blocking progression');
           toast.error('Please verify your phone number before proceeding');
+          console.log('🔧 About to return false for phone verification');
           return false;
         }
+        
+        console.log('🔧 Email and phone verification passed, continuing...');
         
         // Check required document uploads (only when not saving draft)
         if (!isDraftSave) {
@@ -2391,42 +2752,67 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         }
         break;
       case 1: // Additional Claimants & Manager
+        console.log('🔧 Step 2 validation started');
         // CRITICAL FIX: Enforce mandatory validation for Additional Claimants
-        additionalClaimantFields.forEach((_, index) => {
+        const additionalClaimantFields = watch('additionalClaimants') || [];
+        console.log('🔧 Additional claimants:', additionalClaimantFields);
+        
+        // ENFORCE: At least 1 additional claimant required
+        if (additionalClaimantFields.length === 0) {
+          toast.error('At least one additional claimant is required');
+          return false;
+        }
+        
+        for (let index = 0; index < additionalClaimantFields.length; index++) {
           const claimant = formValues.additionalClaimants?.[index];
           
-          // If any field is filled, ALL mandatory fields must be filled
-          if (claimant && (claimant.name || claimant.email || claimant.phone || claimant.address1)) {
-            fieldsToValidate.push(
-              `additionalClaimants.${index}.name`,
-              `additionalClaimants.${index}.email`,
-              `additionalClaimants.${index}.phone`,
-              `additionalClaimants.${index}.address1`
-            );
+          // ALL mandatory fields must be filled for each additional claimant
+          if (claimant) {
+          fieldsToValidate.push(
+              `additionalClaimants.${index}.type`,
+            `additionalClaimants.${index}.name`,
+            `additionalClaimants.${index}.email`,
+            `additionalClaimants.${index}.phone`,
+            `additionalClaimants.${index}.pincode`,
+            `additionalClaimants.${index}.address1`,
+            `additionalClaimants.${index}.city`,
+            `additionalClaimants.${index}.district`,
+            `additionalClaimants.${index}.state`,
+            `additionalClaimants.${index}.country`
+          );
             
-            // Smart document validation - same logic as claimant
+            // Smart document validation - check files state, not form data
             if (!isDraftSave) {
-              // Check specific ID field requirements
-              if (claimant.pan && !claimant.panCard) {
+              console.log(`🔧 Validating Additional Claimant ${index + 1}:`, {
+                pan: claimant.pan,
+                gst: claimant.gst,
+                cin: claimant.cin,
+                panCardFile: files[`additionalClaimants.${index}.panCard`],
+                gstCertFile: files[`additionalClaimants.${index}.gstCert`],
+                coiFile: files[`additionalClaimants.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (claimant.pan && !files[`additionalClaimants.${index}.panCard`]) {
                 toast.error(`PAN Card document is required for Additional Claimant ${index + 1} when PAN number is provided`);
                 return false;
               }
               
-              if (claimant.gst && !claimant.gstCert) {
+              if (claimant.gst && !files[`additionalClaimants.${index}.gstCert`]) {
                 toast.error(`GST Registration Certificate is required for Additional Claimant ${index + 1} when GST number is provided`);
                 return false;
               }
               
-              if (claimant.cin && !claimant.coi) {
+              if (claimant.cin && !files[`additionalClaimants.${index}.coi`]) {
                 toast.error(`Certificate of Incorporation is required for Additional Claimant ${index + 1} when CIN is provided`);
                 return false;
               }
               
               // At least one identification field must be filled and corresponding document uploaded
               const hasAnyIdField = claimant.pan || claimant.gst || claimant.cin;
-              const hasAnyIdDoc = (claimant.pan && claimant.panCard) || 
-                                  (claimant.gst && claimant.gstCert) || 
-                                  (claimant.cin && claimant.coi);
+              const hasAnyIdDoc = (claimant.pan && files[`additionalClaimants.${index}.panCard`]) || 
+                                  (claimant.gst && files[`additionalClaimants.${index}.gstCert`]) || 
+                                  (claimant.cin && files[`additionalClaimants.${index}.coi`]);
               
               if (!hasAnyIdField) {
                 toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Additional Claimant ${index + 1}`);
@@ -2439,14 +2825,23 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               }
             }
           }
-        });
+        }
         
         // CRITICAL FIX: Enforce mandatory validation for Manager Details
-        managerFields.forEach((_, index) => {
+        const managerFields = watch('managerDetails') || [];
+        console.log('🔧 Manager fields:', managerFields);
+        
+        // ENFORCE: At least 1 manager required
+        if (managerFields.length === 0) {
+          toast.error('At least one manager is required');
+          return false;
+        }
+        
+        for (let index = 0; index < managerFields.length; index++) {
           const manager = formValues.managerDetails?.[index];
           
-          // If any field is filled, ALL mandatory fields must be filled
-          if (manager && (manager.name || manager.email || manager.phone || manager.address1 || manager.managerId)) {
+          // ALL mandatory fields must be filled for each manager
+          if (manager) {
             fieldsToValidate.push(
               `managerDetails.${index}.name`,
               `managerDetails.${index}.email`,
@@ -2455,29 +2850,38 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               `managerDetails.${index}.managerId`
             );
             
-            // Smart document validation - same logic as claimant
+            // Smart document validation - check files state, not form data
             if (!isDraftSave) {
-              // Check specific ID field requirements
-              if (manager.pan && !manager.panCard) {
+              console.log(`🔧 Validating Manager ${index + 1}:`, {
+                pan: manager.pan,
+                gst: manager.gst,
+                cin: manager.cin,
+                panCardFile: files[`managerDetails.${index}.panCard`],
+                gstCertFile: files[`managerDetails.${index}.gstCert`],
+                coiFile: files[`managerDetails.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (manager.pan && !files[`managerDetails.${index}.panCard`]) {
                 toast.error(`PAN Card document is required for Manager ${index + 1} when PAN number is provided`);
                 return false;
               }
               
-              if (manager.gst && !manager.gstCert) {
+              if (manager.gst && !files[`managerDetails.${index}.gstCert`]) {
                 toast.error(`GST Registration Certificate is required for Manager ${index + 1} when GST number is provided`);
                 return false;
               }
               
-              if (manager.cin && !manager.coi) {
+              if (manager.cin && !files[`managerDetails.${index}.coi`]) {
                 toast.error(`Certificate of Incorporation is required for Manager ${index + 1} when CIN is provided`);
                 return false;
               }
               
               // At least one identification field must be filled and corresponding document uploaded
               const hasAnyIdField = manager.pan || manager.gst || manager.cin;
-              const hasAnyIdDoc = (manager.pan && manager.panCard) || 
-                                  (manager.gst && manager.gstCert) || 
-                                  (manager.cin && manager.coi);
+              const hasAnyIdDoc = (manager.pan && files[`managerDetails.${index}.panCard`]) || 
+                                  (manager.gst && files[`managerDetails.${index}.gstCert`]) || 
+                                  (manager.cin && files[`managerDetails.${index}.coi`]);
               
               if (!hasAnyIdField) {
                 toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Manager ${index + 1}`);
@@ -2490,16 +2894,24 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               }
             }
           }
-        });
+        }
         
         // Check if additional claimant email and phone are verified (skip if already verified or in edit mode)
         for (let index = 0; index < additionalClaimantFields.length; index++) {
           const claimant = formValues.additionalClaimants?.[index];
-          if (claimant && claimant.email && !additionalClaimantEmailVerified[index]) {
+          console.log(`🔧 Checking verification for Additional Claimant ${index + 1}:`, {
+            email: claimant?.email,
+            phone: claimant?.phone,
+            emailVerified: additionalClaimantEmailVerified[index],
+            phoneVerified: additionalClaimantPhoneVerified[index]
+          });
+          
+          // Only check verification if the field is actually filled
+          if (claimant && claimant.email && claimant.email.trim() !== '' && !additionalClaimantEmailVerified[index]) {
             toast.error(`Please verify email for Additional Claimant ${index + 1}`);
             return false;
           }
-          if (claimant && claimant.phone && !additionalClaimantPhoneVerified[index]) {
+          if (claimant && claimant.phone && claimant.phone.trim() !== '' && !additionalClaimantPhoneVerified[index]) {
             toast.error(`Please verify phone number for Additional Claimant ${index + 1}`);
             return false;
           }
@@ -2507,41 +2919,57 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         break;
       case 2: // Respondent Details
         // CRITICAL FIX: Enforce mandatory validation for Respondents
-        respondentFields.forEach((_, index) => {
+        const respondentFields = watch('respondents') || [];
+        for (let index = 0; index < respondentFields.length; index++) {
           const respondent = formValues.respondents?.[index];
           
           // If any field is filled, ALL mandatory fields must be filled
           if (respondent && (respondent.name || respondent.email || respondent.phone || respondent.address1)) {
-            fieldsToValidate.push(
-              `respondents.${index}.name`, 
-              `respondents.${index}.email`,
+          fieldsToValidate.push(
+            `respondents.${index}.type`,
+            `respondents.${index}.name`, 
+            `respondents.${index}.email`,
               `respondents.${index}.phone`,
-              `respondents.${index}.address1`
-            );
+            `respondents.${index}.pincode`,
+            `respondents.${index}.address1`,
+            `respondents.${index}.city`,
+            `respondents.${index}.district`,
+            `respondents.${index}.state`,
+            `respondents.${index}.country`
+          );
             
-            // Smart document validation - same logic as claimant
+            // Smart document validation - check files state, not form data
             if (!isDraftSave) {
-              // Check specific ID field requirements
-              if (respondent.pan && !respondent.panCard) {
+              console.log(`🔧 Validating Respondent ${index + 1}:`, {
+                pan: respondent.pan,
+                gst: respondent.gst,
+                cin: respondent.cin,
+                panCardFile: files[`respondents.${index}.panCard`],
+                gstCertFile: files[`respondents.${index}.gstCert`],
+                coiFile: files[`respondents.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (respondent.pan && !files[`respondents.${index}.panCard`]) {
                 toast.error(`PAN Card document is required for Respondent ${index + 1} when PAN number is provided`);
                 return false;
               }
               
-              if (respondent.gst && !respondent.gstCert) {
+              if (respondent.gst && !files[`respondents.${index}.gstCert`]) {
                 toast.error(`GST Registration Certificate is required for Respondent ${index + 1} when GST number is provided`);
                 return false;
               }
               
-              if (respondent.cin && !respondent.coi) {
+              if (respondent.cin && !files[`respondents.${index}.coi`]) {
                 toast.error(`Certificate of Incorporation is required for Respondent ${index + 1} when CIN is provided`);
                 return false;
               }
               
               // At least one identification field must be filled and corresponding document uploaded
               const hasAnyIdField = respondent.pan || respondent.gst || respondent.cin;
-              const hasAnyIdDoc = (respondent.pan && respondent.panCard) || 
-                                  (respondent.gst && respondent.gstCert) || 
-                                  (respondent.cin && respondent.coi);
+              const hasAnyIdDoc = (respondent.pan && files[`respondents.${index}.panCard`]) || 
+                                  (respondent.gst && files[`respondents.${index}.gstCert`]) || 
+                                  (respondent.cin && files[`respondents.${index}.coi`]);
               
               if (!hasAnyIdField) {
                 toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Respondent ${index + 1}`);
@@ -2554,7 +2982,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               }
             }
           }
-        });
+        }
         break;
       case 3: // Arbitration Agreement
         fieldsToValidate = [
@@ -2739,18 +3167,27 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         break;
     }
     
+    // First check form field validation
     if (fieldsToValidate.length > 0) {
+      console.log('🔧 validateCurrentStep: Triggering validation for fields:', fieldsToValidate);
       const result = await trigger(fieldsToValidate as any); // Type assertion to work around TypeScript error
-      return result;
+      console.log('🔧 validateCurrentStep: Trigger result:', result);
+      if (!result) {
+        console.log('🔧 validateCurrentStep: Form field validation failed');
+        return false;
+      }
     }
     
+    console.log('🔧 validateCurrentStep: All validation passed, returning true');
     return true;
   };
   
   // Handle next button click
   const handleNext = async () => {
     // Validate current step
+    console.log('🔧 handleNext: Starting validation for step', activeStep);
     const isStepValid = await validateCurrentStep();
+    console.log('🔧 handleNext: Validation result:', isStepValid);
     
     if (isStepValid) {
     if (activeStep < steps.length - 1) {
@@ -2816,19 +3253,58 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         id: `ocr-${fieldName}`
       });
 
-      // Simulate OCR processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Convert File to base64 for OCR processing
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data:image/jpeg;base64, prefix
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.readAsDataURL(file);
+      });
 
-      // Mock OCR data extraction based on document type
-      let extractedData: Record<string, string> = {};
-      
-      if (fieldName.includes('panCard')) {
-        extractedData.pan = 'AAAPL1234C';
-      } else if (fieldName.includes('gstCert')) {
-        extractedData.gst = '22AAAAA0000A1Z5';
-      } else if (fieldName.includes('coi')) {
-        extractedData.cin = 'U74140MH2014PTC123456';
+      // Determine document type based on field name
+      let cardType = 'PAN';
+      if (fieldName.includes('aadhaar') || fieldName.includes('uidai')) {
+        cardType = 'AADHAAR';
       }
+
+      // Call backend OCR API
+      const response = await fetch('/api/ocr/extract-fast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: base64,
+          cardType: cardType,
+          fieldName: fieldName
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('OCR API request failed');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'OCR extraction failed');
+      }
+
+      // Check if we got any extracted data
+      if (!result.extractedData || Object.keys(result.extractedData).length === 0) {
+        console.log('No data extracted from document');
+        toast.info('No specific data found in document. Please check the document quality or try a different image.', {
+          id: `ocr-${fieldName}`,
+          duration: 5000
+        });
+        return;
+      }
+
+      const extractedData = result.extractedData || {};
 
       // Extract entity path and index from fieldName
       const parts = fieldName.split('.');
@@ -2861,6 +3337,11 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       const extractedValues = Object.entries(extractedData)
         .map(([key, value]) => `${key.toUpperCase()}: ${value}`)
         .join(', ');
+      
+      // Log the raw text for debugging
+      if (result.rawText) {
+        console.log('OCR Raw Text:', result.rawText);
+      }
       
       toast.success(`OCR completed! Extracted: ${extractedValues}`, {
         id: `ocr-${fieldName}`,
@@ -3079,6 +3560,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             
             // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
+            console.log('🔧 About to call showSubmissionSuccess with caseId:', caseId);
             showSubmissionSuccess(caseId);
             
             // Generate and download PDF
@@ -3118,6 +3600,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id;
         if (caseId) {
+              console.log('🔧 About to call showSubmissionSuccess with caseId (draft submit):', caseId);
               showSubmissionSuccess(caseId);
               
               // Generate and download PDF
@@ -3161,6 +3644,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           
           // Show success modal
           const caseId = response.caseId || response.caseNumber || response.id;
+          console.log('🔧 About to call showSubmissionSuccess with caseId (new case):', caseId);
           showSubmissionSuccess(caseId);
           
           // Generate and download PDF
@@ -3429,10 +3913,13 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   // Load draft handler
   const loadDraft = async (draftId: string) => {
     try {
+      console.log('🔧 loadDraft: Starting to load draft with ID:', draftId);
       setIsLoadingDrafts(true);
       
       // Get the specific draft by ID
+      console.log('🔧 loadDraft: Calling arbitrationApi.getDraft...');
       const draftResponse = await arbitrationApi.getDraft(draftId);
+      console.log('🔧 loadDraft: Received draft response:', draftResponse);
       
       // The response might be directly the draft or it might contain the draft in a property
       // Try to find the actual draft data in common response formats
@@ -3453,13 +3940,19 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       }
       
       // Check if we found a draft
+      console.log('🔧 loadDraft: Processing draft data:', draft);
       if (!draft) {
+        console.error('🔧 loadDraft: No draft found in response');
         toast.error('Failed to load draft: Invalid draft format');
         return;
       }
       
       // Check if we have the new formData structure, otherwise fallback to reconstruction
       let completeFormData;
+      
+      console.log('🔧 loadDraft: Checking draft structure...');
+      console.log('🔧 loadDraft: draft.formData exists:', !!draft.formData);
+      console.log('🔧 loadDraft: draft.formData type:', typeof draft.formData);
       
       if (draft.formData && typeof draft.formData === 'object') {
         // Use the stored formData structure (new format)
@@ -3802,11 +4295,13 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
 
   // Show submission success modal
   const showSubmissionSuccess = (caseId: string) => {
+    console.log('🔧 showSubmissionSuccess called with caseId:', caseId);
     setSubmissionResult({
       caseId: caseId,
       applicationNumber: caseId
     });
     setShowSubmissionModal(true);
+    console.log('🔧 Modal state set to true');
   };
 
   // Handle modal actions
@@ -3844,140 +4339,310 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     switch (activeStep) {
       case 0: // Claimant Details
         return (
-          <div className="space-y-4" ref={(el) => { stepRefs.current[0] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Step 1: Claimant Details</h3>
+          <div className="space-y-6" ref={(el) => { stepRefs.current[0] = el; }}>
+            <h3 className="text-lg font-medium mb-4">Step 1: Claimant Details</h3>
+            
+            {/* Basic Information */}
             <div className="space-y-4">
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="1.1 Type*"
-                  name="claimant.type"
-                  type="select"
-                  options={[
-                    { value: "individual", label: "Individual" },
-                    { value: "company", label: "Company" },
-                    { value: "partnership", label: "Partnership" },
-                    { value: "llp", label: "LLP" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="1.2 Name*"
-                  name="claimant.name"
-                  maxLength={MAX_NAME_LENGTH}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative">
-                  <ControlledFormField
-                    control={control}
-                    label={emailVerified ? "1.3 Email* ✓" : "1.3 Email*"}
-                    name="claimant.email"
-                    maxLength={MAX_EMAIL_LENGTH}
+              <Controller
+                control={control}
+                name="claimant.type"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.1 Type"
+                    name="claimant.type"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    required
+                    options={[
+                      { value: "individual", label: "Individual" },
+                      { value: "company", label: "Company" },
+                      { value: "partnership", label: "Partnership" },
+                      { value: "llp", label: "LLP" },
+                    ]}
+                    error={fieldState.error?.message}
                   />
-                  <Button 
-                    type="button" 
-                    variant={emailVerified ? "default" : "outline"}
-                    size="sm"
-                    className={`absolute top-6 right-2 h-8 px-3 ${emailVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                    onClick={emailVerified ? undefined : sendEmailVerification}
-                    disabled={emailVerified || !watch('claimant.email') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch('claimant.email') || '')}
-                  >
-                    {emailVerified ? "✓ Verified" : "Verify"}
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <PhoneField
-                    control={control}
-                    phoneFieldName="claimant.phone"
-                    countryCodeFieldName="claimant.phoneCountryCode"
-                    label={phoneVerified ? "1.4 Mobile Number* ✓" : "1.4 Mobile Number*"}
-                    error={!formValues.claimant.phone ? "Phone is required" : ""}
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="claimant.name"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.2 Name"
+                    name="claimant.name"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    maxLength={MAX_NAME_LENGTH}
+                    error={fieldState.error?.message}
                   />
-                  <div className="flex justify-end">
-                    <Button 
-                      type="button" 
-                      variant={phoneVerified ? "default" : "outline"}
-                      size="sm"
-                      className={`h-8 px-3 ${phoneVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                      onClick={phoneVerified ? undefined : sendPhoneVerification}
-                      disabled={phoneVerified || !watch('claimant.phone') || !/^\d{10}$/.test(watch('claimant.phone') || '')}
-                    >
-                      {phoneVerified ? "✓ Verified" : "Verify"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <ControlledFormField
+                )}
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Controller
                   control={control}
-                  label="1.5 Pincode*"
-                  name="claimant.pincode"
-                  maxLength={6}
+                  name="claimant.email"
+                  render={({ field, fieldState }) => (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        1.3 Email Address {emailVerified ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          disabled={emailVerified}
+                          className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                            emailVerified ? 'border-green-500 bg-gray-100 cursor-not-allowed' : 'hover:border-gray-300'
+                          }`}
+                        />
+                        {!emailVerified && field.value && (
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            size="sm"
+                            onClick={sendEmailVerification}
+                            disabled={!field.value}
+                          >
+                            Verify
+                          </Button>
+                        )}
+                        {emailVerified && (
+                          <Button 
+                            type="button" 
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              setEmailVerified(false);
+                              field.onChange('');
+                              toast.info('Please enter a new email address and verify it');
+                            }}
+                            className="bg-orange-600 hover:bg-orange-700"
+                          >
+                            Change
+                          </Button>
+                        )}
+                      </div>
+                      {fieldState.error && (
+                        <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                      )}
+                      {emailVerified && (
+                        <div className="text-green-600 text-xs mt-1 flex items-center">
+                          <span className="mr-1">✓</span> Email address verified
+                        </div>
+                      )}
+                    </div>
+                  )}
                 />
-                <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-              <div>
-                <ControlledFormField
+                
+                <Controller
                   control={control}
-                    label="1.6 Address Line 1*"
+                  name="claimant.phone"
+                  render={({ field: phoneField, fieldState }) => (
+                    <Controller
+                      control={control}
+                      name="claimant.phoneCountryCode"
+                      render={({ field: countryCodeField }) => (
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            1.4 Phone Number {phoneVerified ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <select
+                              value={countryCodeField.value || "+91"}
+                              onChange={countryCodeField.onChange}
+                              disabled={phoneVerified}
+                              className={`px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300 ${
+                                phoneVerified ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              <option value="+91">+91</option>
+                              <option value="+1">+1</option>
+                              <option value="+44">+44</option>
+                              <option value="+49">+49</option>
+                              <option value="+86">+86</option>
+                            </select>
+                            <input
+                              type="tel"
+                              value={phoneField.value || ""}
+                              onChange={(e) => {
+                                // Only allow numbers and limit to 10 digits
+                                const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                                phoneField.onChange(value);
+                              }}
+                              placeholder="10-digit number"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={MAX_PHONE_LENGTH}
+                              disabled={phoneVerified}
+                              className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                                phoneVerified ? 'border-green-500 bg-gray-100' : 'hover:border-gray-300'
+                              } ${phoneVerified ? 'cursor-not-allowed' : ''}`}
+                            />
+                            {!phoneVerified && phoneField.value && phoneField.value.length === 10 && (
+                              <Button 
+                                type="button" 
+                                variant="outline"
+                                size="sm"
+                                onClick={sendPhoneVerification}
+                                disabled={!phoneField.value}
+                              >
+                                Verify
+                              </Button>
+                            )}
+                            {phoneVerified && (
+                              <Button 
+                                type="button" 
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setPhoneVerified(false);
+                                  phoneField.onChange('');
+                                  toast.info('Please enter a new phone number and verify it');
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700"
+                              >
+                                Change
+                              </Button>
+                            )}
+                          </div>
+                          {fieldState.error && (
+                            <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                          )}
+                          {phoneVerified && (
+                            <div className="text-green-600 text-xs mt-1 flex items-center">
+                              <span className="mr-1">✓</span> Phone number verified
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">Enter a valid phone number (max 10 digits)</p>
+                        </div>
+                      )}
+                    />
+                  )}
+                />
+              </div>
+              
+              <Controller
+                control={control}
+                name="claimant.pincode"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.5 Pincode"
+                    name="claimant.pincode"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    maxLength={6}
+                    placeholder="Enter 6-digit pincode"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Controller
+                  control={control}
                   name="claimant.address1"
-                  maxLength={MAX_ADDRESS_LENGTH}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.6 Address Line 1"
+                      name="claimant.address1"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
-              </div>
-              <div>
-                <ControlledFormField
+                
+                <Controller
                   control={control}
-                    label="1.7 Address Line 2"
                   name="claimant.address2"
-                  maxLength={MAX_ADDRESS_LENGTH}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.7 Address Line 2"
+                      name="claimant.address2"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
               </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-              <div>
-                <ControlledFormField
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Controller
                   control={control}
-                    label="1.8 City*"
                   name="claimant.city"
-                  type="select"
-                    options={claimantLocationOptions.cities.length > 0 ? claimantLocationOptions.cities : [{ value: "", label: "Select City" }]}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.8 City"
+                      name="claimant.city"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={claimantLocationOptions.cities.length > 0 ? claimantLocationOptions.cities : [{ value: "", label: "Select City" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
-              </div>
-              <div>
-                <ControlledFormField
+                
+                <Controller
                   control={control}
-                    label="1.10 State*"
-                    name="claimant.state"
-                  type="select"
-                    options={claimantLocationOptions.states.length > 0 ? claimantLocationOptions.states : [{ value: "", label: "Select State" }]}
-                />
-                </div>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="1.9 District*"
                   name="claimant.district"
-                  type="select"
-                  options={claimantLocationOptions.districts.length > 0 ? claimantLocationOptions.districts : [{ value: "", label: "Select District" }]}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.9 District"
+                      name="claimant.district"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={claimantLocationOptions.districts.length > 0 ? claimantLocationOptions.districts : [{ value: "", label: "Select District" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
-              </div>
-              <div>
-                <ControlledFormField
+                
+                <Controller
                   control={control}
-                  label="1.11 Country*"
-                  name="claimant.country"
-                  type="select"
-                  options={claimantLocationOptions.countries.length > 0 ? claimantLocationOptions.countries : [{ value: "", label: "Select Country" }]}
+                  name="claimant.state"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.10 State"
+                      name="claimant.state"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={claimantLocationOptions.states.length > 0 ? claimantLocationOptions.states : [{ value: "", label: "Select State" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
               </div>
+              
+              <Controller
+                control={control}
+                name="claimant.country"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.11 Country"
+                    name="claimant.country"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    options={claimantLocationOptions.countries.length > 0 ? claimantLocationOptions.countries : [{ value: "", label: "Select Country" }]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </div>
             
-            {/* Document Upload Section - Moved above GST/PAN/CIN */}
+            {/* Document Upload Section */}
             <div className="mt-6 border-t pt-6">
               <h4 className="font-medium text-md mb-4">Document Upload</h4>
               <p className="text-sm text-gray-600 mb-3">
@@ -3993,7 +4658,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     existingFile={files['claimant.coi']}
                   />
                   <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
-              </div>
+                </div>
                 <div>
                   <FileField
                     label="1.13 PAN Card"
@@ -4003,7 +4668,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     existingFile={files['claimant.panCard']}
                   />
                   <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
-              </div>
+                </div>
                 <div className="col-span-2">
                   <FileField
                     label="1.14 GST Registration Certificate"
@@ -4016,267 +4681,476 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                 </div>
               </div>
             </div>
-
+  
             {/* Business Information Section */}
             <div className="mt-6 border-t pt-6">
               <h4 className="font-medium text-md mb-4">Business Information</h4>
               <div className="space-y-4">
-              <div>
-                <ControlledFormField
-                  control={control}
-                    label="1.15 GST Number"
-                  name="claimant.gst"
-                  placeholder="22AAAAA0000A1Z5"
-                  maxLength={MAX_GST_LENGTH}
-                />
-                <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                    label="1.16 PAN Number"
-                  name="claimant.pan"
-                  placeholder="AAAPL1234C"
-                  maxLength={MAX_PAN_LENGTH}
-                />
-                <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                    label="1.17 CIN"
-                  name="claimant.cin"
-                  placeholder="U74140MH2014PTC123456"
-                  maxLength={MAX_CIN_LENGTH}
-                />
-                <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-              </div>
+                <div>
+                  <Controller
+                    control={control}
+                    name="claimant.gst"
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="1.15 GST Number"
+                        name="claimant.gst"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="22AAAAA0000A1Z5"
+                        maxLength={MAX_GST_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
+                </div>
+                <div>
+                  <Controller
+                    control={control}
+                    name="claimant.pan"
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="1.16 PAN Number"
+                        name="claimant.pan"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="AAAPL1234C"
+                        maxLength={MAX_PAN_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+                </div>
+                <div>
+                  <Controller
+                    control={control}
+                    name="claimant.cin"
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="1.17 CIN"
+                        name="claimant.cin"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="U74140MH2014PTC123456"
+                        maxLength={MAX_CIN_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+                </div>
               </div>
             </div>
           </div>
         )
-      case 1: // Additional Claimants & Manager
+  
+      case 1: // Additional Claimants
         return (
-          <div className="space-y-4" ref={(el) => { stepRefs.current[1] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Step 2: Additional Claimants</h3>
-            <div className="space-y-6">
-              {additionalClaimantFields.map((field, index) => (
-                <div key={field.id} className="border p-4 rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Additional Claimant {index + 1}</h4>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeAdditionalClaimant(index)}
-                    >
-                      Remove
-                    </Button>
+          <div className="space-y-6" ref={(el) => { stepRefs.current[1] = el; }}>
+            <h3 className="text-lg font-medium mb-4">Step 2: Additional Claimants</h3>
+          
+            {additionalClaimantFields.map((field, index) => (
+              <div key={field.id} className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-md font-semibold">Additional Claimant {index + 1}</h4>
+                  <Button variant="destructive" size="sm" onClick={() => removeAdditionalClaimant(index)}>
+                    Remove
+                  </Button>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.type`}
+                  render={({ field, fieldState }) => (
+                    <FormField
                       label="2.1 Type"
-                        name={`additionalClaimants.${index}.type`}
+                      name={`additionalClaimants.${index}.type`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
                       required
-                        type="select"
-                        options={[
-                          { value: "individual", label: "Individual" },
-                          { value: "company", label: "Company" },
-                          { value: "partnership", label: "Partnership" },
-                          { value: "llp", label: "LLP" },
-                        ]}
+                      options={[
+                        { value: "individual", label: "Individual" },
+                        { value: "company", label: "Company" },
+                        { value: "partnership", label: "Partnership" },
+                        { value: "llp", label: "LLP" }
+                      ]}
+                      error={fieldState.error?.message}
                     />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="2.2 Name *"
-                        name={`additionalClaimants.${index}.name`}
+                  )}
+                />
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.name`}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="2.2 Name"
+                      name={`additionalClaimants.${index}.name`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
                       required
                       maxLength={MAX_NAME_LENGTH}
+                      error={fieldState.error?.message}
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                  <div className="relative">
-                      <ControlledFormField
-                        control={control}
-                          label={additionalClaimantEmailVerified[index] ? "2.3 Email* ✓" : "2.3 Email*"}
-                        name={`additionalClaimants.${index}.email`}
-                      required
-                      maxLength={MAX_EMAIL_LENGTH}
-                    />
-                    <Button 
-                      type="button" 
-                      variant={additionalClaimantEmailVerified[index] ? "default" : "outline"}
-                      size="sm"
-                      className={`absolute top-6 right-2 h-8 px-3 ${additionalClaimantEmailVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                      onClick={additionalClaimantEmailVerified[index] ? undefined : () => sendAdditionalClaimantEmailVerification(index)}
-                      disabled={additionalClaimantEmailVerified[index] || !watch(`additionalClaimants.${index}.email`) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch(`additionalClaimants.${index}.email`) || '')}
-                    >
-                      {additionalClaimantEmailVerified[index] ? "✓ Verified" : "Verify"}
-                    </Button>
-                  </div>
-                    <div className="space-y-2">
-                      <PhoneField
-                        control={control}
-                        phoneFieldName={`additionalClaimants.${index}.phone`}
-                        countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
-                        label={additionalClaimantPhoneVerified[index] ? "2.4 Mobile Number* ✓" : "2.4 Mobile Number*"}
-                      required
-                      />
-                      <div className="flex justify-end">
-                    <Button 
-                      type="button" 
-                      variant={additionalClaimantPhoneVerified[index] ? "default" : "outline"}
-                      size="sm"
-                          className={`h-8 px-3 ${additionalClaimantPhoneVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                      onClick={additionalClaimantPhoneVerified[index] ? undefined : () => sendAdditionalClaimantPhoneVerification(index)}
-                      disabled={additionalClaimantPhoneVerified[index] || !watch(`additionalClaimants.${index}.phone`) || !/^\d{10}$/.test(watch(`additionalClaimants.${index}.phone`) || '')}
-                    >
-                      {additionalClaimantPhoneVerified[index] ? "✓ Verified" : "Verify"}
-                    </Button>
+                  )}
+                />
+  
+                {/* Email Field with Verify Button */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Controller
+                    name={`additionalClaimants.${index}.email`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          2.3 Email Address {additionalClaimantEmailVerified[index] ? "✓" : ""} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            disabled={additionalClaimantEmailVerified[index]}
+                            className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                              additionalClaimantEmailVerified[index] ? "border-green-500 bg-gray-100 cursor-not-allowed" : "hover:border-gray-300"
+                            }`}
+                          />
+                          {!additionalClaimantEmailVerified[index] && field.value && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendAdditionalClaimantEmailVerification(index)}
+                              disabled={!field.value}
+                            >
+                              Verify
+                            </Button>
+                          )}
+                          {additionalClaimantEmailVerified[index] && (
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                setAdditionalClaimantEmailVerified(prev => {
+                                  const newVerified = [...prev];
+                                  newVerified[index] = false;
+                                  return newVerified;
+                                });
+                                field.onChange('');
+                                toast.info(`Additional Claimant ${index + 1}: Please enter a new email address and verify it`);
+                              }}
+                              className="bg-orange-600 hover:bg-orange-700"
+                            >
+                              Change
+                            </Button>
+                          )}
+                        </div>
+                        {fieldState.error && (
+                          <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                        )}
+                        {additionalClaimantEmailVerified[index] && (
+                          <div className="text-green-600 text-xs mt-1 flex items-center">
+                            <span className="mr-1">✓</span> Email address verified
+                          </div>
+                        )}
                       </div>
+                    )}
+                  />
+  
+                  {/* Phone Field with Country Code + Verify */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      2.4 Mobile Number {additionalClaimantPhoneVerified[index] ? "✓" : ""} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <Controller
+                        name={`additionalClaimants.${index}.phoneCountryCode`}
+                        control={control}
+                        render={({ field }) => (
+                          <select
+                            value={field.value || "+91"}
+                            onChange={field.onChange}
+                            disabled={additionalClaimantPhoneVerified[index]}
+                            className={`px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-300 ${
+                              additionalClaimantPhoneVerified[index] ? 'bg-gray-100 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <option value="+91">+91</option>
+                            <option value="+1">+1</option>
+                            <option value="+44">+44</option>
+                            <option value="+49">+49</option>
+                            <option value="+86">+86</option>
+                          </select>
+                        )}
+                      />
+                      <Controller
+                        name={`additionalClaimants.${index}.phone`}
+                        control={control}
+                        render={({ field, fieldState }) => (
+                          <>
+                            <input
+                              type="tel"
+                              value={field.value || ""}
+                              onChange={(e) => {
+                                // Only allow numbers and limit to 10 digits
+                                const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                                field.onChange(value);
+                              }}
+                              placeholder="10-digit number"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={MAX_PHONE_LENGTH}
+                              disabled={additionalClaimantPhoneVerified[index]}
+                              className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                additionalClaimantPhoneVerified[index] ? "border-green-500 bg-gray-100 cursor-not-allowed" : "hover:border-gray-300"
+                              }`}
+                            />
+                            {!additionalClaimantPhoneVerified[index] && field.value && field.value.length === 10 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => sendAdditionalClaimantPhoneVerification(index)}
+                                disabled={!field.value}
+                              >
+                                Verify
+                              </Button>
+                            )}
+                            {additionalClaimantPhoneVerified[index] && (
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setAdditionalClaimantPhoneVerified(prev => {
+                                    const newVerified = [...prev];
+                                    newVerified[index] = false;
+                                    return newVerified;
+                                  });
+                                  field.onChange('');
+                                  toast.info(`Additional Claimant ${index + 1}: Please enter a new phone number and verify it`);
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700"
+                              >
+                                Change
+                              </Button>
+                            )}
+                            {fieldState.error && (
+                              <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                            )}
+                            {additionalClaimantPhoneVerified[index] && (
+                              <div className="text-green-600 text-xs mt-1 flex items-center">
+                                <span className="mr-1">✓</span> Phone number verified
+                              </div>
+                            )}
+                          </>
+                        )}
+                      />
                     </div>
                   </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
+                </div>
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.pincode`}
+                  render={({ field, fieldState }) => (
+                    <FormField
                       label="2.5 Pincode"
-                        name={`additionalClaimants.${index}.pincode`}
+                      name={`additionalClaimants.${index}.pincode`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
                       maxLength={6}
+                      placeholder="Enter 6-digit pincode"
+                      error={fieldState.error?.message}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode for automatic location lookup</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
+                  )}
+                />
+  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.address1`}
+                    render={({ field, fieldState }) => (
+                      <FormField
                         label="2.6 Address Line 1"
                         name={`additionalClaimants.${index}.address1`}
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        maxLength={MAX_ADDRESS_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.address2`}
+                    render={({ field, fieldState }) => (
+                      <FormField
                         label="2.7 Address Line 2"
                         name={`additionalClaimants.${index}.address2`}
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        maxLength={MAX_ADDRESS_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                </div>
+  
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.city`}
+                    render={({ field, fieldState }) => (
+                      <FormField
                         label="2.8 City"
                         name={`additionalClaimants.${index}.city`}
-                      type="select"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="select"
                         options={additionalClaimantLocationOptions[index]?.cities.length > 0 ? additionalClaimantLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.district`}
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="2.9 District"
+                        name={`additionalClaimants.${index}.district`}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="select"
+                        options={additionalClaimantLocationOptions[index]?.districts.length > 0 ? additionalClaimantLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.state`}
+                    render={({ field, fieldState }) => (
+                      <FormField
                         label="2.10 State"
                         name={`additionalClaimants.${index}.state`}
-                      type="select"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="select"
                         options={additionalClaimantLocationOptions[index]?.states.length > 0 ? additionalClaimantLocationOptions[index].states : [{ value: "", label: "Select State" }]}
-                    />
-                    </div>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="2.9 District"
-                      name={`additionalClaimants.${index}.district`}
-                      type="select"
-                      options={additionalClaimantLocationOptions[index]?.districts.length > 0 ? additionalClaimantLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                </div>
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.country`}
+                  render={({ field, fieldState }) => (
+                    <FormField
                       label="2.11 Country"
-                        name={`additionalClaimants.${index}.country`}
+                      name={`additionalClaimants.${index}.country`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
                       type="select"
                       options={additionalClaimantLocationOptions[index]?.countries.length > 0 ? additionalClaimantLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
+                      error={fieldState.error?.message}
                     />
-                  </div>
-                </div>
-                
-                {/* Document Upload Section for Additional Claimant */}
-                <div className="mt-4 border-t pt-4">
-                  <h5 className="font-medium text-sm mb-3">Document Upload</h5>
-                  <p className="text-xs text-gray-600 mb-3">
-                    Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <FileField
-                        label="2.12 Certificate of Incorporation (COI)"
-                        name={`additionalClaimants.${index}.coi`}
-                        onChange={(file) => handleFileChange(`additionalClaimants.${index}.coi`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`additionalClaimants.${index}.coi`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
-                    </div>
-                    <div>
-                      <FileField
-                        label="2.13 PAN Card"
-                        name={`additionalClaimants.${index}.panCard`}
-                        onChange={(file) => handleFileChange(`additionalClaimants.${index}.panCard`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`additionalClaimants.${index}.panCard`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
-                    </div>
+                  )}
+                />
+  
+                {/* Document Upload Section */}
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <h5 className="text-md font-medium mb-4">Document Upload</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FileField 
+                      label="2.12 Certificate of Incorporation (COI)" 
+                      name={`additionalClaimants.${index}.coi`} 
+                      onChange={(file) => handleFileChange(`additionalClaimants.${index}.coi`, file)} 
+                      existingFile={files[`additionalClaimants.${index}.coi`]} 
+                    />
+                    <FileField 
+                      label="2.13 PAN Card" 
+                      name={`additionalClaimants.${index}.panCard`} 
+                      onChange={(file) => handleFileChange(`additionalClaimants.${index}.panCard`, file)} 
+                      existingFile={files[`additionalClaimants.${index}.panCard`]} 
+                    />
                     <div className="col-span-2">
-                      <FileField
-                        label="2.14 GST Registration Certificate"
-                        name={`additionalClaimants.${index}.gstCert`}
-                        onChange={(file) => handleFileChange(`additionalClaimants.${index}.gstCert`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`additionalClaimants.${index}.gstCert`]}
+                      <FileField 
+                        label="2.14 GST Registration Certificate" 
+                        name={`additionalClaimants.${index}.gstCert`} 
+                        onChange={(file) => handleFileChange(`additionalClaimants.${index}.gstCert`, file)} 
+                        existingFile={files[`additionalClaimants.${index}.gstCert`]} 
                       />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
                     </div>
                   </div>
                 </div>
-
-                {/* Business Information Section */}
-                <div className="mt-4 border-t pt-4">
-                  <h5 className="font-medium text-sm mb-3">Business Information</h5>
+  
+                {/* Business Info Section */}
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <h5 className="text-md font-medium mb-4">Business Information</h5>
                   <div className="space-y-4">
                     <div>
-                      <ControlledFormField
+                      <Controller
                         control={control}
-                        label="2.15 GST Number"
                         name={`additionalClaimants.${index}.gst`}
-                        placeholder="22AAAAA0000A1Z5"
-                        maxLength={MAX_GST_LENGTH}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="2.15 GST Number"
+                            name={`additionalClaimants.${index}.gst`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="22AAAAA0000A1Z5"
+                            maxLength={MAX_GST_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
                       />
                       <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
                     </div>
+                    
                     <div>
-                      <ControlledFormField
+                      <Controller
                         control={control}
-                        label="2.16 PAN Number"
                         name={`additionalClaimants.${index}.pan`}
-                        placeholder="AAAPL1234C"
-                        maxLength={MAX_PAN_LENGTH}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="2.16 PAN Number"
+                            name={`additionalClaimants.${index}.pan`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="AAAPL1234C"
+                            maxLength={MAX_PAN_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
                       />
                       <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
                     </div>
+                    
                     <div>
-                      <ControlledFormField
+                      <Controller
                         control={control}
-                        label="2.17 CIN"
                         name={`additionalClaimants.${index}.cin`}
-                        placeholder="U74140MH2014PTC123456"
-                        maxLength={MAX_CIN_LENGTH}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="2.17 CIN"
+                            name={`additionalClaimants.${index}.cin`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="U74140MH2014PTC123456"
+                            maxLength={MAX_CIN_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
                       />
                       <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
                     </div>
@@ -4284,473 +5158,837 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                 </div>
               </div>
             ))}
-              
-              <div className="flex justify-end">
-            <Button onClick={addAdditionalClaimant} variant="outline">
-                  Add Another Claimant
-            </Button>
-              </div>
+          
+            <div className="flex justify-end">
+              <Button onClick={addAdditionalClaimant} variant="outline">
+                Add Another Claimant
+              </Button>
             </div>
-            
+          
             <div className="mt-8">
-              <h3 className="font-medium text-lg mb-4">Manager Details</h3>
-              {managerFields.map((field, index) => (
-                <div key={field.id} className="border p-4 rounded-lg mb-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-medium">Manager {index + 1}</h4>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeManagerField(index)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-              <div className="space-y-4">
-                <div>
-                    <ControlledFormField
-                      control={control}
-                      label="Name *"
-                        name={`managerDetails.${index}.name`}
-                      required
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Designation"
-                        name={`managerDetails.${index}.designation`}
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Manager ID Number *"
-                        name={`managerDetails.${index}.managerId`}
-                      required
-                    maxLength={50}
-                    placeholder="Enter unique manager ID"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Email *"
-                        name={`managerDetails.${index}.email`}
-                      required
-                    maxLength={MAX_EMAIL_LENGTH}
-                  />
-                </div>
-                <div>
-                    <PhoneField
-                      control={control}
-                        phoneFieldName={`managerDetails.${index}.phone`}
-                        countryCodeFieldName={`managerDetails.${index}.phoneCountryCode`}
-                    label="Phone *"
-                      required
+  <h3 className="font-medium text-lg mb-4">Manager Details</h3>
+  {managerFields.map((field, index) => (
+    <div key={field.id} className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white shadow-sm mb-4">
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="font-medium">Manager {index + 1}</h4>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => removeManagerField(index)}
+        >
+          Remove
+        </Button>
+      </div>
+      
+      <div className="space-y-4">
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.name`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Name"
+              name={`managerDetails.${index}.name`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              required
+              maxLength={MAX_NAME_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.designation`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Designation"
+              name={`managerDetails.${index}.designation`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              maxLength={MAX_NAME_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.managerId`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Manager ID Number"
+              name={`managerDetails.${index}.managerId`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              required
+              maxLength={50}
+              placeholder="Enter unique manager ID"
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Controller
+            control={control}
+            name={`managerDetails.${index}.email`}
+            render={({ field, fieldState }) => (
+              <FormField
+                label="Email Address"
+                name={`managerDetails.${index}.email`}
+                value={field.value || ""}
+                onChange={field.onChange}
+                type="email"
+                required
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone Number <span className="text-red-500 ml-1">*</span>
+            </label>
+            <div className="flex gap-2">
+              <Controller
+                control={control}
+                name={`managerDetails.${index}.phoneCountryCode`}
+                render={({ field }) => (
+                  <select
+                    value={field.value || "+91"}
+                    onChange={field.onChange}
+                    className="px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300"
+                  >
+                    <option value="+91">+91</option>
+                    <option value="+1">+1</option>
+                    <option value="+44">+44</option>
+                    <option value="+49">+49</option>
+                    <option value="+86">+86</option>
+                  </select>
+                )}
+              />
+              <Controller
+                control={control}
+                name={`managerDetails.${index}.phone`}
+                render={({ field, fieldState }) => (
+                  <>
+                    <input
+                      type="tel"
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        // Only allow numbers and limit to 10 digits
+                        const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                        field.onChange(value);
+                      }}
+                      placeholder="10-digit number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={MAX_PHONE_LENGTH}
+                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 hover:border-gray-300"
                     />
-                  </div>
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Address *"
-                        name={`managerDetails.${index}.address1`}
-                      required
-                    maxLength={MAX_ADDRESS_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Authority"
-                        name={`managerDetails.${index}.authority`}
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                  </div>
-                </div>
-                
-                {/* Document Upload Section for Manager */}
-                <div className="mt-4 border-t pt-4">
-                  <h5 className="font-medium text-sm mb-3">Document Upload</h5>
-                  <p className="text-xs text-gray-600 mb-3">
-                    Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <FileField
-                        label="Certificate of Incorporation (COI)"
-                        name={`managerDetails.${index}.coi`}
-                        onChange={(file) => handleFileChange(`managerDetails.${index}.coi`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`managerDetails.${index}.coi`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
-                    </div>
-                    <div>
-                      <FileField
-                        label="PAN Card"
-                        name={`managerDetails.${index}.panCard`}
-                        onChange={(file) => handleFileChange(`managerDetails.${index}.panCard`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`managerDetails.${index}.panCard`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
-                    </div>
-                    <div className="col-span-2">
-                      <FileField
-                        label="GST Registration Certificate"
-                        name={`managerDetails.${index}.gstCert`}
-                        onChange={(file) => handleFileChange(`managerDetails.${index}.gstCert`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`managerDetails.${index}.gstCert`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Business Information Section for Manager */}
-                <div className="mt-4 border-t pt-4">
-                  <h5 className="font-medium text-sm mb-3">Business Information</h5>
-                  <div className="space-y-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="GST Number"
-                        name={`managerDetails.${index}.gst`}
-                        placeholder="22AAAAA0000A1Z5"
-                        maxLength={MAX_GST_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="PAN Number"
-                        name={`managerDetails.${index}.pan`}
-                        placeholder="AAAPL1234C"
-                        maxLength={MAX_PAN_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="CIN"
-                        name={`managerDetails.${index}.cin`}
-                        placeholder="U74140MH2014PTC123456"
-                        maxLength={MAX_CIN_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                    </div>
-                  </div>
-                </div>
-                </div>
-              ))}
-              <div className="flex justify-end">
-                <Button onClick={addManager} variant="outline">
-                  Add Another Manager
-                </Button>
-              </div>
+                    {fieldState.error && (
+                      <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Enter a valid phone number (max 10 digits)</p>
+                  </>
+                )}
+              />
             </div>
           </div>
+        </div>
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.address1`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Address"
+              name={`managerDetails.${index}.address1`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              required
+              maxLength={MAX_ADDRESS_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.authority`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Authority"
+              name={`managerDetails.${index}.authority`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              maxLength={MAX_NAME_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+      </div>
+      
+      {/* Document Upload Section for Manager */}
+      <div className="mt-6 border-t border-gray-200 pt-6">
+        <h5 className="text-md font-medium mb-4">Document Upload</h5>
+        <p className="text-sm text-gray-600 mb-3">
+          Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <FileField
+              label="Certificate of Incorporation (COI)"
+              name={`managerDetails.${index}.coi`}
+              onChange={(file) => handleFileChange(`managerDetails.${index}.coi`, file)}
+              accept=".pdf,.jpg,.jpeg,.png"
+              existingFile={files[`managerDetails.${index}.coi`]}
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
+          </div>
+          <div>
+            <FileField
+              label="PAN Card"
+              name={`managerDetails.${index}.panCard`}
+              onChange={(file) => handleFileChange(`managerDetails.${index}.panCard`, file)}
+              accept=".pdf,.jpg,.jpeg,.png"
+              existingFile={files[`managerDetails.${index}.panCard`]}
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
+          </div>
+          <div className="col-span-2">
+            <FileField
+              label="GST Registration Certificate"
+              name={`managerDetails.${index}.gstCert`}
+              onChange={(file) => handleFileChange(`managerDetails.${index}.gstCert`, file)}
+              accept=".pdf,.jpg,.jpeg,.png"
+              existingFile={files[`managerDetails.${index}.gstCert`]}
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Business Information Section for Manager */}
+      <div className="mt-6 border-t border-gray-200 pt-6">
+        <h5 className="text-md font-medium mb-4">Business Information</h5>
+        <div className="space-y-4">
+          <div>
+            <Controller
+              control={control}
+              name={`managerDetails.${index}.gst`}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label="GST Number"
+                  name={`managerDetails.${index}.gst`}
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="22AAAAA0000A1Z5"
+                  maxLength={MAX_GST_LENGTH}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
+          </div>
+          
+          <div>
+            <Controller
+              control={control}
+              name={`managerDetails.${index}.pan`}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label="PAN Number"
+                  name={`managerDetails.${index}.pan`}
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="AAAPL1234C"
+                  maxLength={MAX_PAN_LENGTH}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+          </div>
+          
+          <div>
+            <Controller
+              control={control}
+              name={`managerDetails.${index}.cin`}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label="CIN"
+                  name={`managerDetails.${index}.cin`}
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="U74140MH2014PTC123456"
+                  maxLength={MAX_CIN_LENGTH}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ))}
+  
+  <div className="flex justify-end">
+    <Button onClick={addManager} variant="outline">
+      Add Another Manager
+    </Button>
+  </div>
+</div>
+
+          </div>
         )
+  
       case 2: // Respondent Details
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[2] = el; }}>
             <h3 className="font-medium text-lg mb-4">Step 3: Respondent Details</h3>
             <div className="space-y-6">
               {respondentFields.map((field, index) => (
-                <div key={field.id} className="border p-4 rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Respondent {index + 1}</h4>
+                <div key={field.id} className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium">Respondent {index + 1}</h4>
                     {respondentFields.length > 1 && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         onClick={() => removeRespondentField(index)}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="3.1 Type"
-                        name={`respondents.${index}.type`}
-                      required
-                        type="select"
-                      options={[
-                        { value: "individual", label: "Individual" },
-                        { value: "company", label: "Company" },
-                        { value: "partnership", label: "Partnership" },
-                        { value: "llp", label: "LLP" },
-                      ]}
-                    />
+                      >
+                        Remove
+                      </Button>
+                    )}
                   </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="3.2 Name *"
-                        name={`respondents.${index}.name`}
-                      required
-                      maxLength={MAX_NAME_LENGTH}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.3 Email *"
-                        name={`respondents.${index}.email`}
-                      required
-                      maxLength={MAX_EMAIL_LENGTH}
-                    />
-                  </div>
-                  <div>
-                      <PhoneField
-                        control={control}
-                        phoneFieldName={`respondents.${index}.phone`}
-                        countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
-                        label="3.4 Mobile Number *"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="3.5 Pincode"
-                        name={`respondents.${index}.pincode`}
-                      maxLength={6}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode for automatic location lookup</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.6 Address Line 1 *"
-                        name={`respondents.${index}.address1`}
-                        required
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.7 Address Line 2"
-                        name={`respondents.${index}.address2`}
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.8 City"
-                        name={`respondents.${index}.city`}
-                      type="select"
-                          options={respondentLocationOptions[index]?.cities.length > 0 ? respondentLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.10 State"
-                          name={`respondents.${index}.state`}
-                      type="select"
-                          options={respondentLocationOptions[index]?.states.length > 0 ? respondentLocationOptions[index].states : [{ value: "", label: "Select State" }]}
-                    />
-                    </div>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="3.9 District"
-                        name={`respondents.${index}.district`}
-                      type="select"
-                        options={respondentLocationOptions[index]?.districts.length > 0 ? respondentLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="3.11 Country"
-                        name={`respondents.${index}.country`}
-                      type="select"
-                        options={respondentLocationOptions[index]?.countries.length > 0 ? respondentLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
-                    />
-                  </div>
-                </div>
-                
-                {/* Document Upload Section for Respondent */}
-                <div className="mt-4 border-t pt-4">
-                  <h5 className="font-medium text-sm mb-3">Document Upload</h5>
-                  <p className="text-xs text-gray-600 mb-3">
-                    Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <FileField
-                        label="3.12 Certificate of Incorporation (COI)"
-                        name={`respondents.${index}.coi`}
-                        onChange={(file) => handleFileChange(`respondents.${index}.coi`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`respondents.${index}.coi`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
-                    </div>
-                    <div>
-                      <FileField
-                        label="3.13 PAN Card"
-                        name={`respondents.${index}.panCard`}
-                        onChange={(file) => handleFileChange(`respondents.${index}.panCard`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`respondents.${index}.panCard`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
-                    </div>
-                    <div className="col-span-2">
-                      <FileField
-                        label="3.14 GST Registration Certificate"
-                        name={`respondents.${index}.gstCert`}
-                        onChange={(file) => handleFileChange(`respondents.${index}.gstCert`, file)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        existingFile={files[`respondents.${index}.gstCert`]}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Business Information Section for Respondent */}
-                <div className="mt-4 border-t pt-4">
-                  <h5 className="font-medium text-sm mb-3">Business Information</h5>
+                  
                   <div className="space-y-4">
-                  <div>
-                      <ControlledFormField
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.type`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.1 Type"
+                          name={`respondents.${index}.type`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "individual", label: "Individual" },
+                            { value: "company", label: "Company" },
+                            { value: "partnership", label: "Partnership" },
+                            { value: "llp", label: "LLP" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.name`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.2 Name"
+                          name={`respondents.${index}.name`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          maxLength={MAX_NAME_LENGTH}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
                         control={control}
-                        label="3.15 GST Number"
-                        name={`respondents.${index}.gst`}
-                        placeholder="22AAAAA0000A1Z5"
-                        maxLength={MAX_GST_LENGTH}
+                        name={`respondents.${index}.email`}
+                        render={({ field, fieldState }) => (
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              3.3 Email Address {respondentEmailVerified[index] ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="email"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                disabled={respondentEmailVerified[index]}
+                                className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                                  respondentEmailVerified[index] ? 'border-green-500 bg-gray-100 cursor-not-allowed' : 'hover:border-gray-300'
+                                }`}
+                              />
+                              {!respondentEmailVerified[index] && field.value && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => sendRespondentEmailVerification(index)}
+                                  disabled={!field.value}
+                                >
+                                  Verify
+                                </Button>
+                              )}
+                              {respondentEmailVerified[index] && (
+                                <Button
+                                  type="button"
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespondentEmailVerified(prev => {
+                                      const newVerified = [...prev];
+                                      newVerified[index] = false;
+                                      return newVerified;
+                                    });
+                                    field.onChange('');
+                                    toast.info(`Respondent ${index + 1}: Please enter a new email address and verify it`);
+                                  }}
+                                  className="bg-orange-600 hover:bg-orange-700"
+                                >
+                                  Change
+                                </Button>
+                              )}
+                            </div>
+                            {fieldState.error && (
+                              <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                            )}
+                            {respondentEmailVerified[index] && (
+                              <div className="text-green-600 text-xs mt-1 flex items-center">
+                                <span className="mr-1">✓</span> Email address verified
+                              </div>
+                            )}
+                          </div>
+                        )}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.16 PAN Number"
-                        name={`respondents.${index}.pan`}
-                        placeholder="AAAPL1234C"
-                        maxLength={MAX_PAN_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                        label="3.17 CIN"
-                        name={`respondents.${index}.cin`}
-                        placeholder="U74140MH2014PTC123456"
-                        maxLength={MAX_CIN_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                    </div>
+                      
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          3.4 Mobile Number {respondentPhoneVerified[index] ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <Controller
+                            control={control}
+                            name={`respondents.${index}.phoneCountryCode`}
+                            render={({ field }) => (
+                              <select
+                                value={field.value || "+91"}
+                                onChange={field.onChange}
+                                disabled={respondentPhoneVerified[index]}
+                                className={`px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300 ${
+                                  respondentPhoneVerified[index] ? 'bg-gray-100 cursor-not-allowed' : ''
+                                }`}
+                              >
+                                <option value="+91">+91</option>
+                                <option value="+1">+1</option>
+                                <option value="+44">+44</option>
+                                <option value="+49">+49</option>
+                                <option value="+86">+86</option>
+                              </select>
+                            )}
+                          />
+                          <Controller
+                            control={control}
+                            name={`respondents.${index}.phone`}
+                            render={({ field, fieldState }) => (
+                              <>
+                                <input
+                                  type="tel"
+                                  value={field.value || ""}
+                                  onChange={(e) => {
+                                    // Only allow numbers and limit to 10 digits
+                                    const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                                    field.onChange(value);
+                                  }}
+                                  placeholder="10-digit number"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  maxLength={MAX_PHONE_LENGTH}
+                                  disabled={respondentPhoneVerified[index]}
+                                  className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                                    respondentPhoneVerified[index] ? 'border-green-500 bg-gray-100 cursor-not-allowed' : 'hover:border-gray-300'
+                                  }`}
+                                />
+                                {!respondentPhoneVerified[index] && field.value && field.value.length === 10 && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => sendRespondentPhoneVerification(index)}
+                                    disabled={!field.value}
+                                  >
+                                    Verify
+                                  </Button>
+                                )}
+                                {respondentPhoneVerified[index] && (
+                                  <Button
+                                    type="button"
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => {
+                                      setRespondentPhoneVerified(prev => {
+                                        const newVerified = [...prev];
+                                        newVerified[index] = false;
+                                        return newVerified;
+                                      });
+                                      field.onChange('');
+                                      toast.info(`Respondent ${index + 1}: Please enter a new phone number and verify it`);
+                                    }}
+                                    className="bg-orange-600 hover:bg-orange-700"
+                                  >
+                                    Change
+                                  </Button>
+                                )}
+                                {fieldState.error && (
+                                  <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                                )}
+                                {respondentPhoneVerified[index] && (
+                                  <div className="text-green-600 text-xs mt-1 flex items-center">
+                                    <span className="mr-1">✓</span> Phone number verified
+                                  </div>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">Enter a valid phone number (max 10 digits)</p>
+                              </>
+                            )}
+                          />
                         </div>
+                      </div>
+                    </div>
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.pincode`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.5 Pincode"
+                          name={`respondents.${index}.pincode`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          maxLength={6}
+                          placeholder="Enter 6-digit pincode"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.address1`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.6 Address Line 1"
+                            name={`respondents.${index}.address1`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            required
+                            maxLength={MAX_ADDRESS_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.address2`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.7 Address Line 2"
+                            name={`respondents.${index}.address2`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            maxLength={MAX_ADDRESS_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.city`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.8 City"
+                            name={`respondents.${index}.city`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            type="select"
+                            options={respondentLocationOptions[index]?.cities.length > 0 ? respondentLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.state`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.10 State"
+                            name={`respondents.${index}.state`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            type="select"
+                            options={respondentLocationOptions[index]?.states.length > 0 ? respondentLocationOptions[index].states : [{ value: "", label: "Select State" }]}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.district`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.9 District"
+                          name={`respondents.${index}.district`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          options={respondentLocationOptions[index]?.districts.length > 0 ? respondentLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.country`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.11 Country"
+                          name={`respondents.${index}.country`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          options={respondentLocationOptions[index]?.countries.length > 0 ? respondentLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  </div>
+                  
+                  {/* Document Upload Section for Respondent */}
+                  <div className="mt-4 border-t pt-4">
+                    <h5 className="font-medium text-sm mb-3">Document Upload</h5>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <FileField
+                          label="3.12 Certificate of Incorporation (COI)"
+                          name={`respondents.${index}.coi`}
+                          onChange={(file) => handleFileChange(`respondents.${index}.coi`, file)}
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          existingFile={files[`respondents.${index}.coi`]}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
+                      </div>
+                      <div>
+                        <FileField
+                          label="3.13 PAN Card"
+                          name={`respondents.${index}.panCard`}
+                          onChange={(file) => handleFileChange(`respondents.${index}.panCard`, file)}
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          existingFile={files[`respondents.${index}.panCard`]}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
+                      </div>
+                      <div className="col-span-2">
+                        <FileField
+                          label="3.14 GST Registration Certificate"
+                          name={`respondents.${index}.gstCert`}
+                          onChange={(file) => handleFileChange(`respondents.${index}.gstCert`, file)}
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          existingFile={files[`respondents.${index}.gstCert`]}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
+                      </div>
+                    </div>
+                  </div>
+  
+                  {/* Business Information Section for Respondent */}
+                  <div className="mt-4 border-t pt-4">
+                    <h5 className="font-medium text-sm mb-3">Business Information</h5>
+                    <div className="space-y-4">
+                      <div>
+                        <Controller
+                          control={control}
+                          name={`respondents.${index}.gst`}
+                          render={({ field, fieldState }) => (
+                            <FormField
+                              label="3.15 GST Number"
+                              name={`respondents.${index}.gst`}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="22AAAAA0000A1Z5"
+                              maxLength={MAX_GST_LENGTH}
+                              error={fieldState.error?.message}
+                            />
+                          )}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
+                      </div>
+                      
+                      <div>
+                        <Controller
+                          control={control}
+                          name={`respondents.${index}.pan`}
+                          render={({ field, fieldState }) => (
+                            <FormField
+                              label="3.16 PAN Number"
+                              name={`respondents.${index}.pan`}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="AAAPL1234C"
+                              maxLength={MAX_PAN_LENGTH}
+                              error={fieldState.error?.message}
+                            />
+                          )}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+                      </div>
+                      
+                      <div>
+                        <Controller
+                          control={control}
+                          name={`respondents.${index}.cin`}
+                          render={({ field, fieldState }) => (
+                            <FormField
+                              label="3.17 CIN"
+                              name={`respondents.${index}.cin`}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="U74140MH2014PTC123456"
+                              maxLength={MAX_CIN_LENGTH}
+                              error={fieldState.error?.message}
+                            />
+                          )}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
               
               <div className="flex justify-end">
-            <Button onClick={addRespondent} variant="outline">
+                <Button onClick={addRespondent} variant="outline">
                   Add Another Respondent
-            </Button>
+                </Button>
               </div>
             </div>
           </div>
         )
+  
       case 3: // Arbitration Agreement
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[3] = el; }}>
             <h3 className="font-medium text-lg mb-4">Step 4: Arbitration Agreement Details</h3>
             <div className="grid grid-cols-1 gap-4">
-              <div>
-                <Controller
-                  control={control}
-                  name="arbitrationAgreement.agreementDate"
-                  render={({ field, fieldState }) => (
-                <FormField
-                  label="4.1 Date of Arbitration Agreement / Agreement containing the arbitration clause*"
-                  name="agreementDate"
-                  type="date"
-                      value={field.value || ""}
-                      onChange={field.onChange}
-                  required
-                  max={new Date().toISOString().split('T')[0]}
-                      error={fieldState.error?.message}
-                />
+              <Controller
+                control={control}
+                name="arbitrationAgreement.agreementDate"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.1 Date of Arbitration Agreement / Agreement containing the arbitration clause*"
+                    name="arbitrationAgreement.agreementDate"
+                    type="date"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    max={new Date().toISOString().split('T')[0]}
+                    error={fieldState.error?.message}
+                  />
                 )}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="4.2 Place where the Arbitration Agreement / Agreement containing the arbitration clause was signed*"
-                  name="arbitrationAgreement.placeOfSigning"
-                  required
-                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
-                  placeholder="Enter the place where the agreement was signed"
-                />
-              </div>
-              <div>
-                <ControlledTextAreaField
-                  control={control}
-                  label="4.3 Text of Arbitration Agreement/clause*"
-                  name="arbitrationAgreement.arbitrationText"
-                  required
-                  maxLength={2000}
-                  rows={5}
-                  placeholder="Enter the exact text of the arbitration agreement or clause"
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="4.4 Percentage of the Agreement value / Amount of stamp duty paid on the Arbitration Agreement / Agreement containing the arbitration clause*"
-                  name="arbitrationAgreement.stampDutyPercentage"
-                  required
-                  placeholder="Enter percentage or amount"
-                  maxLength={50}
-                />
-                <p className="text-xs text-gray-500 mt-1">Enter as percentage of agreement value or actual amount paid</p>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="4.5 Number of Arbitrators as per Agreement*"
-                  name="arbitrationAgreement.numberOfArbitrators"
-                  required
-                  type="select"
-                  options={[
-                    { value: "1", label: "1 (Sole Arbitrator)" },
-                    { value: "3", label: "3 (Tribunal)" },
-                    { value: "5", label: "5" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.placeOfSigning"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.2 Place where the Arbitration Agreement / Agreement containing the arbitration clause was signed*"
+                    name="arbitrationAgreement.placeOfSigning"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    maxLength={MAX_ARBITRATION_FIELD_LENGTH}
+                    placeholder="Enter the place where the agreement was signed"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.arbitrationText"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.3 Text of Arbitration Agreement/clause*"
+                    name="arbitrationAgreement.arbitrationText"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="textarea"
+                    required
+                    maxLength={2000}
+                    rows={5}
+                    placeholder="Enter the exact text of the arbitration agreement or clause"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.stampDutyPercentage"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.4 Percentage of the Agreement value / Amount of stamp duty paid on the Arbitration Agreement / Agreement containing the arbitration clause*"
+                    name="arbitrationAgreement.stampDutyPercentage"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    placeholder="Enter percentage or amount"
+                    maxLength={50}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.numberOfArbitrators"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.5 Number of Arbitrators as per Agreement*"
+                    name="arbitrationAgreement.numberOfArbitrators"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    required
+                    options={[
+                      { value: "1", label: "1 (Sole Arbitrator)" },
+                      { value: "3", label: "3 (Tribunal)" },
+                      { value: "5", label: "5" },
+                      { value: "other", label: "Other" },
+                    ]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </div>
           </div>
         )
+  
       case 4: // Nature of Dispute
         return (
           <div className="space-y-6">
@@ -4774,101 +6012,127 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                     )}
                   </div>
                   
-                                <div className="space-y-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="5.1 Category"
-                        name={`natureOfDispute.${index}.category`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "commercial", label: "Commercial" },
-                          { value: "construction", label: "Construction" },
-                          { value: "employment", label: "Employment" },
-                          { value: "intellectual_property", label: "Intellectual Property" },
-                          { value: "corporate", label: "Corporate" },
-                          { value: "real_estate", label: "Real Estate" },
-                          { value: "banking", label: "Banking & Finance" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="5.2 Sub Category"
-                        name={`natureOfDispute.${index}.subCategory`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "breach", label: "Breach of Contract" },
-                          { value: "payment", label: "Payment Dispute" },
-                          { value: "quality", label: "Quality/Performance Issue" },
-                          { value: "delivery", label: "Delivery Delay" },
-                          { value: "warranty", label: "Warranty Claim" },
-                          { value: "termination", label: "Contract Termination" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="5.3 Nature of Dispute"
-                        name={`natureOfDispute.${index}.natureOfDispute`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "civil", label: "Civil" },
-                          { value: "commercial", label: "Commercial" },
-                          { value: "constitutional", label: "Constitutional" },
-                          { value: "family", label: "Family" },
-                          { value: "property", label: "Property" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <Controller
-                        control={control}
-                        name={`natureOfDispute.${index}.dateWhenRightToClaimArose`}
-                        render={({ field, fieldState }) => (
-                          <FormField
-                            label="5.4 Date when right to claim arose"
-                            name={`dateWhenRightToClaimArose_${index}`}
-                            type="date"
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            required
-                            max={new Date().toISOString().split('T')[0]}
-                            error={fieldState.error?.message}
-                          />
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="5.5 Standardised prayer clauses"
-                        name={`natureOfDispute.${index}.standardisedPrayerClauses`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "monetary_relief", label: "Monetary Relief" },
-                          { value: "specific_performance", label: "Specific Performance" },
-                          { value: "declaratory_relief", label: "Declaratory Relief" },
-                          { value: "injunctive_relief", label: "Injunctive Relief" },
-                          { value: "damages", label: "Damages" },
-                          { value: "costs", label: "Costs and Expenses" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
+                  <div className="space-y-4">
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.category`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.1 Category"
+                          name={`natureOfDispute.${index}.category`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "commercial", label: "Commercial" },
+                            { value: "construction", label: "Construction" },
+                            { value: "employment", label: "Employment" },
+                            { value: "intellectual_property", label: "Intellectual Property" },
+                            { value: "corporate", label: "Corporate" },
+                            { value: "real_estate", label: "Real Estate" },
+                            { value: "banking", label: "Banking & Finance" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.subCategory`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.2 Sub Category"
+                          name={`natureOfDispute.${index}.subCategory`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "breach", label: "Breach of Contract" },
+                            { value: "payment", label: "Payment Dispute" },
+                            { value: "quality", label: "Quality/Performance Issue" },
+                            { value: "delivery", label: "Delivery Delay" },
+                            { value: "warranty", label: "Warranty Claim" },
+                            { value: "termination", label: "Contract Termination" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.natureOfDispute`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.3 Nature of Dispute"
+                          name={`natureOfDispute.${index}.natureOfDispute`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "civil", label: "Civil" },
+                            { value: "commercial", label: "Commercial" },
+                            { value: "constitutional", label: "Constitutional" },
+                            { value: "family", label: "Family" },
+                            { value: "property", label: "Property" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.dateWhenRightToClaimArose`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.4 Date when right to claim arose"
+                          name={`dateWhenRightToClaimArose_${index}`}
+                          type="date"
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          max={new Date().toISOString().split('T')[0]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.standardisedPrayerClauses`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.5 Standardised prayer clauses"
+                          name={`natureOfDispute.${index}.standardisedPrayerClauses`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "monetary_relief", label: "Monetary Relief" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "declaratory_relief", label: "Declaratory Relief" },
+                            { value: "injunctive_relief", label: "Injunctive Relief" },
+                            { value: "damages", label: "Damages" },
+                            { value: "costs", label: "Costs and Expenses" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
                   </div>
                 </div>
               ))}
-              
+  
               <div className="flex justify-center">
                 <Button
                   type="button"
@@ -4882,6 +6146,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             </div>
           </div>
         )
+  
       case 5: // Dispute Description
         return (
           <div className="space-y-6">
@@ -4906,103 +6171,162 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
                   </div>
                   
                   <div className="space-y-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="6.1 Claim Type"
-                        name={`disputeDescriptions.${index}.claimType`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "monetary", label: "Monetary" },
-                          { value: "specific_performance", label: "Specific Performance" },
-                          { value: "declaratory", label: "Declaratory Relief" },
-                          { value: "injunctive", label: "Injunctive Relief" },
-                          { value: "combination", label: "Combination of Above" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <ControlledTextAreaField
-                        control={control}
-                        label="6.2 Claim Reason"
-                        name={`disputeDescriptions.${index}.claimReason`}
-                        required
-                        rows={2}
-                        placeholder="Provide the primary reason for this claim"
-                      />
-                    </div>
-                    <div>
-                      <ControlledTextAreaField
-                        control={control}
-                        label="6.3 Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
-                        name={`disputeDescriptions.${index}.lawReliedUpon`}
-                        required
-                        rows={3}
-                        placeholder="List specific Acts, Rules, Regulations, or other legal provisions relied upon"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="6.4 Relevant Clause Number/Page Number"
-                        name={`disputeDescriptions.${index}.relevantClauseNumber`}
-                        required
-                        placeholder="e.g., Clause 5.2 or Page 7"
-                      />
-                    </div>
-                    <div>
-                      <ControlledTextAreaField
-                        control={control}
-                        label="6.5 Clause Supporting Claim"
-                        name={`disputeDescriptions.${index}.clauseSupportingClaim`}
-                        required
-                        rows={2}
-                        placeholder="Describe how this clause supports your claim"
-                      />
-                    </div>
-                    <div>
-                      <ControlledTextAreaField
-                        control={control}
-                        label="6.6 Clause"
-                        name={`disputeDescriptions.${index}.clause`}
-                        required
-                        rows={3}
-                        placeholder="Enter the exact text of the relevant clause"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="6.7 Document Supporting Claim"
-                        name={`disputeDescriptions.${index}.documentSupportingClaim`}
-                        required
-                        placeholder="Name/reference of supporting document"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Relief Sought"
-                        name={`disputeDescriptions.${index}.reliefSought`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "monetary_compensation", label: "Monetary Compensation" },
-                          { value: "specific_performance", label: "Specific Performance" },
-                          { value: "declaratory_relief", label: "Declaratory Relief" },
-                          { value: "injunctive_relief", label: "Injunctive Relief" },
-                          { value: "restitution", label: "Restitution" },
-                          { value: "rescission", label: "Rescission of Contract" },
-                          { value: "rectification", label: "Rectification" },
-                          { value: "damages_costs", label: "Damages and Costs" },
-                          { value: "interest_penalty", label: "Interest and Penalty" },
-                          { value: "termination", label: "Contract Termination" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.claimType`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.1 Claim Type"
+                          name={`disputeDescriptions.${index}.claimType`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "monetary", label: "Monetary" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "declaratory", label: "Declaratory Relief" },
+                            { value: "injunctive", label: "Injunctive Relief" },
+                            { value: "combination", label: "Combination of Above" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.claimReason`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.2 Claim Reason"
+                          name={`disputeDescriptions.${index}.claimReason`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={2}
+                          placeholder="Provide the primary reason for this claim"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.lawReliedUpon`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.3 Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
+                          name={`disputeDescriptions.${index}.lawReliedUpon`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={3}
+                          placeholder="List specific Acts, Rules, Regulations, or other legal provisions relied upon"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.4 Relevant Clause Number/Page Number"
+                          name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="e.g., Clause 5.2 or Page 7"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.5 Clause Supporting Claim"
+                          name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={2}
+                          placeholder="Describe how this clause supports your claim"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.clause`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.6 Clause"
+                          name={`disputeDescriptions.${index}.clause`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={3}
+                          placeholder="Enter the exact text of the relevant clause"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.7 Document Supporting Claim"
+                          name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="Name/reference of supporting document"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.reliefSought`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Relief Sought"
+                          name={`disputeDescriptions.${index}.reliefSought`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "monetary_compensation", label: "Monetary Compensation" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "declaratory_relief", label: "Declaratory Relief" },
+                            { value: "injunctive_relief", label: "Injunctive Relief" },
+                            { value: "restitution", label: "Restitution" },
+                            { value: "rescission", label: "Rescission of Contract" },
+                            { value: "rectification", label: "Rectification" },
+                            { value: "damages_costs", label: "Damages and Costs" },
+                            { value: "interest_penalty", label: "Interest and Penalty" },
+                            { value: "termination", label: "Contract Termination" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
                   </div>
                 </div>
               ))}
@@ -5020,15 +6344,17 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             </div>
           </div>
         )
+  
       case 6: // Prayers & Reliefs
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
             <PrayersSection 
-                control={control}
-                name="prayers.prayers"
-              />
+              control={control}
+              name="prayers.prayers"
+            />
           </div>
         )
+  
       case 7: // Documents
         // Create default issues in case arguments don't exist yet
         const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
@@ -5041,8 +6367,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
             { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
           ];
-          
-  
         
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[7] = el; }}>
@@ -5055,1047 +6379,709 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             />
           </div>
         )
+  
       case 8: // Payment
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[8] = el; }}>
             <h3 className="font-medium text-lg mb-4">Payment</h3>
             <div className="space-y-4">
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Payment Head"
-                  name="payment.paymentHead"
-                  type="select"
-                  required
-                  options={[
-                    { value: "filing_fee", label: "Filing Fee" },
-                    { value: "arbitrator_fee", label: "Arbitrator Fee" },
-                    { value: "administrative_fee", label: "Administrative Fee" },
-                    { value: "emergency_fee", label: "Emergency Arbitration Fee" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Payment Amount (INR)"
-                  name="payment.paymentAmount"
-                  type="number"
-                  required
-                  maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
-                  placeholder="Enter amount in INR"
-                />
-                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_PAYMENT_AMOUNT.toLocaleString()} INR</p>
-              </div>
-              <div>
-                <ControlledTextAreaField
-                  control={control}
-                  label="Payment Details"
-                  name="payment.paymentDetails"
-                  required
-                  rows={4}
-                  maxLength={1000}
-                  placeholder="Provide detailed payment information"
-                />
-              </div>
+              <Controller
+                control={control}
+                name="payment.paymentHead"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="Payment Head"
+                    name="payment.paymentHead"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    required
+                    options={[
+                      { value: "filing_fee", label: "Filing Fee" },
+                      { value: "arbitrator_fee", label: "Arbitrator Fee" },
+                      { value: "administrative_fee", label: "Administrative Fee" },
+                      { value: "emergency_fee", label: "Emergency Arbitration Fee" },
+                      { value: "other", label: "Other" },
+                    ]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="payment.paymentAmount"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="Payment Amount (INR)"
+                    name="payment.paymentAmount"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="number"
+                    required
+                    maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
+                    placeholder="Enter amount in INR"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="payment.paymentDetails"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="Payment Details"
+                    name="payment.paymentDetails"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    type="textarea"
+                    rows={4}
+                    maxLength={1000}
+                    placeholder="Provide detailed payment information"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </div>
-                      </div>
-          )
+          </div>
+        )
+  
       case 9: // Arguments
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
             <ArgumentsSection 
-                      control={control}
+              control={control}
               prayersName="prayers.prayers"
               argumentsName="arguments.argumentsPerPrayer"
             />
           </div>
-                  )
+        )
+  
       case 10: // Review & Submit
         return (
-          <div ref={(el) => { stepRefs.current[10] = el; }} className="max-w-6xl mx-auto">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Review Your Petition</h2>
-              <p className="text-gray-600">Please review all details before submitting your arbitration petition</p>
-            </div>
-            
-            {/* Save/Edit Status */}
-            {editMode && (
-              <div className={`mb-6 p-4 rounded-lg border ${isSavingDraft ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
-                <div className="flex items-center">
-                  {isSavingDraft ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-600 mr-3"></div>
-                      <span className="font-medium">Auto-saving your changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="font-medium">
-                        {lastSaved 
-                          ? `Last saved at ${lastSaved.toLocaleTimeString()}` 
-                          : 'All changes saved'}
-                      </span>
-                    </>
-                  )}
-                </div>
+          <div ref={(el) => { stepRefs.current[10] = el; }} className="w-full">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Review Your Petition</h2>
+                <p className="text-gray-600">Please review all details before submitting your arbitration petition</p>
               </div>
-            )}
-            
-            <div className="space-y-8">
-              {/* Step 1: Claimant Details */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <span className="bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</span>
-                    Claimant Details
-                  </h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-3 rounded">
-                      <label className="text-sm font-medium text-gray-600">1. Type</label>
-                      <p className="text-gray-900 capitalize">{claimant?.type || 'Not specified'}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <label className="text-sm font-medium text-gray-600">2. Name</label>
-                      <p className="text-gray-900">{claimant?.name || 'Not specified'}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <label className="text-sm font-medium text-gray-600">3. Email</label>
-                      <p className="text-gray-900">{claimant?.email || 'Not specified'}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <label className="text-sm font-medium text-gray-600">4. Phone</label>
-                      <p className="text-gray-900">{claimant?.phoneCountryCode} {claimant?.phone || 'Not specified'}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                      <label className="text-sm font-medium text-gray-600">5. Address</label>
-                      <p className="text-gray-900">
-                        {claimant?.address1 && (
-                          <>
-                            {claimant.address1}
-                            {claimant.address2 && `, ${claimant.address2}`}
-                            {claimant.city && `, ${claimant.city}`}
-                            {claimant.district && `, ${claimant.district}`}
-                            {claimant.state && `, ${claimant.state}`}
-                            {claimant.country && `, ${claimant.country}`}
-                            {claimant.pincode && ` - ${claimant.pincode}`}
-                          </>
-                        ) || 'Not specified'}
-                      </p>
-                    </div>
-                    {claimant?.gst && (
-                      <div className="bg-gray-50 p-3 rounded">
-                        <label className="text-sm font-medium text-gray-600">6a. GST Number</label>
-                        <p className="text-gray-900">{claimant.gst}</p>
-                      </div>
-                    )}
-                    {claimant?.pan && (
-                      <div className="bg-gray-50 p-3 rounded">
-                        <label className="text-sm font-medium text-gray-600">6b. PAN Number</label>
-                        <p className="text-gray-900">{claimant.pan}</p>
-                      </div>
-                    )}
-                                         {claimant?.cin && (
-                       <div className="bg-gray-50 p-3 rounded">
-                         <label className="text-sm font-medium text-gray-600">6c. CIN Number</label>
-                         <p className="text-gray-900">{claimant.cin}</p>
-                       </div>
-                     )}
-                   </div>
-                   
-                   {/* Claimant Documents */}
-                   {(files['claimant.coi'] || files['claimant.panCard'] || files['claimant.gstCert']) && (
-                     <div className="mt-6 pt-6 border-t border-gray-200">
-                       <h4 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h4>
-                       <div className="space-y-3">
-                         {files['claimant.coi'] && (
-                           <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                             <div className="flex items-center">
-                               <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                               </svg>
-                               <div>
-                                 <p className="font-medium text-gray-900">Certificate of Incorporation</p>
-                                 <p className="text-sm text-gray-500">{files['claimant.coi'].name}</p>
-                               </div>
-                             </div>
-                           </div>
-                         )}
-                         {files['claimant.panCard'] && (
-                           <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                             <div className="flex items-center">
-                               <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                               </svg>
-                               <div>
-                                 <p className="font-medium text-gray-900">PAN Card</p>
-                                 <p className="text-sm text-gray-500">{files['claimant.panCard'].name}</p>
-                               </div>
-                             </div>
-                           </div>
-                         )}
-                         {files['claimant.gstCert'] && (
-                           <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                             <div className="flex items-center">
-                               <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                               </svg>
-                               <div>
-                                 <p className="font-medium text-gray-900">GST Certificate</p>
-                                 <p className="text-sm text-gray-500">{files['claimant.gstCert'].name}</p>
-                               </div>
-                             </div>
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                   )}
-                 </div>
-               </div>
 
-              {/* Step 2: Additional Claimants */}
-              {additionalClaimants && additionalClaimants.length > 0 && additionalClaimants.some(ac => ac?.name) && (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-green-600 text-white px-6 py-4 rounded-t-lg">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <span className="bg-white text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
-                      Additional Claimants
-                    </h3>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    {additionalClaimants.map((ac, index) => (
-                      ac?.name && (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-900 mb-3">Additional Claimant {index + 1}</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}a. Type</label>
-                              <p className="text-gray-900 capitalize">{ac.type || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}b. Name</label>
-                              <p className="text-gray-900">{ac.name}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}c. Email</label>
-                              <p className="text-gray-900">{ac.email || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}d. Phone</label>
-                              <p className="text-gray-900">{ac.phoneCountryCode} {ac.phone || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}e. Address</label>
-                              <p className="text-gray-900">{ac.address1 ? `${ac.address1}${ac.address2 ? ', ' + ac.address2 : ''}` : 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}f. City, State</label>
-                              <p className="text-gray-900">{ac.city && ac.state ? `${ac.city}, ${ac.state}` : 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}g. Country</label>
-                              <p className="text-gray-900">{ac.country || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">2.{index + 1}h. Pincode</label>
-                              <p className="text-gray-900">{ac.pincode || 'Not specified'}</p>
-                            </div>
-                            {ac.gst && (
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">2.{index + 1}i. GST Number</label>
-                                <p className="text-gray-900">{ac.gst}</p>
-                              </div>
-                            )}
-                            {ac.pan && (
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">2.{index + 1}j. PAN Number</label>
-                                <p className="text-gray-900">{ac.pan}</p>
-                              </div>
-                            )}
-                            {ac.cin && (
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">2.{index + 1}k. CIN</label>
-                                <p className="text-gray-900">{ac.cin}</p>
-                              </div>
-                            )}
-
-                          {/* Additional Claimant Documents */}
-                          {(files[`additionalClaimants.${index}.coi`] || files[`additionalClaimants.${index}.panCard`] || files[`additionalClaimants.${index}.gstCert`]) && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <h5 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h5>
-                              <div className="space-y-2">
-                                {files[`additionalClaimants.${index}.coi`] && (
-                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                    <div className="flex items-center">
-                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">Certificate of Incorporation</p>
-                                        <p className="text-xs text-gray-500">{files[`additionalClaimants.${index}.coi`].name}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                {files[`additionalClaimants.${index}.panCard`] && (
-                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                    <div className="flex items-center">
-                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">PAN Card</p>
-                                        <p className="text-xs text-gray-500">{files[`additionalClaimants.${index}.panCard`].name}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                {files[`additionalClaimants.${index}.gstCert`] && (
-                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                    <div className="flex items-center">
-                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">GST Certificate</p>
-                                        <p className="text-xs text-gray-500">{files[`additionalClaimants.${index}.gstCert`].name}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          </div>
-                        </div>
-                      )
-                    ))}
+              {/* Auto-save Status */}
+              {currentDraftId && (
+                <div className="mb-6 p-4 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-800">
+                  <div className="flex items-center">
+                    <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-medium">Draft saved - All changes are automatically saved</span>
                   </div>
                 </div>
               )}
 
-              {/* Step 3: Manager Details */}
-              {managerDetails && managerDetails.length > 0 && managerDetails.some(md => md?.name) && (
+              <div className="space-y-8">
+                {/* Step 1: Claimant Details */}
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
+                  <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg">
                     <h3 className="text-lg font-semibold flex items-center">
-                      <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
-                      Manager Details
-                    </h3>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    {managerDetails.map((manager, index) => (
-                      manager?.name && (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-900 mb-3">Manager {index + 1}</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}a. Type</label>
-                              <p className="text-gray-900 capitalize">{manager.type || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}b. Name</label>
-                              <p className="text-gray-900">{manager.name}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}c. Email</label>
-                              <p className="text-gray-900">{manager.email || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}d. Phone</label>
-                              <p className="text-gray-900">{manager.phoneCountryCode} {manager.phone || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}e. Designation</label>
-                              <p className="text-gray-900">{manager.designation || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}f. Authority</label>
-                              <p className="text-gray-900">{manager.authority || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}g. Address</label>
-                              <p className="text-gray-900">{manager.address1 ? `${manager.address1}${manager.address2 ? ', ' + manager.address2 : ''}` : 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}h. City, State</label>
-                              <p className="text-gray-900">{manager.city && manager.state ? `${manager.city}, ${manager.state}` : 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}i. Country</label>
-                              <p className="text-gray-900">{manager.country || 'Not specified'}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">3.{index + 1}j. Pincode</label>
-                              <p className="text-gray-900">{manager.pincode || 'Not specified'}</p>
-                            </div>
-                            {manager.gst && (
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">3.{index + 1}k. GST Number</label>
-                                <p className="text-gray-900">{manager.gst}</p>
-                              </div>
-                            )}
-                            {manager.pan && (
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">3.{index + 1}l. PAN Number</label>
-                                <p className="text-gray-900">{manager.pan}</p>
-                              </div>
-                            )}
-                            {manager.cin && (
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">3.{index + 1}m. CIN</label>
-                                <p className="text-gray-900">{manager.cin}</p>
-                              </div>
-                            )}
-
-                          {/* Manager Documents */}
-                          {(files[`managerDetails.${index}.coi`] || files[`managerDetails.${index}.panCard`] || files[`managerDetails.${index}.gstCert`]) && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <h5 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h5>
-                              <div className="space-y-2">
-                                {files[`managerDetails.${index}.coi`] && (
-                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                    <div className="flex items-center">
-                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">Certificate of Incorporation</p>
-                                        <p className="text-xs text-gray-500">{files[`managerDetails.${index}.coi`].name}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                {files[`managerDetails.${index}.panCard`] && (
-                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                    <div className="flex items-center">
-                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">PAN Card</p>
-                                        <p className="text-xs text-gray-500">{files[`managerDetails.${index}.panCard`].name}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                {files[`managerDetails.${index}.gstCert`] && (
-                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                    <div className="flex items-center">
-                                      <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">GST Certificate</p>
-                                        <p className="text-xs text-gray-500">{files[`managerDetails.${index}.gstCert`].name}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          </div>
-                        </div>
-                      )
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Respondent Details */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <span className="bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">4</span>
-                    Respondent Details
-                  </h3>
-                </div>
-                <div className="p-6 space-y-6">
-                  {respondents && respondents.map((respondent, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <h4 className="font-semibold text-gray-900 mb-3">Respondent {index + 1}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}a. Type</label>
-                          <p className="text-gray-900 capitalize">{respondent?.type || 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}b. Name</label>
-                          <p className="text-gray-900">{respondent?.name || 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}c. Email</label>
-                          <p className="text-gray-900">{respondent?.email || 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}d. Phone</label>
-                          <p className="text-gray-900">{respondent?.phoneCountryCode} {respondent?.phone || 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}e. Address</label>
-                          <p className="text-gray-900">{respondent?.address1 ? `${respondent.address1}${respondent.address2 ? ', ' + respondent.address2 : ''}` : 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}f. City, State</label>
-                          <p className="text-gray-900">{respondent?.city && respondent?.state ? `${respondent.city}, ${respondent.state}` : 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}g. Country</label>
-                          <p className="text-gray-900">{respondent?.country || 'Not specified'}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">4.{index + 1}h. Pincode</label>
-                          <p className="text-gray-900">{respondent?.pincode || 'Not specified'}</p>
-                        </div>
-                        {respondent?.gst && (
-                          <div className="bg-white p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">4.{index + 1}i. GST Number</label>
-                            <p className="text-gray-900">{respondent.gst}</p>
-                          </div>
-                        )}
-                        {respondent?.pan && (
-                          <div className="bg-white p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">4.{index + 1}j. PAN Number</label>
-                            <p className="text-gray-900">{respondent.pan}</p>
-                          </div>
-                        )}
-                        {respondent?.cin && (
-                          <div className="bg-white p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">4.{index + 1}k. CIN</label>
-                            <p className="text-gray-900">{respondent.cin}</p>
-                          </div>
-                        )}
-
-                        {/* Respondent Documents */}
-                        {(files[`respondents.${index}.coi`] || files[`respondents.${index}.panCard`] || files[`respondents.${index}.gstCert`]) && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <h5 className="font-semibold text-gray-900 mb-3">Uploaded Documents</h5>
-                            <div className="space-y-2">
-                              {files[`respondents.${index}.coi`] && (
-                                <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                  <div className="flex items-center">
-                                    <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <div>
-                                      <p className="font-medium text-gray-900 text-sm">Certificate of Incorporation</p>
-                                      <p className="text-xs text-gray-500">{files[`respondents.${index}.coi`].name}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              {files[`respondents.${index}.panCard`] && (
-                                <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                  <div className="flex items-center">
-                                    <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <div>
-                                      <p className="font-medium text-gray-900 text-sm">PAN Card</p>
-                                      <p className="text-xs text-gray-500">{files[`respondents.${index}.panCard`].name}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              {files[`respondents.${index}.gstCert`] && (
-                                <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                                  <div className="flex items-center">
-                                    <svg className="h-4 w-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <div>
-                                      <p className="font-medium text-gray-900 text-sm">GST Certificate</p>
-                                      <p className="text-xs text-gray-500">{files[`respondents.${index}.gstCert`].name}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Step 5: Arbitration Agreement */}
-              {arbitrationAgreement && Object.values(arbitrationAgreement).some(val => val) && (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-indigo-600 text-white px-6 py-4 rounded-t-lg">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <span className="bg-white text-indigo-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">5</span>
-                      Arbitration Agreement
+                      <span className="bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</span>
+                      Claimant Details
                     </h3>
                   </div>
                   <div className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {arbitrationAgreement.agreementDate && (
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Type</label>
+                        <p className="text-gray-900 capitalize">{claimant?.type || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Name</label>
+                        <p className="text-gray-900">{claimant?.name || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Email</label>
+                        <p className="text-gray-900">{claimant?.email || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Phone</label>
+                        <p className="text-gray-900">{claimant?.phoneCountryCode} {claimant?.phone || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                        <label className="text-sm font-medium text-gray-600">Address</label>
+                        <p className="text-gray-900">
+                          {claimant?.address1 && (
+                            <>
+                              {claimant.address1}
+                              {claimant.address2 && `, ${claimant.address2}`}
+                              {claimant.city && `, ${claimant.city}`}
+                              {claimant.district && `, ${claimant.district}`}
+                              {claimant.state && `, ${claimant.state}`}
+                              {claimant.country && `, ${claimant.country}`}
+                              {claimant.pincode && ` - ${claimant.pincode}`}
+                            </>
+                          ) || 'Not specified'}
+                        </p>
+                      </div>
+                      {claimant?.gst && (
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">5a. Agreement Date</label>
-                          <p className="text-gray-900">{arbitrationAgreement.agreementDate}</p>
+                          <label className="text-sm font-medium text-gray-600">GST Number</label>
+                          <p className="text-gray-900">{claimant.gst}</p>
                         </div>
                       )}
-                      {arbitrationAgreement.placeOfSigning && (
+                      {claimant?.pan && (
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">5b. Place of Signing</label>
-                          <p className="text-gray-900">{arbitrationAgreement.placeOfSigning}</p>
+                          <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                          <p className="text-gray-900">{claimant.pan}</p>
                         </div>
                       )}
-                      {arbitrationAgreement.numberOfArbitrators && (
+                      {claimant?.cin && (
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">5c. Number of Arbitrators</label>
-                          <p className="text-gray-900">{arbitrationAgreement.numberOfArbitrators}</p>
-                        </div>
-                      )}
-                      {arbitrationAgreement.arbitrationText && (
-                        <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                          <label className="text-sm font-medium text-gray-600">5d. Arbitration Clause</label>
-                          <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
-                            {arbitrationAgreement.arbitrationText}
-                          </div>
+                          <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                          <p className="text-gray-900">{claimant.cin}</p>
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Step 6: Nature of Dispute */}
-              {natureOfDispute && Array.isArray(natureOfDispute) && natureOfDispute.length > 0 && natureOfDispute.some(dispute => Object.values(dispute || {}).some(val => val)) && (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <span className="bg-white text-orange-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">6</span>
-                      Nature of Dispute
-                    </h3>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    {natureOfDispute.map((dispute: any, index: number) => (
-                      Object.values(dispute || {}).some(val => val) && (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-900 mb-3">Nature of Dispute {index + 1}</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {dispute?.category && (
+                {/* Step 2: Additional Claimants */}
+                {additionalClaimants && additionalClaimants.length > 0 && additionalClaimants.some((ac: any) => ac?.name) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
+                        Additional Claimants
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {additionalClaimants.map((ac: any, index: number) => (
+                        ac?.name && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Additional Claimant {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">6.{index + 1}a. Category</label>
-                                <p className="text-gray-900">{dispute.category}</p>
+                                <label className="text-sm font-medium text-gray-600">Type</label>
+                                <p className="text-gray-900 capitalize">{ac.type || 'Not specified'}</p>
                               </div>
-                            )}
-                            {dispute?.subCategory && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">6.{index + 1}b. Sub-category</label>
-                                <p className="text-gray-900">{dispute.subCategory}</p>
+                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <p className="text-gray-900">{ac.name}</p>
                               </div>
-                            )}
-                            {dispute?.dateWhenRightToClaimArose && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">6.{index + 1}c. Date When Right to Claim Arose</label>
-                                <p className="text-gray-900">{dispute.dateWhenRightToClaimArose}</p>
+                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <p className="text-gray-900">{ac.email || 'Not specified'}</p>
                               </div>
-                            )}
-                            {dispute?.standardisedPrayerClauses && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">6.{index + 1}d. Standardised Prayer Clauses</label>
-                                <p className="text-gray-900">{dispute.standardisedPrayerClauses}</p>
+                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <p className="text-gray-900">{ac.phoneCountryCode} {ac.phone || 'Not specified'}</p>
                               </div>
-                            )}
-                            {dispute?.natureOfDispute && (
                               <div className="bg-white p-3 rounded md:col-span-2">
-                                <label className="text-sm font-medium text-gray-600">6.{index + 1}e. Description</label>
-                                <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
-                                  {dispute.natureOfDispute}
-                                </div>
+                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <p className="text-gray-900">
+                                  {ac.address1 && (
+                                    <>
+                                      {ac.address1}
+                                      {ac.address2 && `, ${ac.address2}`}
+                                      {ac.city && `, ${ac.city}`}
+                                      {ac.district && `, ${ac.district}`}
+                                      {ac.state && `, ${ac.state}`}
+                                      {ac.country && `, ${ac.country}`}
+                                      {ac.pincode && ` - ${ac.pincode}`}
+                                    </>
+                                  ) || 'Not specified'}
+                                </p>
                               </div>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      )
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 7: Dispute Descriptions */}
-              {disputeDescriptions && disputeDescriptions.length > 0 && disputeDescriptions.some(desc => Object.values(desc).some(val => val)) && (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <span className="bg-white text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">7</span>
-                      Dispute Descriptions
-                    </h3>
-                  </div>
-                                     <div className="p-6 space-y-6">
-                     {disputeDescriptions && disputeDescriptions.map((description: any, index: number) => (
-                       Object.values(description || {}).some(val => val) && (
-                         <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                           <h4 className="font-semibold text-gray-900 mb-3">Description {index + 1}</h4>
-                           <div className="space-y-3">
-                             {description.claimType && (
-                               <div className="bg-white p-3 rounded">
-                                 <label className="text-sm font-medium text-gray-600">7.{index + 1}a. Claim Type</label>
-                                 <p className="text-gray-900">{description.claimType}</p>
-                               </div>
-                             )}
-                             {description.claimReason && (
-                               <div className="bg-white p-3 rounded">
-                                 <label className="text-sm font-medium text-gray-600">7.{index + 1}b. Claim Reason</label>
-                                 <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-24 overflow-y-auto">
-                                   {description.claimReason}
-                                 </div>
-                               </div>
-                             )}
-                             {description.reliefSought && (
-                               <div className="bg-white p-3 rounded">
-                                 <label className="text-sm font-medium text-gray-600">7.{index + 1}c. Relief Sought</label>
-                                 <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-24 overflow-y-auto">
-                                   {description.reliefSought}
-                                 </div>
-                               </div>
-                             )}
-                             {description.amountClaimed && (
-                               <div className="bg-white p-3 rounded">
-                                 <label className="text-sm font-medium text-gray-600">7.{index + 1}d. Amount Claimed</label>
-                                 <p className="text-gray-900 font-semibold">₹{parseFloat(description.amountClaimed).toLocaleString('en-IN')}</p>
-                               </div>
-                             )}
-                             {description.facts && (
-                               <div className="bg-white p-3 rounded">
-                                 <label className="text-sm font-medium text-gray-600">7.{index + 1}e. Facts</label>
-                                 <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-24 overflow-y-auto">
-                                   {description.facts}
-                                 </div>
-                               </div>
-                             )}
-                             {description.legalProvisions && (
-                               <div className="bg-white p-3 rounded">
-                                 <label className="text-sm font-medium text-gray-600">7.{index + 1}f. Legal Provisions</label>
-                                 <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-24 overflow-y-auto">
-                                   {description.legalProvisions}
-                                 </div>
-                               </div>
-                             )}
-                           </div>
-                         </div>
-                       )
-                     ))}
-                   </div>
-                </div>
-              )}
-
-              {/* Step 8: Prayers & Reliefs */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <span className="bg-white text-pink-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">8</span>
-                    Prayers & Reliefs
-                  </h3>
-                </div>
-                                 <div className="p-6">
-                   {prayers?.prayers && Array.isArray(prayers.prayers) && prayers.prayers.length > 0 ? (
-                     <div className="space-y-4">
-                       {prayers.prayers.map((prayer: any, index: number) => (
-                         <div key={prayer.id || index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                           <div className="flex items-start justify-between mb-3">
-                             <h4 className="font-semibold text-gray-900">8.{index + 1}. {prayer.title || 'Prayer'}</h4>
-                             <div className="flex gap-2">
-                               <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
-                                 {prayer.reliefType?.replace('_', ' ') || 'Not specified'}
-                               </span>
-                               {prayer.reliefType === 'monetary' && prayer.amount && (
-                                 <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
-                                   ₹{parseFloat(prayer.amount).toLocaleString('en-IN')}
-                                 </span>
-                               )}
-                             </div>
-                           </div>
-                           <div className="bg-white p-3 rounded border">
-                             <p className="text-gray-700 text-sm">{prayer.description || 'No description provided'}</p>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   ) : (
-                     <div className="text-center py-8 text-gray-500">
-                       <p>No prayers added</p>
-                     </div>
-                   )}
-                 </div>
-              </div>
-
-              {/* Step 9: Payment Information */}
-              {payment && Object.values(payment).some(val => val) && (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-emerald-600 text-white px-6 py-4 rounded-t-lg">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <span className="bg-white text-emerald-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">9</span>
-                      Payment Information
-                    </h3>
-                  </div>
-                  <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {payment.paymentHead && (
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">9a. Payment Head</label>
-                          <p className="text-gray-900">{payment.paymentHead}</p>
-                        </div>
-                      )}
-                      {payment.paymentAmount && (
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">9b. Amount</label>
-                          <p className="text-gray-900 font-semibold">₹{parseFloat(payment.paymentAmount).toLocaleString('en-IN')}</p>
-                        </div>
-                      )}
-                      {payment.paymentDetails && (
-                        <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                          <label className="text-sm font-medium text-gray-600">9c. Payment Details</label>
-                          <div className="mt-2 p-3 bg-white rounded border text-sm max-h-24 overflow-y-auto">
-                            {payment.paymentDetails}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 10: Arguments */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="bg-cyan-600 text-white px-6 py-4 rounded-t-lg">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <span className="bg-white text-cyan-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">10</span>
-                    Arguments
-                  </h3>
-                </div>
-                <div className="p-6">
-                  {argumentsData?.argumentsPerPrayer && argumentsData.argumentsPerPrayer.length > 0 ? (
-                    <div className="space-y-4">
-                      {argumentsData.argumentsPerPrayer.map((arg: any, index: number) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-900 mb-3">10.{index + 1}. Argument for Prayer {index + 1}</h4>
-                          {arg.prayerTitle && (
-                            <div className="mb-3">
-                              <label className="text-xs font-medium text-gray-600">Prayer:</label>
-                              <p className="text-sm font-medium text-blue-600">{arg.prayerTitle}</p>
-                            </div>
-                          )}
-                          {arg.argument && (
-                            <div className="mb-3">
-                              <label className="text-xs font-medium text-gray-600">Main Argument:</label>
-                              <div className="bg-white p-3 rounded border text-sm max-h-32 overflow-y-auto mt-1">
-                                {arg.argument}
-                              </div>
-                            </div>
-                          )}
-                          {arg.legalBasis && (
-                            <div className="mb-3">
-                              <label className="text-xs font-medium text-gray-600">Legal Basis:</label>
-                              <div className="bg-white p-3 rounded border text-sm max-h-24 overflow-y-auto mt-1">
-                                {arg.legalBasis}
-                              </div>
-                            </div>
-                          )}
-                          {arg.factualBasis && (
-                            <div className="mb-3">
-                              <label className="text-xs font-medium text-gray-600">Factual Basis:</label>
-                              <div className="bg-white p-3 rounded border text-sm max-h-24 overflow-y-auto mt-1">
-                                {arg.factualBasis}
-                              </div>
-                            </div>
-                          )}
-                          {arg.precedents && (
-                            <div>
-                              <label className="text-xs font-medium text-gray-600">Precedents & Case Law:</label>
-                              <div className="bg-white p-3 rounded border text-sm max-h-24 overflow-y-auto mt-1">
-                                {arg.precedents}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        )
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No arguments provided</p>
+                  </div>
+                )}
+
+                {/* Step 2: Manager Details */}
+                {managerDetails && managerDetails.length > 0 && managerDetails.some((md: any) => md?.name) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-orange-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
+                        Manager Details
+                      </h3>
                     </div>
-                  )}
-                </div>
+                    <div className="p-6 space-y-4">
+                      {managerDetails.map((manager: any, index: number) => (
+                        manager?.name && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Manager {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <p className="text-gray-900">{manager.name}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Designation</label>
+                                <p className="text-gray-900">{manager.designation || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <p className="text-gray-900">{manager.email || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <p className="text-gray-900">{manager.phoneCountryCode} {manager.phone || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Manager ID</label>
+                                <p className="text-gray-900">{manager.managerId || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <p className="text-gray-900">
+                                  {manager.address1 && (
+                                    <>
+                                      {manager.address1}
+                                      {manager.address2 && `, ${manager.address2}`}
+                                      {manager.city && `, ${manager.city}`}
+                                      {manager.district && `, ${manager.district}`}
+                                      {manager.state && `, ${manager.state}`}
+                                      {manager.country && `, ${manager.country}`}
+                                      {manager.pincode && ` - ${manager.pincode}`}
+                                    </>
+                                  ) || 'Not specified'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Respondents */}
+                {respondents && respondents.length > 0 && respondents.some((r: any) => r?.name) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
+                        Respondents
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {respondents.map((respondent: any, index: number) => (
+                        respondent?.name && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Respondent {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Type</label>
+                                <p className="text-gray-900 capitalize">{respondent.type || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <p className="text-gray-900">{respondent.name}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <p className="text-gray-900">{respondent.email || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <p className="text-gray-900">{respondent.phoneCountryCode} {respondent.phone || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <p className="text-gray-900">
+                                  {respondent.address1 && (
+                                    <>
+                                      {respondent.address1}
+                                      {respondent.address2 && `, ${respondent.address2}`}
+                                      {respondent.city && `, ${respondent.city}`}
+                                      {respondent.district && `, ${respondent.district}`}
+                                      {respondent.state && `, ${respondent.state}`}
+                                      {respondent.country && `, ${respondent.country}`}
+                                      {respondent.pincode && ` - ${respondent.pincode}`}
+                                    </>
+                                  ) || 'Not specified'}
+                                </p>
+                              </div>
+                              {respondent?.gst && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
+                                  <p className="text-gray-900">{respondent.gst}</p>
+                                </div>
+                              )}
+                              {respondent?.pan && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                                  <p className="text-gray-900">{respondent.pan}</p>
+                                </div>
+                              )}
+                              {respondent?.cin && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                                  <p className="text-gray-900">{respondent.cin}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Arbitration Agreement */}
+                {arbitrationAgreement && Object.values(arbitrationAgreement).some(val => val) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-indigo-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-indigo-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">4</span>
+                        Arbitration Agreement
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {arbitrationAgreement.agreementDate && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Agreement Date</label>
+                            <p className="text-gray-900">{arbitrationAgreement.agreementDate}</p>
+                          </div>
+                        )}
+                        {arbitrationAgreement.placeOfSigning && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Place of Signing</label>
+                            <p className="text-gray-900">{arbitrationAgreement.placeOfSigning}</p>
+                          </div>
+                        )}
+                        {arbitrationAgreement.numberOfArbitrators && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Number of Arbitrators</label>
+                            <p className="text-gray-900">{arbitrationAgreement.numberOfArbitrators}</p>
+                          </div>
+                        )}
+                        {arbitrationAgreement.arbitrationText && (
+                          <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                            <label className="text-sm font-medium text-gray-600">Arbitration Clause</label>
+                            <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
+                              {arbitrationAgreement.arbitrationText}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: Nature of Dispute */}
+                {natureOfDispute && Object.values(natureOfDispute).some(val => val) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-yellow-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">5</span>
+                        Nature of Dispute
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {natureOfDispute.disputeType && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Dispute Type</label>
+                            <p className="text-gray-900">{natureOfDispute.disputeType}</p>
+                          </div>
+                        )}
+                        {natureOfDispute.disputeAmount && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Dispute Amount</label>
+                            <p className="text-gray-900">₹{Number(natureOfDispute.disputeAmount).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {natureOfDispute.disputeDate && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Dispute Date</label>
+                            <p className="text-gray-900">{natureOfDispute.disputeDate}</p>
+                          </div>
+                        )}
+                        {natureOfDispute.disputeDescription && (
+                          <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                            <label className="text-sm font-medium text-gray-600">Dispute Description</label>
+                            <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
+                              {natureOfDispute.disputeDescription}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 6: Dispute Descriptions */}
+                {disputeDescriptions && disputeDescriptions.length > 0 && disputeDescriptions.some((dd: any) => dd?.description) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">6</span>
+                        Dispute Descriptions
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {disputeDescriptions.map((dispute: any, index: number) => (
+                        dispute?.description && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Dispute Description {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Description</label>
+                                <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.description}
+                                </div>
+                              </div>
+                              {dispute.lawReliedUpon && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Law Relied Upon</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                    {dispute.lawReliedUpon}
+                                  </div>
+                                </div>
+                              )}
+                              {dispute.relevantClauseNumber && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Relevant Clause Number</label>
+                                  <p className="text-gray-900">{dispute.relevantClauseNumber}</p>
+                                </div>
+                              )}
+                              {dispute.clauseSupportingClaim && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Clause Supporting Claim</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                    {dispute.clauseSupportingClaim}
+                                  </div>
+                                </div>
+                              )}
+                              {dispute.clause && (
+                                <div className="bg-white p-3 rounded md:col-span-2">
+                                  <label className="text-sm font-medium text-gray-600">Clause</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                    {dispute.clause}
+                                  </div>
+                                </div>
+                              )}
+                              {dispute.documentSupportingClaim && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Document Supporting Claim</label>
+                                  <p className="text-gray-900">{dispute.documentSupportingClaim}</p>
+                                </div>
+                              )}
+                              {dispute.reliefSought && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Relief Sought</label>
+                                  <p className="text-gray-900 capitalize">{dispute.reliefSought.replace(/_/g, ' ')}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 7: Prayers & Reliefs */}
+                {prayers && prayers.prayers && prayers.prayers.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">7</span>
+                        Prayers & Reliefs
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-3">
+                        {prayers.prayers.map((prayer: any, index: number) => (
+                          <div key={index} className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Prayer {index + 1}</label>
+                            <p className="text-gray-900">
+                              {typeof prayer === 'string' ? prayer : 
+                               typeof prayer === 'object' && prayer !== null ? 
+                                 prayer.title || prayer.description || 'Prayer content' : 
+                                 'Prayer content'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 8: Documents */}
+                {documents && Object.values(documents).some(val => val) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-gray-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-gray-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">8</span>
+                        Documents
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        {/* Scanned Documents */}
+                        {documents.scannedDocuments && documents.scannedDocuments.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Scanned Documents</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {documents.scannedDocuments.map((doc: any, index: number) => (
+                                <div key={index} className="bg-gray-50 p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Document {index + 1}</label>
+                                  <p className="text-gray-900">{doc.name || doc.fileName || 'Document uploaded'}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Affidavits */}
+                        {documents.affidavits && documents.affidavits.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Affidavits</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {documents.affidavits.map((affidavit: any, index: number) => (
+                                <div key={index} className="bg-gray-50 p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Affidavit {index + 1}</label>
+                                  <p className="text-gray-900">{affidavit.name || affidavit.fileName || 'Affidavit uploaded'}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Electronic Evidence */}
+                        {documents.electronicEvidence && documents.electronicEvidence.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Electronic Evidence</h4>
+                            <div className="space-y-3">
+                              {documents.electronicEvidence.map((evidence: any, index: number) => (
+                                <div key={index} className="bg-gray-50 p-3 rounded">
+                                  <h5 className="font-medium text-gray-900 mb-2">Evidence {index + 1}</h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {evidence.certificateFile && (
+                                      <div className="bg-white p-2 rounded">
+                                        <label className="text-sm font-medium text-gray-600">Certificate</label>
+                                        <p className="text-gray-900">{evidence.certificateFile.name || 'Certificate uploaded'}</p>
+                                      </div>
+                                    )}
+                                    {evidence.supportingFiles && evidence.supportingFiles.length > 0 && (
+                                      <div className="bg-white p-2 rounded">
+                                        <label className="text-sm font-medium text-gray-600">Supporting Files</label>
+                                        <p className="text-gray-900">{evidence.supportingFiles.length} file(s) uploaded</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 9: Payment */}
+                {payment && Object.values(payment).some(val => val) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">9</span>
+                        Payment Details
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">Payment Head</label>
+                          <p className="text-gray-900">{payment.paymentHead || 'Not specified'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">Amount (INR)</label>
+                          <p className="text-gray-900">{payment.paymentAmount ? `₹${Number(payment.paymentAmount).toLocaleString()}` : 'Not specified'}</p>
+                        </div>
+                        {payment.paymentDetails && (
+                          <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                            <label className="text-sm font-medium text-gray-600">Payment Details</label>
+                            <p className="text-gray-900">{payment.paymentDetails}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 10: Arguments */}
+                {argumentsData && argumentsData.argumentsPerPrayer && argumentsData.argumentsPerPrayer.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-pink-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">10</span>
+                        Arguments
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        {argumentsData.argumentsPerPrayer.map((argument: any, index: number) => (
+                          <div key={index} className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Argument {index + 1}</label>
+                            <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
+                              {typeof argument === 'string' ? argument : 
+                               typeof argument === 'object' && argument !== null ? 
+                                 argument.argument || argument.prayerTitle || 'Argument content' : 
+                                 'Argument content'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Step 11: Uploaded Documents */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="bg-gray-600 text-white px-6 py-4 rounded-t-lg">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <span className="bg-white text-gray-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">11</span>
-                    Uploaded Documents
-                  </h3>
+              {/* Final Submit Actions */}
+              <div className="bg-white border-2 border-blue-200 rounded-lg p-6 mt-8">
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Ready to Submit?</h3>
+                  <p className="text-gray-600 mb-6">
+                    Please review all the information above. Once submitted, you will receive a confirmation email 
+                    and your case will be processed by our arbitration team.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => saveDraft()}
+                      disabled={isSubmitting || isSavingDraft}
+                      className="sm:w-auto"
+                    >
+                      {isSavingDraft ? "Saving..." : "Save as Draft"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || isSavingDraft}
+                      className="sm:w-auto bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit Application"}
+                    </Button>
+                  </div>
                 </div>
-                                 <div className="p-6">
-                   {(() => {
-                     // Get step 8 documents from the documents object
-                     const step8Documents = documents || {};
-                     const hasStep8Documents = step8Documents.supportingDocuments?.length > 0 || 
-                                             step8Documents.evidenceFiles?.length > 0 || 
-                                             step8Documents.affidavits?.length > 0 || 
-                                             step8Documents.scannedDocuments?.length > 0 || 
-                                             step8Documents.electronicEvidence?.length > 0;
-                     
-                     if (!hasStep8Documents) {
-                       return (
-                         <div className="text-center py-8 text-gray-500">
-                           <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                           </svg>
-                           <p className="mt-2">No documents uploaded in Step 8</p>
-                         </div>
-                       );
-                     }
-
-                     const colors = {
-                       'Supporting Documents': 'bg-green-50 border-green-200',
-                       'Evidence Files': 'bg-yellow-50 border-yellow-200',
-                       'Affidavits': 'bg-orange-50 border-orange-200',
-                       'Scanned Documents': 'bg-pink-50 border-pink-200',
-                       'Electronic Evidence': 'bg-cyan-50 border-cyan-200'
-                     };
-
-                     return (
-                       <div className="space-y-6">
-                         {/* Supporting Documents */}
-                         {step8Documents.supportingDocuments && step8Documents.supportingDocuments.length > 0 && (
-                           <div>
-                             <h4 className="font-semibold text-gray-900 mb-3">Supporting Documents</h4>
-                             <div className="space-y-3">
-                               {step8Documents.supportingDocuments.map((doc: any, index: number) => (
-                                 <div key={index} className="p-4 rounded-lg border bg-green-50 border-green-200">
-                                   <div className="flex items-center">
-                                     <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                     </svg>
-                                     <div>
-                                       <p className="font-medium text-gray-900">{doc.title || `Supporting Document ${index + 1}`}</p>
-                                       <p className="text-sm text-gray-500">{doc.description || 'No description'}</p>
-                                       {doc.file && <p className="text-xs text-gray-400">{doc.file.name}</p>}
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-
-                         {/* Evidence Files */}
-                         {step8Documents.evidenceFiles && step8Documents.evidenceFiles.length > 0 && (
-                           <div>
-                             <h4 className="font-semibold text-gray-900 mb-3">Evidence Files</h4>
-                             <div className="space-y-3">
-                               {step8Documents.evidenceFiles.map((file: any, index: number) => (
-                                 <div key={index} className="p-4 rounded-lg border bg-yellow-50 border-yellow-200">
-                                   <div className="flex items-center">
-                                     <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                     </svg>
-                                     <div>
-                                       <p className="font-medium text-gray-900">Evidence File {index + 1}</p>
-                                       {file.name && <p className="text-sm text-gray-500">{file.name}</p>}
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-
-                         {/* Affidavits */}
-                         {step8Documents.affidavits && step8Documents.affidavits.length > 0 && (
-                           <div>
-                             <h4 className="font-semibold text-gray-900 mb-3">Affidavits</h4>
-                             <div className="space-y-3">
-                               {step8Documents.affidavits.map((affidavit: any, index: number) => (
-                                 <div key={index} className="p-4 rounded-lg border bg-orange-50 border-orange-200">
-                                   <div className="flex items-center">
-                                     <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                     </svg>
-                                     <div>
-                                       <p className="font-medium text-gray-900">{affidavit.title || `Affidavit ${index + 1}`}</p>
-                                       <p className="text-sm text-gray-500">{affidavit.description || 'No description'}</p>
-                                       {affidavit.file && <p className="text-xs text-gray-400">{affidavit.file.name}</p>}
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-
-                         {/* Scanned Documents */}
-                         {step8Documents.scannedDocuments && step8Documents.scannedDocuments.length > 0 && (
-                           <div>
-                             <h4 className="font-semibold text-gray-900 mb-3">Scanned Documents</h4>
-                             <div className="space-y-3">
-                               {step8Documents.scannedDocuments.map((doc: any, index: number) => (
-                                 <div key={index} className="p-4 rounded-lg border bg-pink-50 border-pink-200">
-                                   <div className="flex items-center">
-                                     <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                     </svg>
-                                     <div>
-                                       <p className="font-medium text-gray-900">{doc.title || `Scanned Document ${index + 1}`}</p>
-                                       <p className="text-sm text-gray-500">{doc.description || 'No description'}</p>
-                                       {doc.file && <p className="text-xs text-gray-400">{doc.file.name}</p>}
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-
-                         {/* Electronic Evidence */}
-                         {step8Documents.electronicEvidence && step8Documents.electronicEvidence.length > 0 && (
-                           <div>
-                             <h4 className="font-semibold text-gray-900 mb-3">Electronic Evidence</h4>
-                             <div className="space-y-3">
-                               {step8Documents.electronicEvidence.map((evidence: any, index: number) => (
-                                 <div key={index} className="p-4 rounded-lg border bg-cyan-50 border-cyan-200">
-                                   <div className="flex items-center">
-                                     <svg className="h-5 w-5 text-gray-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                     </svg>
-                                     <div>
-                                       <p className="font-medium text-gray-900">{evidence.title || `Electronic Evidence ${index + 1}`}</p>
-                                       <p className="text-sm text-gray-500">{evidence.description || 'No description'}</p>
-                                       {evidence.certificateFile && <p className="text-xs text-gray-400">Certificate: {evidence.certificateFile.name}</p>}
-                                       {evidence.supportingFiles && evidence.supportingFiles.length > 0 && (
-                                         <p className="text-xs text-gray-400">{evidence.supportingFiles.length} supporting file(s)</p>
-                                       )}
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-                       </div>
-                     );
-                   })()}
-                 </div>
               </div>
             </div>
           </div>
         )
+  
       default:
         return null;
     }
   }
+  
 
   // Update the auto-save effect
   useEffect(() => {
@@ -6201,8 +7187,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             console.error('PDF generation failed:', pdfError);
             toast.error('PDF generation failed, but your application was submitted successfully.');
           }
-          
-          router.push(`/dashboard/case/${currentDraftId}`);
         } else {
           const response = await arbitrationApi.submitDraft(currentDraftId);
           toast.dismiss();
@@ -6255,174 +7239,180 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       {/* Sidebar */}
       <FormStepSidebar
         currentStep={activeStep}
-        completedSteps={[]} // Will implement step completion logic
-        steps={[
-          {
-            id: 0,
-            title: "Step 1: Claimant Details",
-            description: "Personal and business information",
-            icon: null
-          },
-          {
-            id: 1,
-            title: "Step 2: Additional Claimants",
-            description: "Co-claimants and authorized managers",
-            icon: null
-          },
-          {
-            id: 2,
-            title: "Step 3: Respondent Details",
-            description: "Opposing party information",
-            icon: null
-          },
-          {
-            id: 3,
-            title: "Step 4: Arbitration Agreement",
-            description: "Agreement terms and arbitrator selection",
-            icon: null
-          },
-          {
-            id: 4,
-            title: "Step 5: Nature of Dispute",
-            description: "Category and background details",
-            icon: null
-          },
-          {
-            id: 5,
-            title: "Step 6: Dispute Description",
-            description: "Detailed claims and supporting facts",
-            icon: null
-          },
-          {
-            id: 6,
-            title: "Step 7: Prayers & Reliefs",
-            description: "Specific remedies sought",
-            icon: null
-          },
-          {
-            id: 7,
-            title: "Step 8: Documents",
-            description: "Evidence and supporting files",
-            icon: null
-          },
-          {
-            id: 8,
-            title: "Step 9: Payment",
-            description: "Fee structure and payment details",
-            icon: null
-          },
-          {
-            id: 9,
-            title: "Step 10: Arguments",
-            description: "Legal arguments for each prayer",
-            icon: null
-          },
-          {
-            id: 10,
-            title: "Step 11: Review & Submit",
-            description: "Final review before submission",
-            icon: null
-          }
-        ]}
-        onStepClick={(stepIndex) => {
-          // Allow navigation to previous steps or current step
-          if (stepIndex <= activeStep) {
-            setActiveStep(stepIndex);
-          }
-        }}
+        completedSteps={[]}
+        steps={sidebarSteps}
       />
       
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto py-8 px-6">
-      {/* Add draft list at the top if there are drafts */}
-      {draftList.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-bold mb-4">Your Drafts</h2>
-            {isLoadingDrafts ? (
-              <p>Loading drafts...</p>
-            ) : (
-              <div className="space-y-2">
-                {draftList.map((draft) => (
-                  <div key={draft.id} className="flex items-center justify-between border-b pb-2">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{draft.name || 'Untitled Draft'}</p>
-                      <p className="text-sm text-gray-500">
-                        Last edited: {new Date(draft.lastEditedAt).toLocaleString()}
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {sidebarSteps[activeStep]?.title || steps[activeStep]}
+                </h1>
+                {currentDraftId && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Draft
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-600">
+                Step {activeStep + 1} of {steps.length}
                       </p>
                     </div>
-                    <Button 
-                      onClick={() => loadDraft(draft.id)}
-                      variant="outline"
-                    >
-                      Continue Editing
-                    </Button>
-                  </div>
-                ))}
+            <div className="text-right">
+              <div className="text-sm text-gray-500">
+                {Math.round(((activeStep + 1) / steps.length) * 100)}% Complete
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardContent className="p-8 min-h-[600px] flex flex-col justify-between">
-          <div className="flex-1">
-            {renderFormContent()}
+              <div className="text-xs text-gray-500 mt-1">
+                Auto-saves every 30 seconds
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between mt-8 pt-4 border-t">
+          
+          {/* Progress Bar */}
+          <div className="mt-4 bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 rounded-full h-2 transition-all duration-300 ease-in-out"
+              style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+                  {/* Load Draft Notification */}
+        {(hasSavedDraft() || draftList.length > 0) && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">Saved Drafts Available</h4>
+                <p className="text-sm text-yellow-700">
+                  {hasSavedDraft() && draftList.length > 0 
+                    ? "You have local and server drafts available." 
+                    : hasSavedDraft() 
+                      ? "You have a previously saved local draft." 
+                      : "You have server drafts available."}
+                </p>
+              </div>
+              <div className="flex space-x-2">
+                {hasSavedDraft() && (
+                  <button
+                    type="button"
+                    onClick={loadLocalDraft}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-700 transition-colors"
+                  >
+                    Load Local Draft
+                  </button>
+                )}
+                {draftList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDraftList(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Load Server Draft
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+          <form onSubmit={handleSubmit(handleFormSubmission)}>
+      <Card>
+              <CardContent className="p-6">
+                {/* Step Content */}
+            {renderFormContent()}
+              </CardContent>
+            </Card>
+
+            {/* Navigation */}
+            <div className="flex justify-between items-center mt-6">
             <Button
               variant="outline"
               onClick={handleBack}
               disabled={activeStep === 0}
+                className="px-6 py-2"
             >
-              Back
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
             </Button>
             
-            <div className="flex space-x-2">
+              <div className="flex space-x-3">
               <Button
                 variant="outline"
                 onClick={saveDraft}
                 disabled={isSavingDraft}
-              >
-                {isSavingDraft ? 'Saving...' : 'Save Draft'}
+                  className="px-6 py-2 bg-gray-50 hover:bg-gray-100"
+                >
+                  {isSavingDraft ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Save Draft
+                    </>
+                  )}
               </Button>
               
               {activeStep === steps.length - 1 ? (
               <Button
-                  variant="default"
                   onClick={() => {
                     if (!isSubmitting) {
-                      setIsSubmitting(true);
                       // Get the current form values directly
                       const currentFormValues = watch();
-                      // Call onSubmit directly
-                      onSubmit(currentFormValues as any)
-                        .catch(error => {
-                  
-                          toast.error(`Error: ${error?.message || 'An unexpected error occurred'}`);
-                        })
-                        .finally(() => {
-                          // This should be redundant as onSubmit also sets it false in finally,
-                          // but we'll keep it as a safety measure
-                          setIsSubmitting(false);
-                        });
+                        // Call internal submission handler
+                        handleFormSubmission(currentFormValues as any);
                     }
                   }}
                   disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                    className="px-8 py-2 bg-green-600 hover:bg-green-700"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Submit Application
+                      </>
+                    )}
                 </Button>
               ) : (
-                <Button onClick={handleNext} variant="default">
+                  <Button onClick={handleNext} className="px-6 py-2">
                   Next
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
               </Button>
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </form>
         </div>
       </div>
 
@@ -6644,6 +7634,118 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         )
       ))}
 
+      {/* Respondent Email OTP Verification Modals */}
+      {showRespondentEmailModal.map((show, index) => (
+        show && (
+          <Dialog key={`respondent-email-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeRespondentEmailModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Email Address</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Respondent {index + 1}'s email address.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
+                    type="text"
+                    value={respondentEmailOTPInputs[index] || ""}
+                    onChange={(e) => handleRespondentEmailOTPChange(index, e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from the email and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => closeRespondentEmailModal(index)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => verifyRespondentEmailOTP(index)}
+                  disabled={(respondentEmailOTPInputs[index] || "").length !== 6}
+                >
+                  Verify
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      ))}
+
+      {/* Respondent Phone OTP Verification Modals */}
+      {showRespondentPhoneModal.map((show, index) => (
+        show && (
+          <Dialog key={`respondent-phone-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeRespondentPhoneModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Phone Number</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Respondent {index + 1}'s phone number.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
+                    type="text"
+                    value={respondentPhoneOTPInputs[index] || ""}
+                    onChange={(e) => handleRespondentPhoneOTPChange(index, e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from SMS and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => closeRespondentPhoneModal(index)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => verifyRespondentPhoneOTP(index)}
+                  disabled={(respondentPhoneOTPInputs[index] || "").length !== 6}
+                >
+                  Verify
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      ))}
+
       {/* Duplicate Check Dialog */}
       {/* Submission Success Modal */}
       {showSubmissionModal && submissionResult && (
@@ -6699,6 +7801,59 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           onProceed={handleDuplicateDialogProceed}
           duplicateResult={duplicateCheckResult}
         />
+      )}
+
+      {/* Draft List Modal */}
+      {showDraftList && (
+        <Dialog open={showDraftList} onOpenChange={setShowDraftList}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Select Draft to Load</DialogTitle>
+              <DialogDescription>
+                Choose a draft from the server to continue your work.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {draftList.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No drafts available</p>
+              ) : (
+                draftList.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onClick={() => {
+                      loadDraft(draft.id);
+                      setShowDraftList(false);
+                    }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{draft.name || draft.caseNumber}</h4>
+                        <p className="text-sm text-gray-600">
+                          {draft.caseNumber} • {draft.type}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Last edited: {new Date(draft.lastEditedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        v{draft.version}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDraftList(false)}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

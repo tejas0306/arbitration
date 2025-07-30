@@ -33,16 +33,19 @@ interface DuplicateCheckResult {
 interface DuplicateCheckDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onProceed: () => void;
+  onConfirm: () => void;
   duplicateResult: DuplicateCheckResult;
 }
 
 const DuplicateCheckDialog: React.FC<DuplicateCheckDialogProps> = ({
   isOpen,
   onClose,
-  onProceed,
+  onConfirm,
   duplicateResult,
 }) => {
+  if (!duplicateResult) {
+    return null;
+  }
   const { isDuplicate, score, matchingCases, threshold } = duplicateResult;
 
   const getSeverityColor = (score: number) => {
@@ -144,7 +147,7 @@ const DuplicateCheckDialog: React.FC<DuplicateCheckDialogProps> = ({
             Cancel Submission
           </AlertDialogCancel>
           <AlertDialogAction 
-            onClick={onProceed}
+            onClick={onConfirm}
             className={isDuplicate ? 'bg-red-600 hover:bg-red-700' : ''}
           >
             {isDuplicate ? 'Proceed Anyway' : 'Continue Submission'}

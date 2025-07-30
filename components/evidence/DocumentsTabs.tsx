@@ -80,6 +80,23 @@ export const DocumentsTabs: React.FC<DocumentsTabsProps> = ({ control, disputeIs
     name: "documents.scannedDocuments",
   });
 
+  // Auto-add default document if none exist
+  React.useEffect(() => {
+    if (fields.length === 0) {
+      append({
+        documentType: "Default Document",
+        date: "",
+        file: null,
+        linkedIssue: "",
+        admissionStatus: "pending",
+        description: "Default document description",
+        isOCREnabled: false,
+        extractedText: "",
+        keyMetadata: []
+      });
+    }
+  }, [fields.length, append]);
+
   // Add document function
   const addDocument = () => {
     append({

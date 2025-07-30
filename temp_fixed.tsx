@@ -12,11 +12,12 @@ import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import DocumentsTabs from './evidence/DocumentsTabs';
-import { FormStepSidebar } from "@/components/ui/form-step-sidebar"
+
 import PrayersSection from "@/components/ui/prayers-section"
 import ArgumentsSection from "@/components/ui/arguments-section"
 import { generateApplicationPDF, downloadPDF } from "@/lib/utils/pdf-generator";
 import DuplicateCheckDialog from "./duplicate-check-dialog";
+import { FormStepSidebar } from "@/components/ui/form-step-sidebar";
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -42,20 +43,6 @@ const MAX_APPLICABLE_ACTS_LENGTH = 500;
 const MAX_PAYMENT_AMOUNT = 1000000000; // 1 billion
 const MAX_PAYMENT_AMOUNT_LENGTH = 12;
 
-// Country codes for phone fields
-const countryCodes = [
-  { code: "+91", country: "India" },
-  { code: "+1", country: "USA/Canada" },
-  { code: "+44", country: "UK" },
-  { code: "+61", country: "Australia" },
-  { code: "+86", country: "China" },
-  { code: "+81", country: "Japan" },
-  { code: "+49", country: "Germany" },
-  { code: "+33", country: "France" },
-  { code: "+39", country: "Italy" },
-  { code: "+34", country: "Spain" },
-];
-
 // Utility function to truncate text based on maximum length
 const truncate = (value: string, maxLength: number): string => {
   return value.slice(0, maxLength);
@@ -69,12 +56,82 @@ const steps = [
   "Additional Claimants & Manager",
   "Respondent Details",
   "Arbitration Agreement",
-  "Nature of Dispute & Description",
+  "Nature of Dispute",
+  "Dispute Description",
   "Prayers & Reliefs",
   "Documents",
   "Payment",
   "Arguments",
   "Review & Submit",
+]
+
+const sidebarSteps = [
+  {
+    id: 0,
+    title: "Step 1: Claimant Details",
+    description: "Personal and business information",
+    icon: null
+  },
+  {
+    id: 1,
+    title: "Step 2: Additional Claimants",
+    description: "Co-claimants and authorized managers",
+    icon: null
+  },
+  {
+    id: 2,
+    title: "Step 3: Respondent Details",
+    description: "Opposing party information",
+    icon: null
+  },
+  {
+    id: 3,
+    title: "Step 4: Arbitration Agreement",
+    description: "Agreement terms and arbitrator selection",
+    icon: null
+  },
+  {
+    id: 4,
+    title: "Step 5: Nature of Dispute",
+    description: "Category and background details",
+    icon: null
+  },
+  {
+    id: 5,
+    title: "Step 6: Dispute Description",
+    description: "Detailed claims and supporting facts",
+    icon: null
+  },
+  {
+    id: 6,
+    title: "Step 7: Prayers & Reliefs",
+    description: "Specific remedies sought",
+    icon: null
+  },
+  {
+    id: 7,
+    title: "Step 8: Documents",
+    description: "Evidence and supporting files",
+    icon: null
+  },
+  {
+    id: 8,
+    title: "Step 9: Payment",
+    description: "Fee structure and payment details",
+    icon: null
+  },
+  {
+    id: 9,
+    title: "Step 10: Arguments",
+    description: "Legal arguments for each prayer",
+    icon: null
+  },
+  {
+    id: 10,
+    title: "Step 11: Review & Submit",
+    description: "Final review before submission",
+    icon: null
+  },
 ]
 
 const initialClaimant = {
@@ -99,7 +156,7 @@ const initialClaimant = {
 }
 
 const initialAdditionalClaimant = {
-  type: "",
+  type: "individual",
   name: "",
   email: "",
   phoneCountryCode: "+91",
@@ -111,47 +168,30 @@ const initialAdditionalClaimant = {
   district: "",
   state: "",
   country: "",
-  gst: "",
-  pan: "",
-  cin: "",
-}
-
-const initialManager = {
-  type: "",
-  name: "",
-  email: "",
-  phoneCountryCode: "+91",
-  phone: "",
-  pincode: "",
-  address1: "",
-  address2: "",
-  city: "",
-  district: "",
-  state: "",
-  country: "",
-  managerId: "",
-  gst: "",
-  pan: "",
-  cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialManagerDetails = {
-  type: "",
+  type: "individual",
   name: "",
-  email: "",
-  phoneCountryCode: "+91",
-  phone: "",
   pincode: "",
   address1: "",
-  address2: "",
   city: "",
   district: "",
   state: "",
   country: "",
+  email: "",
+  phone: "",
+  phoneCountryCode: "+91",
+  address2: "",
+  designation: "",
+  authority: "",
   managerId: "",
-  gst: "",
-  pan: "",
-  cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialRespondent = {
@@ -170,6 +210,9 @@ const initialRespondent = {
   gst: "",
   pan: "",
   cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialArbitrationAgreement = {
@@ -209,7 +252,7 @@ const initialDocumentEvidence = {
 };
 
 const initialPrayers = {
-  prayers: "",
+  prayers: [],
 }
 
 const initialDocuments = {
@@ -226,6 +269,7 @@ const initialPayment = {
 
 const initialArguments = {
   argumentsPerIssue: [] as string[],
+  argumentsPerPrayer: [] as any[],
 };
 
 const countryCodes = [
@@ -245,6 +289,37 @@ const countryCodes = [
   { code: "+84", country: "Vietnam" },
   { code: "+62", country: "Indonesia" },
 ]
+
+// Entity types for dropdown options
+const ENTITY_TYPES = [
+  { value: "individual", label: "Individual" },
+  { value: "company", label: "Company" },
+  { value: "partnership", label: "Partnership" },
+  { value: "llp", label: "Limited Liability Partnership (LLP)" },
+  { value: "trust", label: "Trust" },
+  { value: "society", label: "Society" },
+  { value: "government", label: "Government" },
+  { value: "other", label: "Other" }
+];
+
+// Country codes for phone fields
+const COUNTRY_CODES = [
+  { code: "+91", country: "India" },
+  { code: "+1", country: "United States" },
+  { code: "+44", country: "United Kingdom" },
+  { code: "+61", country: "Australia" },
+  { code: "+86", country: "China" },
+  { code: "+81", country: "Japan" },
+  { code: "+49", country: "Germany" },
+  { code: "+33", country: "France" },
+  { code: "+971", country: "UAE" },
+  { code: "+966", country: "Saudi Arabia" },
+  { code: "+65", country: "Singapore" },
+  { code: "+60", country: "Malaysia" },
+  { code: "+66", country: "Thailand" },
+  { code: "+84", country: "Vietnam" },
+  { code: "+62", country: "Indonesia" }
+];
 
 export interface ArbitrationDraft {
   id: string;
@@ -315,7 +390,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       }
       
       // Next 4 characters: only digits  
-      if (newValue.length > 5) {
+        if (newValue.length > 5) {
         const middlePart = newValue.slice(5, 9).replace(/[^0-9]/g, '');
         formattedValue += middlePart;
       }
@@ -488,12 +563,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         />
       )}
       
-      {error && <div className="text-red-500 text-xs mt-1 flex items-center">
-        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
-        {error}
-      </div>}
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
     </div>
   );
 };
@@ -549,12 +619,7 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
         </div>
       )}
       
-      {error && <div className="text-red-500 text-xs mt-1 flex items-center">
-        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
-        {error}
-      </div>}
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
     </div>
   );
 };
@@ -670,8 +735,11 @@ export const FileField: React.FC<FileFieldProps> = ({
   
   // Debug logging for existingFile prop
   useEffect(() => {
-    if (existingFile) {
       console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
+    if (existingFile) {
+      console.log(`🔧 FileField ${name} has existingFile with name:`, existingFile.name);
+    } else {
+      console.log(`🔧 FileField ${name} has NO existingFile`);
     }
   }, [existingFile, name]);
   
@@ -807,7 +875,17 @@ const formSchema = z.object({
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
-  })).min(1, "At least one additional claimant is required"),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
+  })).default([]),
   
   // Manager details - change to array
   managerDetails: z.array(z.object({
@@ -833,7 +911,17 @@ const formSchema = z.object({
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
-  })).min(1, "At least one manager is required"),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
+  })).default([]),
   
   // Respondent details
   respondents: z.array(z.object({
@@ -853,11 +941,21 @@ const formSchema = z.object({
     country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
     email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
       .email("Must be a valid email address"),
-    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
+    phone: z.string().min(10, "Phone is required").regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    phoneCountryCode: z.string().default("+91"),
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
-    phoneCountryCode: z.string().default("+91"),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).min(1, "At least one respondent is required"),
   
   // Arbitration Agreement
@@ -936,6 +1034,14 @@ const formSchema = z.object({
   arguments: z.object({
     argumentsPerIssue: z.array(z.string().max(2000))
       .min(1, "At least one argument is required"),
+    argumentsPerPrayer: z.array(z.object({
+      prayerId: z.string(),
+      prayerTitle: z.string(),
+      argument: z.string().max(2000),
+      legalBasis: z.string().max(1000).optional(),
+      factualBasis: z.string().max(1000).optional(),
+      precedents: z.string().max(1000).optional()
+    })).optional(),
   }),
   
   documents: z.object({
@@ -1048,10 +1154,6 @@ interface PhoneFieldProps {
   label: string;
   required?: boolean;
   error?: string;
-  isVerified?: boolean;
-  onVerify?: () => void;
-  onChangeRequest?: () => void;
-  isVerifying?: boolean;
 }
 
 export const PhoneField: React.FC<PhoneFieldProps> = ({
@@ -1061,10 +1163,6 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
   label,
   required = false,
   error,
-  isVerified = false,
-  onVerify,
-  onChangeRequest,
-  isVerifying = false,
 }) => {
   return (
     <div>
@@ -1082,7 +1180,6 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
                 value={field.value}
                 onChange={field.onChange}
                 className="w-full border rounded px-2 py-1"
-                disabled={isVerified}
               >
                 {countryCodes.map((cc) => (
                   <option key={cc.code} value={cc.code}>
@@ -1099,49 +1196,22 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
             name={phoneFieldName}
             render={({ field, fieldState }) => (
               <>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      // Only allow numbers and limit to 10 digits
-                      const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
-                      field.onChange(value);
-                    }}
-                    placeholder="10-digit number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={MAX_PHONE_LENGTH}
-                    className={`w-full border rounded px-2 py-1 ${fieldState.error ? 'border-red-500' : ''} ${isVerified ? 'bg-gray-100' : ''}`}
-                    disabled={isVerified}
-                  />
-                  {!isVerified && field.value && field.value.length === 10 && (
-                    <button
-                      type="button"
-                      onClick={onVerify}
-                      disabled={isVerifying}
-                      className="ml-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
-                    >
-                      {isVerifying ? 'Verifying...' : 'Verify'}
-                    </button>
-                  )}
-                  {isVerified && (
-                    <button
-                      type="button"
-                      onClick={onChangeRequest}
-                      className="ml-2 px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700"
-                    >
-                      Change
-                    </button>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={field.value || ""}
+                  onChange={(e) => {
+                    // Only allow numbers and limit to 10 digits
+                    const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                    field.onChange(value);
+                  }}
+                  placeholder="10-digit number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={MAX_PHONE_LENGTH}
+                  className={`w-full border rounded px-2 py-1 ${fieldState.error ? 'border-red-500' : ''}`}
+                />
                 {fieldState.error && (
                   <div className="text-red-500 text-xs mt-1">{fieldState.error.message}</div>
-                )}
-                {isVerified && (
-                  <div className="text-green-600 text-xs mt-1 flex items-center">
-                    <span className="mr-1">✓</span> Phone number verified
-                  </div>
                 )}
               </>
             )}
@@ -1149,205 +1219,7 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
         </div>
       </div>
       {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
-      <p className="text-xs text-gray-500 mt-1">Enter a valid phone number with country code (max 10 digits)</p>
-    </div>
-  );
-};
-
-// Standardized form field components for consistency across all steps
-interface StandardFormFieldProps {
-  control: Control<any>;
-  name: string;
-  label: string;
-  type?: "text" | "email" | "tel" | "select" | "textarea";
-  required?: boolean;
-  maxLength?: number;
-  error?: string;
-  placeholder?: string;
-  options?: Array<{ value: string, label: string }>;
-  rows?: number;
-  disabled?: boolean;
-  className?: string;
-}
-
-export const StandardFormField: React.FC<StandardFormFieldProps> = ({
-  control,
-  name,
-  label,
-  type = "text",
-  required = false,
-  maxLength,
-  error,
-  placeholder,
-  options = [],
-  rows = 4,
-  disabled = false,
-  className = "",
-}) => {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field, fieldState }) => (
-        <div className={`space-y-2 ${className}`}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label} {required && <span className="text-red-500 ml-1">*</span>}
-          </label>
-          
-          {type === "select" ? (
-            <select
-              value={field.value || ""}
-              onChange={field.onChange}
-              disabled={disabled}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select {label.toLowerCase()}</option>
-              {options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          ) : type === "textarea" ? (
-            <textarea
-              value={field.value || ""}
-              onChange={field.onChange}
-              rows={rows}
-              maxLength={maxLength}
-              placeholder={placeholder}
-              disabled={disabled}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm hover:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed resize-vertical"
-            />
-          ) : (
-            <input
-              type={type}
-              value={field.value || ""}
-              onChange={field.onChange}
-              maxLength={maxLength}
-              placeholder={placeholder}
-              disabled={disabled}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm hover:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
-          )}
-          
-          {(fieldState.error || error) && (
-            <p className="text-red-500 text-xs mt-1">{fieldState.error?.message || error}</p>
-          )}
-        </div>
-      )}
-    />
-  );
-};
-
-interface StandardPhoneFieldProps {
-  control: Control<any>;
-  phoneFieldName: string;
-  countryCodeFieldName: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  isVerified?: boolean;
-  onVerify?: () => void;
-  onChangeRequest?: () => void;
-  isVerifying?: boolean;
-  disabled?: boolean;
-}
-
-export const StandardPhoneField: React.FC<StandardPhoneFieldProps> = ({
-  control,
-  phoneFieldName,
-  countryCodeFieldName,
-  label,
-  required = false,
-  error,
-  isVerified = false,
-  onVerify,
-  onChangeRequest,
-  isVerifying = false,
-  disabled = false,
-}) => {
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {isVerified && "✓"} {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      
-      <div className="flex gap-2">
-        <Controller
-          control={control}
-          name={countryCodeFieldName}
-          defaultValue="+91"
-          render={({ field }) => (
-            <select
-              value={field.value}
-              onChange={field.onChange}
-              disabled={disabled || isVerified}
-              className="px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              {countryCodes.map((cc) => (
-                <option key={cc.code} value={cc.code}>
-                  {cc.code} ({cc.country})
-                </option>
-              ))}
-            </select>
-          )}
-        />
-        
-        <Controller
-          control={control}
-          name={phoneFieldName}
-          render={({ field, fieldState }) => (
-            <>
-              <input
-                type="text"
-                value={field.value || ""}
-                onChange={(e) => {
-                  // Only allow numbers and limit to 10 digits
-                  const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
-                  field.onChange(value);
-                }}
-                placeholder="10-digit number"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={MAX_PHONE_LENGTH}
-                disabled={disabled || isVerified}
-                className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm hover:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                  fieldState.error ? 'border-red-500' : ''
-                } ${isVerified ? 'border-green-500' : ''}`}
-              />
-              
-              {!isVerified && field.value && field.value.length === 10 && !disabled && (
-                <button
-                  type="button"
-                  onClick={onVerify}
-                  disabled={isVerifying}
-                  className="px-3 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isVerifying ? 'Verifying...' : 'Verify'}
-                </button>
-              )}
-              
-              {isVerified && !disabled && (
-                <button
-                  type="button"
-                  onClick={onChangeRequest}
-                  className="px-3 py-2.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors"
-                >
-                  Change
-                </button>
-              )}
-            </>
-          )}
-        />
-      </div>
-      
-      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
-      {isVerified && (
-        <div className="text-green-600 text-xs mt-1 flex items-center">
-          <span className="mr-1">✓</span> Phone number verified
-        </div>
-      )}
-      <p className="text-xs text-gray-500 mt-1">Enter a valid phone number with country code (max 10 digits)</p>
+      <p className="text-xs text-gray-500 mt-1">Enter a valid phone number with country code</p>
     </div>
   );
 };
@@ -1384,18 +1256,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   // State for UI and non-form data
   const [isClient, setIsClient] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Phone verification states
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [isVerifyingPhone, setIsVerifyingPhone] = useState(false);
-  const [additionalClaimantPhoneVerified, setAdditionalClaimantPhoneVerified] = useState<boolean[]>([]);
-  const [managerPhoneVerified, setManagerPhoneVerified] = useState<boolean[]>([]);
-  const [respondentPhoneVerified, setRespondentPhoneVerified] = useState<boolean[]>([]);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  // CRITICAL FIX: Add modal state for submission success
-  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
-  const [submissionResult, setSubmissionResult] = useState<{ caseId: string; applicationNumber: string } | null>(null);
   const [draftList, setDraftList] = useState<ArbitrationDraft[]>([]);
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1438,9 +1300,25 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       countries: Array<{ value: string, label: string }>;
     }
   }>({});
+
+  const [managerLocationOptions, setManagerLocationOptions] = useState<{
+    [key: number]: {
+      states: Array<{ value: string, label: string }>;
+      districts: Array<{ value: string, label: string }>;
+      cities: Array<{ value: string, label: string }>;
+      countries: Array<{ value: string, label: string }>;
+    }
+  }>({});
   
   // File management state - Store files separately from form data
   const [files, setFiles] = useState<Record<string, File | null>>({});
+  
+  // Submission confirmation modal state
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<{
+    caseId: string;
+    applicationNumber: string;
+  } | null>(null);
   
   // Initialize files state
   useEffect(() => {
@@ -1546,6 +1424,21 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateCheckResult, setDuplicateCheckResult] = useState<any>(null);
   const [pendingSubmissionData, setPendingSubmissionData] = useState<any>(null);
+  
+  // Define steps for navigation
+  const steps = [
+    { id: 0, title: "Step 1: Claimant Details", description: "Personal and business information" },
+    { id: 1, title: "Step 2: Additional Claimants", description: "Co-claimants and authorized managers" },
+    { id: 2, title: "Step 3: Respondent Details", description: "Opposing party information" },
+    { id: 3, title: "Step 4: Arbitration Agreement", description: "Agreement terms and arbitrator selection" },
+    { id: 4, title: "Step 5: Nature of Dispute", description: "Category and background details" },
+    { id: 5, title: "Step 6: Dispute Description", description: "Detailed claims and supporting facts" },
+    { id: 6, title: "Step 7: Prayers & Reliefs", description: "Specific remedies sought" },
+    { id: 7, title: "Step 8: Documents", description: "Evidence and supporting files" },
+    { id: 8, title: "Step 9: Payment", description: "Fee structure and payment details" },
+    { id: 9, title: "Step 10: Arguments", description: "Legal arguments for each prayer" },
+    { id: 10, title: "Step 11: Review & Submit", description: "Final review before submission" }
+  ];
   
   const stepRefs = useRef<(HTMLElement | null)[]>(Array(steps.length).fill(null));
   
@@ -1871,22 +1764,10 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             
             // Set verification for additional claimants
             if (completeFormData.additionalClaimants) {
-              const emailStates = completeFormData.additionalClaimants.map(ac => !!ac.email);
-              const phoneStates = completeFormData.additionalClaimants.map(ac => !!ac.phone);
+              const emailStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.email);
+              const phoneStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.phone);
               setAdditionalClaimantEmailVerified(emailStates);
               setAdditionalClaimantPhoneVerified(phoneStates);
-            }
-            
-            // Set verification for managers based on existing data
-            if (completeFormData.managerDetails) {
-              const phoneStates = completeFormData.managerDetails.map((manager: any) => !!manager.phone);
-              setManagerPhoneVerified(phoneStates);
-            }
-            
-            // Set verification for respondents based on existing data
-            if (completeFormData.respondents) {
-              const phoneStates = completeFormData.respondents.map((respondent: any) => !!respondent.phone);
-              setRespondentPhoneVerified(phoneStates);
             }
           }
           
@@ -1899,6 +1780,104 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       loadInitialData();
     }
   }, [initialData, petitionId]); // Removed reset and setValue from dependencies to avoid circular dependency
+  
+  // Pincode lookup function
+  const lookupLocationByPincode = async (pincode: string) => {
+    if (pincode.length !== 6) return null;
+    
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const data = await response.json();
+      
+      if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+        const postOffice = data[0].PostOffice[0];
+        return {
+          city: postOffice.District,
+          district: postOffice.District,
+          state: postOffice.State,
+          country: 'India'
+        };
+      }
+    } catch (error) {
+      console.error('Error looking up pincode:', error);
+    }
+    return null;
+  };
+
+  // Handle pincode change and auto-populate location
+  const handlePincodeChange = async (
+    pincode: string, 
+    type: 'claimant' | 'respondent' | 'additionalClaimant' | 'manager',
+    index?: number
+  ) => {
+    if (pincode.length === 6) {
+      const locationData = await lookupLocationByPincode(pincode);
+      if (locationData) {
+        if (type === 'claimant') {
+          setValue('claimant.city', locationData.city);
+          setValue('claimant.district', locationData.district);
+          setValue('claimant.state', locationData.state);
+          setValue('claimant.country', locationData.country);
+          
+          setClaimantLocationOptions({
+            cities: [{ value: locationData.city, label: locationData.city }],
+            districts: [{ value: locationData.district, label: locationData.district }],
+            states: [{ value: locationData.state, label: locationData.state }],
+            countries: [{ value: locationData.country, label: locationData.country }]
+          });
+        } else if (type === 'respondent' && index !== undefined) {
+          setValue(`respondents.${index}.city`, locationData.city);
+          setValue(`respondents.${index}.district`, locationData.district);
+          setValue(`respondents.${index}.state`, locationData.state);
+          setValue(`respondents.${index}.country`, locationData.country);
+          
+          setRespondentLocationOptions(prev => ({
+            ...prev,
+            [index]: {
+              cities: [{ value: locationData.city, label: locationData.city }],
+              districts: [{ value: locationData.district, label: locationData.district }],
+              states: [{ value: locationData.state, label: locationData.state }],
+              countries: [{ value: locationData.country, label: locationData.country }]
+            }
+          }));
+        } else if (type === 'additionalClaimant' && index !== undefined) {
+          setValue(`additionalClaimants.${index}.city`, locationData.city);
+          setValue(`additionalClaimants.${index}.district`, locationData.district);
+          setValue(`additionalClaimants.${index}.state`, locationData.state);
+          setValue(`additionalClaimants.${index}.country`, locationData.country);
+          
+          setAdditionalClaimantLocationOptions(prev => ({
+            ...prev,
+            [index]: {
+              cities: [{ value: locationData.city, label: locationData.city }],
+              districts: [{ value: locationData.district, label: locationData.district }],
+              states: [{ value: locationData.state, label: locationData.state }],
+              countries: [{ value: locationData.country, label: locationData.country }]
+            }
+          }));
+        } else if (type === 'manager' && index !== undefined) {
+          setValue(`managerDetails.${index}.city`, locationData.city);
+          setValue(`managerDetails.${index}.district`, locationData.district);
+          setValue(`managerDetails.${index}.state`, locationData.state);
+          setValue(`managerDetails.${index}.country`, locationData.country);
+          
+          setManagerLocationOptions(prev => ({
+            ...prev,
+            [index]: {
+              cities: [{ value: locationData.city, label: locationData.city }],
+              districts: [{ value: locationData.district, label: locationData.district }],
+              states: [{ value: locationData.state, label: locationData.state }],
+              countries: [{ value: locationData.country, label: locationData.country }]
+            }
+          }));
+        }
+        
+        toast.success(`Location auto-populated from pincode ${pincode}`);
+      } else {
+        toast.error('Could not find location for this pincode');
+      }
+    }
+  };
   
   // Watch for pincode changes and fetch location data
   const pincode = watch('claimant.pincode');
@@ -1919,14 +1898,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       const fetchLocationData = async () => {
         try {
           // Use the actual Indian postal pincode API
-          const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
-            signal: AbortSignal.timeout(5000) // 5 second timeout
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
+          const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
           const data = await response.json() as PincodeResponse[];
           
           if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
@@ -2332,6 +2304,55 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     }
   };
 
+  // Draft management functions
+  const hasSavedDraft = () => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('arbitration_draft') !== null;
+  };
+
+  const loadLocalDraft = () => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const savedDraft = localStorage.getItem('arbitration_draft');
+      const draftTimestamp = localStorage.getItem('arbitration_draft_timestamp');
+      const savedStep = localStorage.getItem('arbitration_draft_step');
+      const draftId = localStorage.getItem('arbitration_draft_id');
+      
+      if (savedDraft) {
+        const draftData = JSON.parse(savedDraft);
+        reset(draftData);
+        
+        if (savedStep) {
+          setActiveStep(parseInt(savedStep));
+        }
+        
+        if (draftId) {
+          setCurrentDraftId(draftId);
+        }
+        
+        if (draftTimestamp) {
+          const date = new Date(draftTimestamp);
+          toast.success(`Draft loaded from ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`);
+        } else {
+          toast.success('Draft loaded successfully!');
+        }
+      } else {
+        toast.error('No saved draft found');
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+      toast.error('Failed to load draft');
+    }
+  };
+
+
+
+  // Handle save draft alias
+  const handleSaveDraft = saveDraft;
+
+
+
   // Additional claimant verification functions
   const sendAdditionalClaimantEmailVerification = async (index: number) => {
     const email = watch(`additionalClaimants.${index}.email`);
@@ -2452,87 +2473,12 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     toast.success('Email verified successfully');
   };
 
-  const verifyPhone = async () => {
-    setIsVerifyingPhone(true);
-    try {
-      // Simulate phone verification API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setPhoneVerified(true);
-      toast.success('Phone number verified successfully');
-    } catch (error) {
-      toast.error('Phone verification failed. Please try again.');
-    } finally {
-      setIsVerifyingPhone(false);
-    }
-  };
-
-  const requestPhoneChange = () => {
-    setPhoneVerified(false);
-    setValue('claimant.phone', '');
-    toast.info('Please enter a new phone number and verify it');
-  };
-
-  const verifyAdditionalClaimantPhone = async (index: number) => {
-    try {
-      // Simulate phone verification API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+  const verifyAdditionalClaimantPhone = (index: number) => {
+    // Simulate phone verification
     const newPhoneVerified = [...additionalClaimantPhoneVerified];
     newPhoneVerified[index] = true;
     setAdditionalClaimantPhoneVerified(newPhoneVerified);
     toast.success('Phone number verified successfully');
-    } catch (error) {
-      toast.error('Phone verification failed. Please try again.');
-    }
-  };
-
-  const requestAdditionalClaimantPhoneChange = (index: number) => {
-    const newPhoneVerified = [...additionalClaimantPhoneVerified];
-    newPhoneVerified[index] = false;
-    setAdditionalClaimantPhoneVerified(newPhoneVerified);
-    setValue(`additionalClaimants.${index}.phone`, '');
-    toast.info('Please enter a new phone number and verify it');
-  };
-
-  const verifyManagerPhone = async (index: number) => {
-    try {
-      // Simulate phone verification API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const newPhoneVerified = [...managerPhoneVerified];
-      newPhoneVerified[index] = true;
-      setManagerPhoneVerified(newPhoneVerified);
-      toast.success('Phone number verified successfully');
-    } catch (error) {
-      toast.error('Phone verification failed. Please try again.');
-    }
-  };
-
-  const requestManagerPhoneChange = (index: number) => {
-    const newPhoneVerified = [...managerPhoneVerified];
-    newPhoneVerified[index] = false;
-    setManagerPhoneVerified(newPhoneVerified);
-    setValue(`managerDetails.${index}.phone`, '');
-    toast.info('Please enter a new phone number and verify it');
-  };
-
-  const verifyRespondentPhone = async (index: number) => {
-    try {
-      // Simulate phone verification API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const newPhoneVerified = [...respondentPhoneVerified];
-      newPhoneVerified[index] = true;
-      setRespondentPhoneVerified(newPhoneVerified);
-      toast.success('Phone number verified successfully');
-    } catch (error) {
-      toast.error('Phone verification failed. Please try again.');
-    }
-  };
-
-  const requestRespondentPhoneChange = (index: number) => {
-    const newPhoneVerified = [...respondentPhoneVerified];
-    newPhoneVerified[index] = false;
-    setRespondentPhoneVerified(newPhoneVerified);
-    setValue(`respondents.${index}.phone`, '');
-    toast.info('Please enter a new phone number and verify it');
   };
 
   // Helper functions for OTP input handling
@@ -2570,9 +2516,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
   
   // Validate current step
   const validateCurrentStep = async (isDraftSave = false) => {
-    console.log(`🔍 Validating step ${activeStep} (isDraftSave: ${isDraftSave})`);
+    console.log('🔧 validateCurrentStep: Starting validation for step', activeStep, 'isDraftSave:', isDraftSave);
     let fieldsToValidate: Array<keyof FormData | string> = [];
-
+    
     switch (activeStep) {
       case 0: // Claimant Details
         fieldsToValidate = [
@@ -2583,14 +2529,27 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         ];
         
         // Check if email and phone are verified (skip if already verified or in edit mode)
-        if (!emailVerified) {
+        console.log('🔧 Claimant verification check:', {
+          emailVerified,
+          phoneVerified,
+          editMode,
+          mode
+        });
+        
+        if (!emailVerified && mode !== 'edit') {
+          console.log('🔧 EMAIL NOT VERIFIED - blocking progression');
           toast.error('Please verify your email address before proceeding');
+          console.log('🔧 About to return false for email verification');
           return false;
         }
-        if (!phoneVerified) {
+        if (!phoneVerified && mode !== 'edit') {
+          console.log('🔧 PHONE NOT VERIFIED - blocking progression');
           toast.error('Please verify your phone number before proceeding');
+          console.log('🔧 About to return false for phone verification');
           return false;
         }
+        
+        console.log('🔧 Email and phone verification passed, continuing...');
         
         // Check required document uploads (only when not saving draft)
         if (!isDraftSave) {
@@ -2639,22 +2598,14 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         }
         break;
       case 1: // Additional Claimants & Manager
-        console.log('🔍 Step 2 validation started');
-        // ENFORCE: At least 1 additional claimant required
-        const additionalClaimantFields = watch('additionalClaimants') || [];
-        console.log('🔍 Additional claimants:', additionalClaimantFields);
-        if (additionalClaimantFields.length === 0) {
-          toast.error('At least one additional claimant is required');
-          return false;
-        }
-        
-        // Validate each additional claimant
+        // CRITICAL FIX: Enforce mandatory validation for Additional Claimants
         for (let index = 0; index < additionalClaimantFields.length; index++) {
-          const claimant = watch(`additionalClaimants.${index}`);
+          const claimant = formValues.additionalClaimants?.[index];
           
-          // ALL mandatory fields must be filled for each additional claimant
+          // If any field is filled, ALL mandatory fields must be filled
+          if (claimant && (claimant.name || claimant.email || claimant.phone || claimant.address1)) {
           fieldsToValidate.push(
-            `additionalClaimants.${index}.type`,
+              `additionalClaimants.${index}.type`,
             `additionalClaimants.${index}.name`,
             `additionalClaimants.${index}.email`,
             `additionalClaimants.${index}.phone`,
@@ -2665,156 +2616,206 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             `additionalClaimants.${index}.state`,
             `additionalClaimants.${index}.country`
           );
-          
-          // Check if phone is verified (if not in draft save mode)
-          if (!isDraftSave && claimant.phone && !additionalClaimantPhoneVerified[index]) {
-            toast.error(`Please verify the phone number for Additional Claimant ${index + 1} before proceeding`);
-            return false;
-          }
-          
-          // Smart document validation - same logic as claimant
-          if (!isDraftSave) {
-            // Check specific ID field requirements
-            if (claimant.pan && !files[`additionalClaimants.${index}.panCard`]) {
-              toast.error(`PAN Card document is required for Additional Claimant ${index + 1} when PAN number is provided`);
-              return false;
-            }
             
-            if (claimant.gst && !files[`additionalClaimants.${index}.gstCert`]) {
-              toast.error(`GST Registration Certificate is required for Additional Claimant ${index + 1} when GST number is provided`);
-              return false;
-            }
-            
-            if (claimant.cin && !files[`additionalClaimants.${index}.coi`]) {
-              toast.error(`Certificate of Incorporation is required for Additional Claimant ${index + 1} when CIN is provided`);
-              return false;
-            }
-            
-            // At least one identification field must be filled and corresponding document uploaded
-            const hasAnyIdField = claimant.pan || claimant.gst || claimant.cin;
-            const hasAnyIdDoc = (claimant.pan && files[`additionalClaimants.${index}.panCard`]) || 
-                                (claimant.gst && files[`additionalClaimants.${index}.gstCert`]) || 
-                                (claimant.cin && files[`additionalClaimants.${index}.coi`]);
-            
-            if (!hasAnyIdField) {
-              toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Additional Claimant ${index + 1}`);
-              return false;
-            }
-            
-            if (!hasAnyIdDoc) {
-              toast.error(`Please upload the document for at least one identification field for Additional Claimant ${index + 1}`);
-              return false;
+            // Smart document validation - check files state, not form data
+            if (!isDraftSave) {
+              console.log(`🔧 Validating Additional Claimant ${index + 1}:`, {
+                pan: claimant.pan,
+                gst: claimant.gst,
+                cin: claimant.cin,
+                panCardFile: files[`additionalClaimants.${index}.panCard`],
+                gstCertFile: files[`additionalClaimants.${index}.gstCert`],
+                coiFile: files[`additionalClaimants.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (claimant.pan && !files[`additionalClaimants.${index}.panCard`]) {
+                toast.error(`PAN Card document is required for Additional Claimant ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (claimant.gst && !files[`additionalClaimants.${index}.gstCert`]) {
+                toast.error(`GST Registration Certificate is required for Additional Claimant ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (claimant.cin && !files[`additionalClaimants.${index}.coi`]) {
+                toast.error(`Certificate of Incorporation is required for Additional Claimant ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = claimant.pan || claimant.gst || claimant.cin;
+              const hasAnyIdDoc = (claimant.pan && files[`additionalClaimants.${index}.panCard`]) || 
+                                  (claimant.gst && files[`additionalClaimants.${index}.gstCert`]) || 
+                                  (claimant.cin && files[`additionalClaimants.${index}.coi`]);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Additional Claimant ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Additional Claimant ${index + 1}`);
+                return false;
+              }
             }
           }
         }
         
-        // ENFORCE: At least 1 manager required
-        const managerFields = watch('managerDetails') || [];
-        console.log('🔍 Manager fields:', managerFields);
-        if (managerFields.length === 0) {
-          toast.error('At least one manager is required');
+        // CRITICAL FIX: Enforce mandatory validation for Manager Details
+        for (let index = 0; index < managerFields.length; index++) {
+          const manager = formValues.managerDetails?.[index];
+          
+          // If any field is filled, ALL mandatory fields must be filled
+          if (manager && (manager.name || manager.email || manager.phone || manager.address1 || manager.managerId)) {
+            fieldsToValidate.push(
+              `managerDetails.${index}.type`,
+              `managerDetails.${index}.name`,
+              `managerDetails.${index}.email`,
+              `managerDetails.${index}.phone`,
+              `managerDetails.${index}.pincode`,
+              `managerDetails.${index}.address1`,
+              `managerDetails.${index}.city`,
+              `managerDetails.${index}.district`,
+              `managerDetails.${index}.state`,
+              `managerDetails.${index}.country`,
+              `managerDetails.${index}.managerId`
+            );
+            
+            // Smart document validation - check files state, not form data
+            if (!isDraftSave) {
+              console.log(`🔧 Validating Manager ${index + 1}:`, {
+                pan: manager.pan,
+                gst: manager.gst,
+                cin: manager.cin,
+                panCardFile: files[`managerDetails.${index}.panCard`],
+                gstCertFile: files[`managerDetails.${index}.gstCert`],
+                coiFile: files[`managerDetails.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (manager.pan && !files[`managerDetails.${index}.panCard`]) {
+                toast.error(`PAN Card document is required for Manager ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (manager.gst && !files[`managerDetails.${index}.gstCert`]) {
+                toast.error(`GST Registration Certificate is required for Manager ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (manager.cin && !files[`managerDetails.${index}.coi`]) {
+                toast.error(`Certificate of Incorporation is required for Manager ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = manager.pan || manager.gst || manager.cin;
+              const hasAnyIdDoc = (manager.pan && files[`managerDetails.${index}.panCard`]) || 
+                                  (manager.gst && files[`managerDetails.${index}.gstCert`]) || 
+                                  (manager.cin && files[`managerDetails.${index}.coi`]);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Manager ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Manager ${index + 1}`);
+                return false;
+              }
+            }
+          }
+        }
+        
+        // NEW VALIDATION: Require at least 1 additional claimant and 1 manager
+        const hasValidAdditionalClaimants = additionalClaimantFields.some((field, index) => {
+          const claimant = formValues.additionalClaimants?.[index];
+          return claimant && claimant.name && claimant.email && claimant.phone && 
+                 additionalClaimantEmailVerified[index] && additionalClaimantPhoneVerified[index];
+        });
+        
+        const hasValidManagers = managerFields.some((field, index) => {
+          const manager = formValues.managerDetails?.[index];
+          return manager && manager.name && manager.email && manager.phone && manager.managerId;
+        });
+        
+        if (!hasValidAdditionalClaimants) {
+          toast.error('At least 1 additional claimant is required with verified email and phone');
           return false;
         }
         
-        // Validate each manager
-        for (let index = 0; index < managerFields.length; index++) {
-          const manager = watch(`managerDetails.${index}`);
-          
-          // ALL mandatory fields must be filled for each manager
-          fieldsToValidate.push(
-            `managerDetails.${index}.type`,
-            `managerDetails.${index}.name`,
-            `managerDetails.${index}.email`,
-            `managerDetails.${index}.phone`,
-            `managerDetails.${index}.pincode`,
-            `managerDetails.${index}.address1`,
-            `managerDetails.${index}.city`,
-            `managerDetails.${index}.district`,
-            `managerDetails.${index}.state`,
-            `managerDetails.${index}.country`,
-            `managerDetails.${index}.managerId`
-          );
-          
-          // Check if phone is verified (if not in draft save mode)
-          if (!isDraftSave && manager.phone && !managerPhoneVerified[index]) {
-            toast.error(`Please verify the phone number for Manager ${index + 1} before proceeding`);
+        if (!hasValidManagers) {
+          toast.error('At least 1 manager is required with all required fields filled');
+          return false;
+        }
+        
+        // Check if additional claimant email and phone are verified (skip if already verified or in edit mode)
+        for (let index = 0; index < additionalClaimantFields.length; index++) {
+          const claimant = formValues.additionalClaimants?.[index];
+          if (claimant && claimant.email && !additionalClaimantEmailVerified[index]) {
+            toast.error(`Please verify email for Additional Claimant ${index + 1}`);
             return false;
           }
-          
-          // Smart document validation - same logic as claimant
-          if (!isDraftSave) {
-            // Check specific ID field requirements
-            if (manager.pan && !files[`managerDetails.${index}.panCard`]) {
-              toast.error(`PAN Card document is required for Manager ${index + 1} when PAN number is provided`);
-              return false;
-            }
-            
-            if (manager.gst && !files[`managerDetails.${index}.gstCert`]) {
-              toast.error(`GST Registration Certificate is required for Manager ${index + 1} when GST number is provided`);
-              return false;
-            }
-            
-            if (manager.cin && !files[`managerDetails.${index}.coi`]) {
-              toast.error(`Certificate of Incorporation is required for Manager ${index + 1} when CIN is provided`);
-              return false;
-            }
-            
-            // At least one identification field must be filled and corresponding document uploaded
-            const hasAnyIdField = manager.pan || manager.gst || manager.cin;
-            const hasAnyIdDoc = (manager.pan && files[`managerDetails.${index}.panCard`]) || 
-                                (manager.gst && files[`managerDetails.${index}.gstCert`]) || 
-                                (manager.cin && files[`managerDetails.${index}.coi`]);
-            
-            if (!hasAnyIdField) {
-              toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Manager ${index + 1}`);
-              return false;
-            }
-            
-            if (!hasAnyIdDoc) {
-              toast.error(`Please upload the document for at least one identification field for Manager ${index + 1}`);
-              return false;
-            }
+          if (claimant && claimant.phone && !additionalClaimantPhoneVerified[index]) {
+            toast.error(`Please verify phone number for Additional Claimant ${index + 1}`);
+            return false;
           }
         }
         break;
       case 2: // Respondent Details
         // CRITICAL FIX: Enforce mandatory validation for Respondents
-        const respondentFields = watch('respondents') || [];
-        respondentFields.forEach((_, index) => {
-          const respondent = watch(`respondents.${index}`);
+        for (let index = 0; index < respondentFields.length; index++) {
+          const respondent = formValues.respondents?.[index];
           
           // If any field is filled, ALL mandatory fields must be filled
           if (respondent && (respondent.name || respondent.email || respondent.phone || respondent.address1)) {
-            fieldsToValidate.push(
-              `respondents.${index}.name`, 
-              `respondents.${index}.email`,
+          fieldsToValidate.push(
+            `respondents.${index}.type`,
+            `respondents.${index}.name`, 
+            `respondents.${index}.email`,
               `respondents.${index}.phone`,
-              `respondents.${index}.address1`
-            );
+            `respondents.${index}.pincode`,
+            `respondents.${index}.address1`,
+            `respondents.${index}.city`,
+            `respondents.${index}.district`,
+            `respondents.${index}.state`,
+            `respondents.${index}.country`
+          );
             
-            // Smart document validation - same logic as claimant
+            // Smart document validation - check files state, not form data
             if (!isDraftSave) {
-              // Check specific ID field requirements
-              if (respondent.pan && !respondent.panCard) {
+              console.log(`🔧 Validating Respondent ${index + 1}:`, {
+                pan: respondent.pan,
+                gst: respondent.gst,
+                cin: respondent.cin,
+                panCardFile: files[`respondents.${index}.panCard`],
+                gstCertFile: files[`respondents.${index}.gstCert`],
+                coiFile: files[`respondents.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (respondent.pan && !files[`respondents.${index}.panCard`]) {
                 toast.error(`PAN Card document is required for Respondent ${index + 1} when PAN number is provided`);
                 return false;
               }
               
-              if (respondent.gst && !respondent.gstCert) {
+              if (respondent.gst && !files[`respondents.${index}.gstCert`]) {
                 toast.error(`GST Registration Certificate is required for Respondent ${index + 1} when GST number is provided`);
                 return false;
               }
               
-              if (respondent.cin && !respondent.coi) {
+              if (respondent.cin && !files[`respondents.${index}.coi`]) {
                 toast.error(`Certificate of Incorporation is required for Respondent ${index + 1} when CIN is provided`);
                 return false;
               }
               
               // At least one identification field must be filled and corresponding document uploaded
               const hasAnyIdField = respondent.pan || respondent.gst || respondent.cin;
-              const hasAnyIdDoc = (respondent.pan && respondent.panCard) || 
-                                  (respondent.gst && respondent.gstCert) || 
-                                  (respondent.cin && respondent.coi);
+              const hasAnyIdDoc = (respondent.pan && files[`respondents.${index}.panCard`]) || 
+                                  (respondent.gst && files[`respondents.${index}.gstCert`]) || 
+                                  (respondent.cin && files[`respondents.${index}.coi`]);
               
               if (!hasAnyIdField) {
                 toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Respondent ${index + 1}`);
@@ -2827,7 +2828,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
               }
             }
           }
-        });
+        }
         break;
       case 3: // Arbitration Agreement
         fieldsToValidate = [
@@ -2836,50 +2837,207 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           'arbitrationAgreement.numberOfArbitrators'
         ];
         break;
-      case 4: // Nature of Dispute & Description
-        fieldsToValidate = ['natureOfDispute', 'disputeDescriptions'];
+      case 4: // Nature of Dispute
+        // Validate all nature of dispute entries
+        const natureOfDisputeEntries = watch('natureOfDispute') || [];
+        if (natureOfDisputeEntries.length === 0) {
+          toast.error('Please add at least one nature of dispute');
+          return false;
+        }
+        
+        for (let i = 0; i < natureOfDisputeEntries.length; i++) {
+          const fieldPaths = [
+            `natureOfDispute.${i}.category`,
+            `natureOfDispute.${i}.subCategory`,
+            `natureOfDispute.${i}.natureOfDispute`,
+            `natureOfDispute.${i}.dateWhenRightToClaimArose`,
+            `natureOfDispute.${i}.standardisedPrayerClauses`
+          ];
+          
+          for (const fieldPath of fieldPaths) {
+            const isValid = await trigger(fieldPath as any);
+            if (!isValid) {
+              toast.error(`Please complete all required fields for Nature of Dispute ${i + 1}`);
+              return false;
+            }
+          }
+        }
         break;
-      case 5: // Prayers & Reliefs
-        fieldsToValidate = ['prayers.prayers'];
-        break;
-      case 6: // Documents
-        fieldsToValidate = ['documents'];
-        break;
-      case 7: // Payment
-        fieldsToValidate = ['payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'];
-        break;
-      case 8: // Arguments
-        fieldsToValidate = ['arguments.argumentsPerIssue'];
-        break;
-      case 9: // Review & Submit
-        fieldsToValidate = []; // Final review step
-        break;
-      default:
+      case 5: // Dispute Description
+        // Validate all dispute descriptions
+        const disputeDescriptions = watch('disputeDescriptions') || [];
+        if (disputeDescriptions.length === 0) {
+          toast.error('Please add at least one dispute description');
+          return false;
+        }
+        
+        for (let i = 0; i < disputeDescriptions.length; i++) {
+          const fieldPaths = [
+            `disputeDescriptions.${i}.claimType`,
+            `disputeDescriptions.${i}.claimReason`,
+            `disputeDescriptions.${i}.lawReliedUpon`,
+            `disputeDescriptions.${i}.relevantClauseNumber`,
+            `disputeDescriptions.${i}.clauseSupportingClaim`,
+            `disputeDescriptions.${i}.clause`,
+            `disputeDescriptions.${i}.documentSupportingClaim`,
+            `disputeDescriptions.${i}.reliefSought`
+          ];
+          const result = await trigger(fieldPaths as any);
+          if (!result) return false;
+        }
         return true;
+      case 6: // Prayers & Reliefs
+        // Validate all prayers
+        const prayers = watch('prayers.prayers') || [];
+        if (prayers.length === 0) {
+          toast.error('Please add at least one prayer');
+          return false;
+        }
+        
+        // Validate each prayer has required fields
+        if (Array.isArray(prayers)) {
+          for (let i = 0; i < prayers.length; i++) {
+            const prayer = prayers[i];
+            if (typeof prayer === 'object' && prayer !== null) {
+              if (!prayer.title?.trim()) {
+                toast.error(`Prayer ${i + 1}: Title is required`);
+                return false;
+              }
+              if (!prayer.description?.trim()) {
+                toast.error(`Prayer ${i + 1}: Description is required`);
+                return false;
+              }
+              if (prayer.reliefType === 'monetary' && (!prayer.amount || parseFloat(prayer.amount) <= 0)) {
+                toast.error(`Prayer ${i + 1}: Amount is required for monetary relief`);
+                return false;
+              }
+            }
+          }
+        }
+        return true;
+      case 6: // Prayers & Reliefs (Rendering)
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
+            <PrayersSection 
+              control={control}
+              name="prayers.prayers"
+            />
+          </div>
+        )
+      case 7: // Documents
+        // Create default issues in case arguments don't exist yet
+        const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
+          (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
+            value: `issue_${index + 1}`,
+            label: `Issue ${index + 1}${arg ? ` - ${arg.substring(0, 30)}...` : ''}`
+          })) : 
+          [
+            { value: "issue_default_1", label: "Issue 1 - Breach of Contract" },
+            { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
+            { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
+          ];
+          
+  
+        
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[7] = el; }}>
+            <DocumentsTabs 
+              control={control as any}
+              watch={watch}
+              setValue={setValue}
+              disputeIssues={disputeIssues}
+              files={files}
+            />
+          </div>
+        )
+      case 8: // Payment
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[8] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Payment</h3>
+            <div className="space-y-4">
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Payment Head"
+                  name="payment.paymentHead"
+                  type="select"
+                  required
+                  options={[
+                    { value: "filing_fee", label: "Filing Fee" },
+                    { value: "arbitrator_fee", label: "Arbitrator Fee" },
+                    { value: "administrative_fee", label: "Administrative Fee" },
+                    { value: "emergency_fee", label: "Emergency Arbitration Fee" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Payment Amount (INR)"
+                  name="payment.paymentAmount"
+                  type="number"
+                  required
+                  maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
+                  placeholder="Enter amount in INR"
+                />
+                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_PAYMENT_AMOUNT.toLocaleString()} INR</p>
+              </div>
+              <div>
+                <ControlledTextAreaField
+                  control={control}
+                  label="Payment Details"
+                  name="payment.paymentDetails"
+                  required
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Provide detailed payment information"
+                />
+              </div>
+            </div>
+                      </div>
+          )
+      case 9: // Arguments
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
+            <ArgumentsSection 
+              control={control}
+              prayersName="prayers.prayers"
+              argumentsName="arguments.argumentsPerPrayer"
+            />
+          </div>
+        )
+      case 10: // Review & Submit
+        // For the final step, just return true as validation is complete
+        return true;
+        break;
     }
-
-    try {
-      console.log('🔍 Fields to validate:', fieldsToValidate);
-      if (fieldsToValidate.length > 0) {
-        const validationResult = await trigger(fieldsToValidate as any);
-        console.log('🔍 Validation result:', validationResult);
-        return validationResult;
+    
+    // First check form field validation
+    if (fieldsToValidate.length > 0) {
+      console.log('🔧 validateCurrentStep: Triggering validation for fields:', fieldsToValidate);
+      const result = await trigger(fieldsToValidate as any); // Type assertion to work around TypeScript error
+      console.log('🔧 validateCurrentStep: Trigger result:', result);
+      if (!result) {
+        console.log('🔧 validateCurrentStep: Form field validation failed');
+        return false;
       }
-      console.log('🔍 No fields to validate, returning true');
-      return true;
-    } catch (error) {
-      return false;
     }
+    
+    console.log('🔧 validateCurrentStep: All validation passed, returning true');
+    return true;
   };
-
+  
   // Handle next button click
   const handleNext = async () => {
     // Validate current step
+    console.log('🔧 handleNext: Starting validation for step', activeStep);
     const isStepValid = await validateCurrentStep();
+    console.log('🔧 handleNext: Validation result:', isStepValid);
     
     if (isStepValid) {
-    if (activeStep < steps.length - 1) {
-      setActiveStep(activeStep + 1);
+      if (activeStep < steps.length - 1) {
+        setActiveStep(activeStep + 1);
         
         // Focus the first input in the next step
         setTimeout(() => {
@@ -2889,10 +3047,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             firstInput.focus();
           }
         }, 50);
-    } else {
+      } else {
         // We're on the last step, but we don't submit here
         // Instead, the Submit button will directly call onSubmit
-
       }
     }
   };
@@ -2903,15 +3060,42 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       setActiveStep(activeStep - 1);
     }
   };
+
+  const nextStep = async () => {
+    if (activeStep < steps.length - 1) {
+      console.log('🔧 nextStep: Validating step', activeStep);
+      const isValid = await validateCurrentStep();
+      console.log('🔧 nextStep: Validation result', isValid);
+      
+      if (isValid) {
+        setActiveStep(activeStep + 1);
+        console.log('🔧 nextStep: Moving to step', activeStep + 1);
+      } else {
+        console.log('🔧 nextStep: Validation failed, staying on current step');
+      }
+    }
+  };
+
+  const prevStep = () => {
+    if (activeStep > 0) {
+      setActiveStep(activeStep - 1);
+    }
+  };
   
   // Handle file changes
   const handleFileChange = (fieldName: string, file: File | null | File[]) => {
     if (Array.isArray(file)) {
-      // Handle multiple files
+      // Handle multiple files - store first file for now since Record expects single file
+      const firstFile = file.length > 0 ? file[0] : null;
       setFiles(prev => ({
         ...prev,
-        [fieldName]: file
+        [fieldName]: firstFile
       }));
+      
+      // Trigger OCR processing for document uploads
+      if (firstFile && fieldName.includes('.')) {
+        performOCR(firstFile, fieldName);
+      }
     } else {
       // Handle single file
       setFiles(prev => ({
@@ -2970,9 +3154,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       // Auto-populate form fields
       Object.entries(extractedData).forEach(([key, value]) => {
         if (entityPath && index >= 0) {
-          setValue(`${entityPath}.${index}.${key}`, value);
+          setValue(`${entityPath}.${index}.${key}` as any, value);
         } else if (entityPath) {
-          setValue(`${entityPath}.${key}`, value);
+          setValue(`${entityPath}.${key}` as any, value);
         }
       });
 
@@ -3008,25 +3192,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     
     restoreFiles();
   }, [activeStep]); // Restore files when step changes
-
-  // CRITICAL FIX: Add modal handler functions
-  const showSubmissionSuccess = (caseId: string) => {
-    setSubmissionResult({
-      caseId: caseId,
-      applicationNumber: caseId
-    });
-    setShowSubmissionModal(true);
-  };
-
-  const handleViewDashboard = () => {
-    setShowSubmissionModal(false);
-    router.push('/dashboard');
-  };
-
-  const handleGoToMyCases = () => {
-    setShowSubmissionModal(false);
-    router.push('/dashboard/my-cases');
-  };
   
   // Form submission handler
   const handleFormSubmission = async (data: FormData) => {
@@ -3049,54 +3214,54 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     }
     
     // Check if we have validation errors and return
-    if (Object.keys(fileErrors).length > 0) {
+      if (Object.keys(fileErrors).length > 0) {
       setIsSubmitting(false);
-      const missingFiles = Object.values(fileErrors).join(', ');
+        const missingFiles = Object.values(fileErrors).join(', ');
       toast.error(`Please upload required files: ${missingFiles}`);
-      return;
-    }
+        return;
+      }
 
-    // Create FormData for submission
+      // Create FormData for submission
     const formDataForSubmission = new FormData();
-    
-    // Add the draft ID if editing
-    if (currentDraftId) {
-      formDataForSubmission.append('id', currentDraftId);
-    }
-    
-    // Restructure data to match backend expectations
-    // Backend expects claimant fields at the top level, not nested under 'claimant'
-    // All data will be properly saved to the NestJS backend database
-    const restructuredData = {
-      // Add claimant fields at the top level
-      type: data.claimant.type,
-      name: data.claimant.name,
-      pincode: data.claimant.pincode,
-      address1: data.claimant.address1,
-      address2: data.claimant.address2,
-      city: data.claimant.city,
-      district: data.claimant.district,
-      state: data.claimant.state,
-      country: data.claimant.country,
-      email: data.claimant.email,
-      phoneCountryCode: data.claimant.phoneCountryCode,
-      phone: data.claimant.phone,
-      gst: data.claimant.gst,
-      pan: data.claimant.pan,
-      cin: data.claimant.cin,
       
+      // Add the draft ID if editing
+      if (currentDraftId) {
+      formDataForSubmission.append('id', currentDraftId);
+      }
+      
+      // Restructure data to match backend expectations
+      // Backend expects claimant fields at the top level, not nested under 'claimant'
+      // All data will be properly saved to the NestJS backend database
+      const restructuredData = {
+        // Add claimant fields at the top level
+        type: data.claimant.type,
+        name: data.claimant.name,
+        pincode: data.claimant.pincode,
+        address1: data.claimant.address1,
+        address2: data.claimant.address2,
+        city: data.claimant.city,
+        district: data.claimant.district,
+        state: data.claimant.state,
+        country: data.claimant.country,
+        email: data.claimant.email,
+        phoneCountryCode: data.claimant.phoneCountryCode,
+        phone: data.claimant.phone,
+        gst: data.claimant.gst,
+        pan: data.claimant.pan,
+        cin: data.claimant.cin,
+        
       // Include all other form data
-      additionalClaimants: data.additionalClaimants,
-      managerDetails: data.managerDetails,
-      respondents: data.respondents,
-      arbitrationAgreement: data.arbitrationAgreement,
+        additionalClaimants: data.additionalClaimants,
+        managerDetails: data.managerDetails,
+        respondents: data.respondents,
+        arbitrationAgreement: data.arbitrationAgreement,
       natureOfDispute: data.natureOfDispute,
       disputeDescriptions: data.disputeDescriptions,
       documentsEvidence: data.documentsEvidence,
-      prayers: data.prayers,
-      arguments: data.arguments,
+        prayers: data.prayers,
+        arguments: data.arguments,
       payment: data.payment,
-      documents: data.documents,
+        documents: data.documents,
       
       // Store the complete form data structure
       formData: data
@@ -3113,7 +3278,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     formDataForSubmission.append('data', JSON.stringify(cleanedData));
 
     // Append files
-    Object.entries(files).forEach(([key, file]) => {
+      Object.entries(files).forEach(([key, file]) => {
       if (file && file instanceof File) {
         formDataForSubmission.append(key, file);
       }
@@ -3133,6 +3298,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       }
     });
 
+    // Get document types from documents object
+    const documentTypes = data.documents?.documentTypes || {};
     formDataForSubmission.append('documentTypes', JSON.stringify(documentTypes));
 
     // Handle scanned documents
@@ -3213,22 +3380,31 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             // Dismiss the loading toast
             toast.dismiss();
             
-            // Show success message
+            // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
-            toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+            console.log('🔧 About to call showSubmissionSuccess with caseId:', caseId);
+            showSubmissionSuccess(caseId);
             
             // Generate and download PDF
             try {
               const currentFormData = watch();
-              const pdfBlob = await generateApplicationPDF(currentFormData, caseId);
+              // Add missing disputeDetails for PDF generation
+              const pdfData = {
+                ...currentFormData,
+                disputeDetails: currentFormData.disputeDetails || {
+                  disputeType: '',
+                  disputeAmount: '',
+                  disputeDescription: '',
+                  disputeDate: ''
+                }
+              };
+              const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
               downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
             } catch (pdfError) {
               console.error('PDF generation failed:', pdfError);
               toast.error('PDF generation failed, but your application was submitted successfully.');
             }
             
-            // Navigate to case details
-            router.push(`/dashboard/case/${currentDraftId}`);
             return;
           } catch (error: any) {
             toast.dismiss();
@@ -3239,61 +3415,80 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           // This is a draft being submitted
           try {
             const response = await arbitrationApi.submitDraft(currentDraftId);
-            
-            // Dismiss the loading toast
-            toast.dismiss();
-            
-            // Show success message
+          
+          // Dismiss the loading toast
+          toast.dismiss();
+          
+            // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id;
-            if (caseId) {
-              toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+        if (caseId) {
+              console.log('🔧 About to call showSubmissionSuccess with caseId (draft submit):', caseId);
+              showSubmissionSuccess(caseId);
               
               // Generate and download PDF
               try {
                 const currentFormData = watch();
-                const pdfBlob = await generateApplicationPDF(currentFormData, caseId);
+                // Add missing disputeDetails for PDF generation
+                const pdfData = {
+                  ...currentFormData,
+                  disputeDetails: currentFormData.disputeDetails || {
+                    disputeType: '',
+                    disputeAmount: '',
+                    disputeDescription: '',
+                    disputeDate: ''
+                  }
+                };
+                const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
                 downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
               } catch (pdfError) {
                 console.error('PDF generation failed:', pdfError);
                 toast.error('PDF generation failed, but your application was submitted successfully.');
               }
-            } else {
-              toast.success('Your application is submitted successfully! The PDF of the form is sent to your registered email ID as well as to all managers and respondents.');
+        } else {
+              // Show success modal even if no caseId
+              showSubmissionSuccess('DRAFT_SUBMITTED');
             }
             
-            // CRITICAL FIX: Show modal instead of redirecting
-            showSubmissionSuccess(caseId);
             return;
           } catch (error: any) {
-            toast.dismiss();
+        toast.dismiss();
             toast.error(error.response?.data?.message || 'Failed to submit draft');
             return;
-          }
-        }
-      } else {
+      }
+    }
+  } else {
         // Creating a new case
-        try {
+    try {
           const response = await arbitrationApi.create(formDataForSubmission, { skipDuplicateCheck: true });
           
           // Dismiss the loading toast
           toast.dismiss();
           
-          // Show success message
+          // Show success modal
           const caseId = response.caseId || response.caseNumber || response.id;
-          toast.success(`Your application is submitted successfully and application number is ${caseId}. The PDF of the form is sent to your registered email ID as well as to all managers and respondents.`);
+          console.log('🔧 About to call showSubmissionSuccess with caseId (new case):', caseId);
+          showSubmissionSuccess(caseId);
           
           // Generate and download PDF
           try {
             const currentFormData = watch();
-            const pdfBlob = await generateApplicationPDF(currentFormData, caseId);
+            // Add missing disputeDetails for PDF generation
+            const pdfData = {
+              ...currentFormData,
+              disputeDetails: currentFormData.disputeDetails || {
+                disputeType: '',
+                disputeAmount: '',
+                disputeDescription: '',
+                disputeDate: ''
+              }
+            };
+            const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
             downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
           } catch (pdfError) {
             console.error('PDF generation failed:', pdfError);
             toast.error('PDF generation failed, but your application was submitted successfully.');
           }
           
-          // CRITICAL FIX: Show modal instead of redirecting
-          showSubmissionSuccess(caseId);
           return;
         } catch (error: any) {
           toast.dismiss();
@@ -3344,7 +3539,12 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
         respondents: data.respondents || [],
         // Ensure objects are properly initialized
         arbitrationAgreement: data.arbitrationAgreement || {},
-        disputeDetails: data.disputeDetails || {},
+        disputeDetails: {
+          disputeType: '',
+          disputeAmount: '',
+          disputeDescription: '',
+          disputeDate: ''
+        },
         // Include new dispute structure
         natureOfDispute: data.natureOfDispute || {},
         disputeDescriptions: data.disputeDescriptions || [],
@@ -3367,7 +3567,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       
       // Add files (only if they exist - drafts allow incomplete data)
       // Map frontend file keys to backend expected keys
-      const fileKeyMapping = {
+      const fileKeyMapping: Record<string, string> = {
         'claimant.coi': 'coi',
         'claimant.panCard': 'panCard', 
         'claimant.gstCert': 'gstCert',
@@ -3380,6 +3580,52 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
           formData.append(backendKey, file);
         }
       });
+      
+      // CRITICAL FIX: Add Additional Claimants, Manager Details, and Respondent files
+      // Additional Claimants files
+      if (data.additionalClaimants && Array.isArray(data.additionalClaimants)) {
+        data.additionalClaimants.forEach((claimant, index) => {
+          if (claimant && claimant.coi instanceof File) {
+            formData.append(`additionalClaimants.${index}.coi`, claimant.coi);
+          }
+          if (claimant && claimant.panCard instanceof File) {
+            formData.append(`additionalClaimants.${index}.panCard`, claimant.panCard);
+          }
+          if (claimant && claimant.gstCert instanceof File) {
+            formData.append(`additionalClaimants.${index}.gstCert`, claimant.gstCert);
+          }
+        });
+      }
+      
+      // Manager Details files
+      if (data.managerDetails && Array.isArray(data.managerDetails)) {
+        data.managerDetails.forEach((manager, index) => {
+          if (manager && manager.coi instanceof File) {
+            formData.append(`managerDetails.${index}.coi`, manager.coi);
+          }
+          if (manager && manager.panCard instanceof File) {
+            formData.append(`managerDetails.${index}.panCard`, manager.panCard);
+          }
+          if (manager && manager.gstCert instanceof File) {
+            formData.append(`managerDetails.${index}.gstCert`, manager.gstCert);
+          }
+        });
+      }
+      
+      // Respondent Details files
+      if (data.respondents && Array.isArray(data.respondents)) {
+        data.respondents.forEach((respondent, index) => {
+          if (respondent && respondent.coi instanceof File) {
+            formData.append(`respondents.${index}.coi`, respondent.coi);
+          }
+          if (respondent && respondent.panCard instanceof File) {
+            formData.append(`respondents.${index}.panCard`, respondent.panCard);
+          }
+          if (respondent && respondent.gstCert instanceof File) {
+            formData.append(`respondents.${index}.gstCert`, respondent.gstCert);
+          }
+        });
+      }
       
       // CRITICAL FIX: Add file metadata to indicate which files are present
       const fileMetadata = {
@@ -3484,6 +3730,24 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     } finally {
       setIsSavingDraft(false);
     }
+  }, [isAuthenticated, currentDraftId, formValues, files, router, emailVerified, phoneVerified, additionalClaimantEmailVerified, additionalClaimantPhoneVerified]);
+
+  // Auto-save draft effect
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const autoSaveInterval = setInterval(async () => {
+      if (isDirty && (formValues.claimant?.name || formValues.claimant?.email)) {
+        try {
+          await saveDraft();
+          setLastSaved(new Date());
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+        }
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
   }, [isAuthenticated, currentDraftId, formValues, files, router, emailVerified, phoneVerified, additionalClaimantEmailVerified, additionalClaimantPhoneVerified]);
   
   // Load draft handler
@@ -3610,6 +3874,10 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       
       // CRITICAL FIX: Restore file metadata for file visibility
       if (draft.fileMetadata) {
+        // DEBUG: Log what file metadata we received from backend
+        console.log('🔧 RECEIVED FILE METADATA FROM BACKEND:', draft.fileMetadata);
+        console.log('🔧 FILE METADATA KEYS:', Object.keys(draft.fileMetadata));
+        
         // Create a file metadata state for display purposes
         const fileDisplayState: Record<string, any> = {};
         
@@ -3685,6 +3953,138 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
             }
           });
         }
+
+        // CRITICAL FIX: Handle Additional Claimants documents
+        if (completeFormData.additionalClaimants) {
+          completeFormData.additionalClaimants.forEach((ac: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `additionalClaimants.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `additionalClaimants.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `additionalClaimants.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // CRITICAL FIX: Handle Manager Details documents
+        if (completeFormData.managerDetails) {
+          completeFormData.managerDetails.forEach((manager: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `managerDetails.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `managerDetails.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `managerDetails.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // CRITICAL FIX: Handle Respondent Details documents
+        if (completeFormData.respondents) {
+          completeFormData.respondents.forEach((respondent: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `respondents.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `respondents.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `respondents.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // DEBUG: Log the complete file display state being set
+        console.log('🔧 CRITICAL DEBUG - Complete fileDisplayState being set:', fileDisplayState);
+        console.log('🔧 CRITICAL DEBUG - Additional Claimants files:', Object.keys(fileDisplayState).filter(key => key.includes('additionalClaimants')));
+        console.log('🔧 CRITICAL DEBUG - Manager Details files:', Object.keys(fileDisplayState).filter(key => key.includes('managerDetails')));
+        console.log('🔧 CRITICAL DEBUG - Respondent files:', Object.keys(fileDisplayState).filter(key => key.includes('respondents')));
+
+        // Update the files state with all file information
+        setFiles(fileDisplayState);
       } else if (draft.files) {
         // Fallback to old format
         setFiles(draft.files);
@@ -3692,6 +4092,29 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
       
       // Set edit mode
       setEditMode(true);
+
+      // CRITICAL FIX: Restore verification states if available
+      if (draft.verificationStates) {
+        setEmailVerified(draft.verificationStates.emailVerified || false);
+        setPhoneVerified(draft.verificationStates.phoneVerified || false);
+        setAdditionalClaimantEmailVerified(draft.verificationStates.additionalClaimantEmailVerified || []);
+        setAdditionalClaimantPhoneVerified(draft.verificationStates.additionalClaimantPhoneVerified || []);
+      } else {
+        // For existing data without verification states, assume verified if email/phone exist
+        const hasEmail = completeFormData.claimant?.email;
+        const hasPhone = completeFormData.claimant?.phone;
+        
+        if (hasEmail) setEmailVerified(true);
+        if (hasPhone) setPhoneVerified(true);
+        
+        // Set verification for additional claimants based on existing data
+        if (completeFormData.additionalClaimants) {
+          const emailStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.email);
+          const phoneStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.phone);
+          setAdditionalClaimantEmailVerified(emailStates);
+          setAdditionalClaimantPhoneVerified(phoneStates);
+        }
+      }
       
       toast.success('Draft loaded successfully');
     } catch (error: any) {
@@ -3701,45 +4124,47 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId }:
     }
   };
 
-  // CRITICAL FIX: Add submission success modal JSX
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Main form content */}
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Form content here - this would be the existing form JSX */}
-        {/* ... existing form content ... */}
-      </div>
+  // Show submission success modal
+  const showSubmissionSuccess = (caseId: string) => {
+    console.log('🔧 showSubmissionSuccess called with caseId:', caseId);
+    setSubmissionResult({
+      caseId: caseId,
+      applicationNumber: caseId
+    });
+    setShowSubmissionModal(true);
+    console.log('🔧 Modal state set to true');
+  };
 
-      {/* Submission Success Modal */}
-      {showSubmissionModal && submissionResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Application Submitted Successfully!
-              </h3>
-              <p className="text-sm text-gray-600 mb-6">
-                Your application is submitted successfully. Your application number is{' '}
-                <span className="font-semibold text-gray-900">{submissionResult.applicationNumber}</span>.
-                A PDF copy of your application has been sent to your registered email ID, as well as to all managers and respondents.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button 
-                  onClick={handleViewDashboard}
-                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  View Dashboard
-                </button>
-                <button 
-                  onClick={handleGoToMyCases}
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-                >
-                  Go to My Cases
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  // Handle modal actions
+  const handleViewDashboard = () => {
+    setShowSubmissionModal(false);
+    router.push('/dashboard');
+  };
+
+  const handleGoToMyCases = () => {
+    setShowSubmissionModal(false);
+    router.push('/dashboard/my-cases');
+  };
+
+  // Render form steps
+  const renderFormContent = () => {
+    // Get current form values for review page
+    const formData = watch();
+    const { 
+      claimant, 
+      additionalClaimants, 
+      managerDetails, 
+      respondents, 
+      arbitrationAgreement, 
+      natureOfDispute,
+      disputeDescriptions,
+      documentsEvidence,
+      prayers, 
+      payment, 
+      arguments: argumentsData, 
+      documents
+    } = formData;
+    
+    const argumentsPerIssue = argumentsData?.argumentsPerIssue || [];
+    
+    switch (activeStep) {

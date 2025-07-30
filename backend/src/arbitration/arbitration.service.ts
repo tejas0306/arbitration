@@ -196,13 +196,23 @@ export class ArbitrationService {
   }
 
   async getDraftById(id: string, userId: string) {
-    const draft = await this.arbitrationCaseRepository.findOne({
-      where: { id, claimantId: userId, status: 'DRAFT' },
+    const draft = await this.prisma.arbitration.findFirst({
+      where: { 
+        id, 
+        userId: userId, 
+        status: 'DRAFT' 
+      },
     });
 
     if (!draft) {
       throw new NotFoundException(`Draft with ID ${id} not found or not accessible`);
     }
+
+    console.log('🔧 getDraftById: Found draft:', {
+      id: draft.id,
+      hasFormData: !!draft.formData,
+      formDataKeys: draft.formData ? Object.keys(draft.formData) : 'NO_FORM_DATA'
+    });
 
     return draft;
   }

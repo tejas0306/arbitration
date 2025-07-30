@@ -53,5 +53,8 @@ export default function ArbitrationFormWrapper() {
   }
 
   // Only render form if authenticated
-  return isAuthenticated ? <ArbitrationForm /> : null
+  return isAuthenticated ? <ArbitrationForm onSubmit={async (data) => {
+    // This will be handled internally by the ArbitrationForm component
+    console.log('Form submitted:', data);
+  }} /> : null
 } 

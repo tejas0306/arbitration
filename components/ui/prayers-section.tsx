@@ -42,6 +42,19 @@ export const PrayersSection: React.FC<PrayersSectionProps> = ({ control, name })
 
   const prayers = useWatch({ control, name: name }) || [];
 
+  // Auto-add default prayer if none exist
+  React.useEffect(() => {
+    if (fields.length === 0) {
+      append({
+        id: Math.random().toString(36).substr(2, 9),
+        title: "Default Prayer",
+        description: "Please describe the relief sought",
+        amount: "",
+        reliefType: "monetary"
+      });
+    }
+  }, [fields.length, append]);
+
   const addPrayer = () => {
     append({
       id: Math.random().toString(36).substr(2, 9),

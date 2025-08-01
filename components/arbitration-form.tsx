@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { arbitrationApi, auth, api } from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -10,6 +12,13 @@ import { useForm, useFieldArray, Controller, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import DocumentsTabs from './evidence/DocumentsTabs';
+
+import PrayersSection from "@/components/ui/prayers-section"
+import ArgumentsSection from "@/components/ui/arguments-section"
+import { generateApplicationPDF, downloadPDF } from "@/lib/utils/pdf-generator";
+import DuplicateCheckDialog from "./duplicate-check-dialog";
+import { FormStepSidebar } from "@/components/ui/form-step-sidebar";
+import { Users, Gavel, Scale, FileText, DollarSign, MessageSquare, Eye } from 'lucide-react';
 
 // Add validation constants and regex at the top of the file
 const addressRegex = /^[^$%!~`*^+]*$/;
@@ -57,6 +66,75 @@ const steps = [
   "Review & Submit",
 ]
 
+const sidebarSteps = [
+  {
+    id: 0,
+    title: "Step 1: Claimant Details",
+    description: "Personal and business information",
+    icon: <Users className="w-5 h-5" />
+  },
+  {
+    id: 1,
+    title: "Step 2: Additional Claimants",
+    description: "Co-claimants and authorized managers",
+    icon: <Users className="w-5 h-5" />
+  },
+  {
+    id: 2,
+    title: "Step 3: Respondent Details",
+    description: "Opposing party information",
+    icon: <Users className="w-5 h-5" />
+  },
+  {
+    id: 3,
+    title: "Step 4: Arbitration Agreement",
+    description: "Agreement terms and arbitrator selection",
+    icon: <Gavel className="w-5 h-5" />
+  },
+  {
+    id: 4,
+    title: "Step 5: Nature of Dispute",
+    description: "Category and background details",
+    icon: <Scale className="w-5 h-5" />
+  },
+  {
+    id: 5,
+    title: "Step 6: Dispute Description",
+    description: "Detailed claims and supporting facts",
+    icon: <FileText className="w-5 h-5" />
+  },
+  {
+    id: 6,
+    title: "Step 7: Prayers & Reliefs",
+    description: "Specific remedies sought",
+    icon: <Scale className="w-5 h-5" />
+  },
+  {
+    id: 7,
+    title: "Step 8: Documents",
+    description: "Evidence and supporting files",
+    icon: <FileText className="w-5 h-5" />
+  },
+  {
+    id: 8,
+    title: "Step 9: Payment",
+    description: "Fee structure and payment details",
+    icon: <DollarSign className="w-5 h-5" />
+  },
+  {
+    id: 9,
+    title: "Step 10: Arguments",
+    description: "Legal arguments for each prayer",
+    icon: <MessageSquare className="w-5 h-5" />
+  },
+  {
+    id: 10,
+    title: "Step 11: Review & Submit",
+    description: "Final review before submission",
+    icon: <Eye className="w-5 h-5" />
+  },
+]
+
 const initialClaimant = {
   type: "",
   name: "",
@@ -79,6 +157,7 @@ const initialClaimant = {
 }
 
 const initialAdditionalClaimant = {
+  type: "individual",
   name: "",
   email: "",
   phoneCountryCode: "+91",
@@ -90,16 +169,30 @@ const initialAdditionalClaimant = {
   district: "",
   state: "",
   country: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialManagerDetails = {
+  type: "individual",
   name: "",
+  pincode: "",
+  address1: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
   email: "",
-  phoneCountryCode: "+91",
   phone: "",
-  address: "",
+  phoneCountryCode: "+91",
+  address2: "",
   designation: "",
   authority: "",
+  managerId: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialRespondent = {
@@ -118,6 +211,9 @@ const initialRespondent = {
   gst: "",
   pan: "",
   cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 }
 
 const initialArbitrationAgreement = {
@@ -157,13 +253,30 @@ const initialDocumentEvidence = {
 };
 
 const initialPrayers = {
-  prayers: "",
+  prayers: [{
+    id: Math.random().toString(36).substr(2, 9),
+    title: "Default Prayer",
+    description: "Please describe the relief sought",
+    amount: "",
+    reliefType: "monetary"
+  }]
 }
 
 const initialDocuments = {
   supportingDocuments: [] as File[],
   evidenceFiles: [] as File[],
   documentTypes: {} as Record<string, string>,
+  scannedDocuments: [{
+    documentType: "Default Document",
+    date: "",
+    file: null,
+    linkedIssue: "",
+    admissionStatus: "pending" as const,
+    description: "Default document description",
+    isOCREnabled: false,
+    extractedText: "",
+    keyMetadata: []
+  }]
 }
 
 const initialPayment = {
@@ -174,6 +287,7 @@ const initialPayment = {
 
 const initialArguments = {
   argumentsPerIssue: [] as string[],
+  argumentsPerPrayer: [] as any[],
 };
 
 const countryCodes = [
@@ -250,39 +364,132 @@ export const FormField: React.FC<FormFieldProps> = ({
     }
     // Handle PAN formatting (10 characters: AAAPL1234C)
     else if (name.includes('pan') && type === 'text') {
-      // Convert to uppercase
-      newValue = newValue.toUpperCase();
+      // Convert to uppercase and remove non-alphanumeric characters
+      newValue = newValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
       
       // Apply PAN format: 5 letters + 4 digits + 1 letter
-      if (newValue.length > 5) {
-        // Allow only digits for the middle 4 characters (position 5-8)
-        const firstPart = newValue.slice(0, 5);
-        let middlePart = '';
-        let lastPart = '';
-        
-        // Extract digits for middle part (positions 5-8)
+      let formattedValue = '';
+      
+      // First 5 characters: only letters
+      if (newValue.length > 0) {
+        const firstPart = newValue.slice(0, 5).replace(/[^A-Z]/g, '');
+        formattedValue += firstPart;
+      }
+      
+      // Next 4 characters: only digits  
         if (newValue.length > 5) {
-          const remainingChars = newValue.slice(5);
-          const digitsOnly = remainingChars.replace(/[^0-9]/g, '').slice(0, 4);
-          middlePart = digitsOnly;
-          
-          // Extract last character (should be a letter)
-          if (remainingChars.length > 4) {
-            const lastChar = remainingChars.slice(4).replace(/[^A-Z]/g, '').slice(0, 1);
-            lastPart = lastChar;
-          }
+        const middlePart = newValue.slice(5, 9).replace(/[^0-9]/g, '');
+        formattedValue += middlePart;
+      }
+      
+      // Last character: only letter
+      if (newValue.length > 9) {
+        const lastPart = newValue.slice(9, 10).replace(/[^A-Z]/g, '');
+        formattedValue += lastPart;
+      }
+      
+      newValue = formattedValue.slice(0, 10); // Limit to 10 characters
+    } 
+    // Handle GST formatting (15 characters: 22AAAAA0000A1Z5)
+    else if (name.includes('gst') && type === 'text') {
+      // Convert to uppercase and remove non-alphanumeric characters
+      newValue = newValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      
+      // Apply GST format: 2 digits + 10 chars + 1 digit + 1 char + 1 digit
+      let formattedValue = '';
+      
+      // First 2 characters: only digits (state code)
+      if (newValue.length > 0) {
+        const statePart = newValue.slice(0, 2).replace(/[^0-9]/g, '');
+        formattedValue += statePart;
+      }
+      
+      // Next 10 characters: PAN format (5 letters + 4 digits + 1 letter)
+      if (newValue.length > 2) {
+        const panPart = newValue.slice(2, 12);
+        let panFormatted = '';
+        
+        // 5 letters
+        if (panPart.length > 0) {
+          panFormatted += panPart.slice(0, 5).replace(/[^A-Z]/g, '');
+        }
+        // 4 digits
+        if (panPart.length > 5) {
+          panFormatted += panPart.slice(5, 9).replace(/[^0-9]/g, '');
+        }
+        // 1 letter
+        if (panPart.length > 9) {
+          panFormatted += panPart.slice(9, 10).replace(/[^A-Z]/g, '');
         }
         
-        newValue = firstPart + middlePart + lastPart;
+        formattedValue += panFormatted;
       }
+      
+      // Next character: only digit (entity number)
+      if (newValue.length > 12) {
+        const entityPart = newValue.slice(12, 13).replace(/[^0-9]/g, '');
+        formattedValue += entityPart;
+      }
+      
+      // Next character: letter or digit (default is Z)
+      if (newValue.length > 13) {
+        const defaultPart = newValue.slice(13, 14);
+        formattedValue += defaultPart;
+      }
+      
+      // Last character: digit (checksum)
+      if (newValue.length > 14) {
+        const checksumPart = newValue.slice(14, 15).replace(/[^0-9]/g, '');
+        formattedValue += checksumPart;
+      }
+      
+      newValue = formattedValue.slice(0, 15); // Limit to 15 characters
     } 
-    // Handle GST formatting (15 characters, convert to uppercase)
-    else if (name.includes('gst') && type === 'text') {
-      newValue = newValue.toUpperCase();
-    } 
-    // Handle CIN formatting (21 characters, convert to uppercase)
+    // Handle CIN formatting (21 characters: L17110DL1982PLC013403)
     else if (name.includes('cin') && type === 'text') {
-      newValue = newValue.toUpperCase();
+      // Convert to uppercase and remove non-alphanumeric characters
+      newValue = newValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      
+      // Apply CIN format: L + 5 digits + 2 letters + 4 digits + PLC/PTC + 6 digits
+      let formattedValue = '';
+      
+      // First character: L, U, or other letter
+      if (newValue.length > 0) {
+        const listingPart = newValue.slice(0, 1).replace(/[^A-Z]/g, '');
+        formattedValue += listingPart;
+      }
+      
+      // Next 5 characters: only digits (industry code)
+      if (newValue.length > 1) {
+        const industryPart = newValue.slice(1, 6).replace(/[^0-9]/g, '');
+        formattedValue += industryPart;
+      }
+      
+      // Next 2 characters: only letters (state code)
+      if (newValue.length > 6) {
+        const statePart = newValue.slice(6, 8).replace(/[^A-Z]/g, '');
+        formattedValue += statePart;
+      }
+      
+      // Next 4 characters: only digits (year)
+      if (newValue.length > 8) {
+        const yearPart = newValue.slice(8, 12).replace(/[^0-9]/g, '');
+        formattedValue += yearPart;
+      }
+      
+      // Next 3 characters: PLC, PTC, etc.
+      if (newValue.length > 12) {
+        const typePart = newValue.slice(12, 15).replace(/[^A-Z]/g, '');
+        formattedValue += typePart;
+      }
+      
+      // Last 6 characters: only digits (registration number)
+      if (newValue.length > 15) {
+        const regPart = newValue.slice(15, 21).replace(/[^0-9]/g, '');
+        formattedValue += regPart;
+      }
+      
+      newValue = formattedValue.slice(0, 21); // Limit to 21 characters
     }
     
     // Create a new event with the modified value
@@ -302,9 +509,9 @@ export const FormField: React.FC<FormFieldProps> = ({
   const isPhoneField = name.includes('phone') && !name.includes('phoneCountryCode');
   
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm mb-1">
-        {label}{required && '*'}
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        {label}{required && <span className="text-red-500 ml-1">*</span>}
       </label>
       
       {type === "select" ? (
@@ -313,7 +520,9 @@ export const FormField: React.FC<FormFieldProps> = ({
           name={name}
           value={value}
           onChange={handleChange}
-          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+          className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm transition duration-200 ${
+            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'hover:border-gray-300'
+          }`}
         >
           <option value="">{placeholder || `Select ${label}`}</option>
           {options?.map((option) => (
@@ -330,15 +539,23 @@ export const FormField: React.FC<FormFieldProps> = ({
           value={value}
           onChange={handleChange}
           maxLength={maxLength}
+          max={max}
           placeholder={placeholder}
           inputMode={name.includes('pincode') ? 'numeric' : undefined}
           pattern={name.includes('pincode') ? '[0-9]*' : undefined}
           style={isBusinessId ? { textTransform: 'uppercase' } : undefined}
-          className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+          className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 ${
+            error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'hover:border-gray-300'
+          }`}
         />
       )}
       
-      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+      {error && <div className="text-red-500 text-xs mt-1 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </div>}
     </div>
   );
 };
@@ -370,9 +587,9 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
   const id = `field-${name}`;
   
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm mb-1">
-        {label}{required && '*'}
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        {label}{required && <span className="text-red-500 ml-1">*</span>}
       </label>
       
       <textarea
@@ -383,10 +600,23 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
         maxLength={maxLength}
         placeholder={placeholder}
         rows={rows}
-        className={`w-full border rounded px-2 py-1 ${error ? 'border-red-500' : ''}`}
+        className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 placeholder-gray-400 resize-vertical ${
+          error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'hover:border-gray-300'
+        }`}
       />
       
-      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+      {maxLength && (
+        <div className="text-xs text-gray-500 text-right">
+          {value.length}/{maxLength} characters
+        </div>
+      )}
+      
+      {error && <div className="text-red-500 text-xs mt-1 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </div>}
     </div>
   );
 };
@@ -483,6 +713,7 @@ interface FileFieldProps {
   error?: string;
   accept?: string;
   multiple?: boolean;
+  existingFile?: any; // Add existingFile prop
 }
 
 export const FileField: React.FC<FileFieldProps> = ({
@@ -493,13 +724,21 @@ export const FileField: React.FC<FileFieldProps> = ({
   error,
   accept,
   multiple = false,
+  existingFile,
 }) => {
   const id = `field-${name}`;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
   
-  // Get existing file info from the parent component's files state
-  const existingFile = (window as any).currentFiles?.[name];
+  // Debug logging for existingFile prop
+  useEffect(() => {
+      console.log(`🔧 FileField ${name} received existingFile:`, existingFile);
+    if (existingFile) {
+      console.log(`🔧 FileField ${name} has existingFile with name:`, existingFile.name);
+    } else {
+      console.log(`🔧 FileField ${name} has NO existingFile`);
+    }
+  }, [existingFile, name]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (multiple) {
@@ -613,9 +852,10 @@ const formSchema = z.object({
   
   // Additional Claimants
   additionalClaimants: z.array(z.object({
+    type: z.string().min(1, "Type is required"),
     name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
-    email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH),
-    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    email: z.string().min(1, "Email is required").email("Must be a valid email").max(MAX_EMAIL_LENGTH),
+    phone: z.string().min(10, "Phone is required").regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
     phoneCountryCode: z.string().default("+91"),
     pincode: z.string()
       .min(6, "Pincode must be 6 digits")
@@ -629,17 +869,55 @@ const formSchema = z.object({
     district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
     state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
     country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
+    gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
+    pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
+    cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).default([]),
   
   // Manager details - change to array
   managerDetails: z.array(z.object({
-    name: z.string().max(MAX_NAME_LENGTH),
-    email: z.string().email("Must be a valid email").max(MAX_EMAIL_LENGTH).optional(),
-    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
-    address: z.string().max(MAX_ADDRESS_LENGTH).optional(),
-    designation: z.string().max(MAX_NAME_LENGTH).optional(),
-    authority: z.string().max(MAX_NAME_LENGTH).optional(),
+    type: z.string().min(1, "Type is required"),
+    name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH),
+    email: z.string().min(1, "Email is required").email("Must be a valid email").max(MAX_EMAIL_LENGTH),
+    phone: z.string().min(10, "Phone is required").regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
     phoneCountryCode: z.string().default("+91"),
+    pincode: z.string()
+      .min(6, "Pincode must be 6 digits")
+      .max(6, "Pincode must be 6 digits")
+      .regex(/^\d{6}$/, "Must be a valid 6-digit pincode"),
+    address1: z.string().min(1, "Address is required").max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters"),
+    address2: z.string().max(MAX_ADDRESS_LENGTH)
+      .regex(addressRegex, "Address contains invalid characters").optional(),
+    city: z.string().min(1, "City is required").max(MAX_CITY_LENGTH),
+    district: z.string().min(1, "District is required").max(MAX_DISTRICT_LENGTH),
+    state: z.string().min(1, "State is required").max(MAX_STATE_LENGTH),
+    country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
+    // Manager ID Number - NEW MANDATORY FIELD
+    managerId: z.string().min(1, "Manager ID Number is required").max(50, "Manager ID must be less than 50 characters"),
+    gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
+    pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
+    cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).default([]),
   
   // Respondent details
@@ -660,11 +938,21 @@ const formSchema = z.object({
     country: z.string().min(1, "Country is required").max(MAX_COUNTRY_LENGTH),
     email: z.string().min(1, "Email is required").max(MAX_EMAIL_LENGTH)
       .email("Must be a valid email address"),
-    phone: z.string().regex(/^\d{10}$/, "Must be a valid 10-digit phone number").optional(),
+    phone: z.string().min(10, "Phone is required").regex(/^\d{10}$/, "Must be a valid 10-digit phone number"),
+    phoneCountryCode: z.string().default("+91"),
     gst: z.string().min(MIN_GST_LENGTH, "GST must be 15 characters").max(MAX_GST_LENGTH, "GST must be 15 characters").optional(),
     pan: z.string().min(MIN_PAN_LENGTH, "PAN must be 10 characters").max(MAX_PAN_LENGTH, "PAN must be 10 characters").optional(),
     cin: z.string().min(MIN_CIN_LENGTH, "CIN must be 21 characters").max(MAX_CIN_LENGTH, "CIN must be 21 characters").optional(),
-    phoneCountryCode: z.string().default("+91"),
+    // Document upload requirements
+    coi: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "Certificate of Incorporation is required",
+    }),
+    panCard: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "PAN Card is required",
+    }),
+    gstCert: z.any().refine((file) => file instanceof File || (file && file.isExisting), {
+      message: "GST Certificate is required",
+    }),
   })).min(1, "At least one respondent is required"),
   
   // Arbitration Agreement
@@ -684,8 +972,8 @@ const formSchema = z.object({
     // agreementFile handled separately
   }),
   
-  // Nature of Dispute
-  natureOfDispute: z.object({
+  // Nature of Dispute (can be multiple)
+  natureOfDispute: z.array(z.object({
     category: z.string().min(1, "Category is required"),
     subCategory: z.string().min(1, "Sub Category is required"),
     natureOfDispute: z.string().min(1, "Nature of Dispute is required"),
@@ -698,7 +986,7 @@ const formSchema = z.object({
         return selected <= today;
       }, "Date cannot be in the future"),
     standardisedPrayerClauses: z.string().min(1, "Standardised prayer clauses is required"),
-  }),
+  })).min(1, "At least one nature of dispute is required"),
 
   // Dispute Description (can be multiple)
   disputeDescriptions: z.array(z.object({
@@ -724,7 +1012,13 @@ const formSchema = z.object({
   
   // Prayers & Reliefs
   prayers: z.object({
-    prayers: z.string().min(1, "Prayers & reliefs is required").max(3000),
+    prayers: z.array(z.object({
+      id: z.string(),
+      title: z.string().min(1, "Prayer title is required"),
+      description: z.string().min(1, "Prayer description is required"),
+      amount: z.string().optional(),
+      reliefType: z.enum(["monetary", "specific_performance", "declaratory", "injunction", "costs", "interim", "other"])
+    })).min(1, "At least one prayer is required"),
   }),
   
   // Documents - Handled separately as they are File objects
@@ -743,6 +1037,14 @@ const formSchema = z.object({
   arguments: z.object({
     argumentsPerIssue: z.array(z.string().max(2000))
       .min(1, "At least one argument is required"),
+    argumentsPerPrayer: z.array(z.object({
+      prayerId: z.string(),
+      prayerTitle: z.string(),
+      argument: z.string().max(2000),
+      legalBasis: z.string().max(1000).optional(),
+      factualBasis: z.string().max(1000).optional(),
+      precedents: z.string().max(1000).optional()
+    })).optional(),
   }),
   
   documents: z.object({
@@ -760,7 +1062,12 @@ const formSchema = z.object({
         isOCREnabled: z.boolean().default(false),
         linkedIssue: z.string().min(1, "Linked issue is required").optional(),
         admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
-        crossExaminationRef: z.string().optional()
+        crossExaminationRef: z.string().optional(),
+        extractedText: z.string().optional(),
+        keyMetadata: z.array(z.object({
+          key: z.string(),
+          value: z.string()
+        })).optional()
       })
     ).optional().default([]),
     
@@ -923,9 +1230,30 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
 interface ArbitrationFormProps {
   initialData?: any;
   petitionId?: string;
+  draftId?: string;
+  mode?: 'create' | 'edit';
+  onSubmit: (data: FormData) => Promise<void>;
 }
 
-function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {}) {
+function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, draftId }: ArbitrationFormProps) {
+  console.log('🔧 ArbitrationForm: Component mounted with:', {
+    mode,
+    hasInitialData: !!initialData,
+    initialDataKeys: initialData ? Object.keys(initialData) : [],
+    hasDocuments: !!initialData?.documents,
+    documentsKeys: initialData?.documents ? Object.keys(initialData.documents) : [],
+    hasFileMetadata: !!initialData?.fileMetadata,
+    fileMetadataKeys: initialData?.fileMetadata ? Object.keys(initialData.fileMetadata) : [],
+    hasFiles: !!initialData?.files,
+    filesKeys: initialData?.files ? Object.keys(initialData.files) : [],
+    sampleInitialData: initialData ? {
+      claimant: !!initialData.claimant,
+      arbitrationAgreement: !!initialData.arbitrationAgreement,
+      disputeDetails: !!initialData.disputeDetails,
+      respondents: !!initialData.respondents
+    } : 'none'
+  });
+
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   
@@ -946,18 +1274,72 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Keep track of processed pincodes to avoid infinite loading
   const processedPincodes = useRef<Record<string, boolean>>({});
   
-  // Location lookup state
-  const [stateOptions, setStateOptions] = useState<Array<{ value: string, label: string }>>([]);
-  const [districtOptions, setDistrictOptions] = useState<Array<{ value: string, label: string }>>([]);
-  const [cityOptions, setCityOptions] = useState<Array<{ value: string, label: string }>>([]);
-  const [countryOptions, setCountryOptions] = useState<Array<{ value: string, label: string }>>([]);
+  // Location options state - CRITICAL FIX: Separate options for each form section
+  const [claimantLocationOptions, setClaimantLocationOptions] = useState<{
+    states: Array<{ value: string, label: string }>;
+    districts: Array<{ value: string, label: string }>;
+    cities: Array<{ value: string, label: string }>;
+    countries: Array<{ value: string, label: string }>;
+  }>({
+    states: [],
+    districts: [],
+    cities: [],
+    countries: []
+  });
+  
+  const [respondentLocationOptions, setRespondentLocationOptions] = useState<{
+    [key: number]: {
+      states: Array<{ value: string, label: string }>;
+      districts: Array<{ value: string, label: string }>;
+      cities: Array<{ value: string, label: string }>;
+      countries: Array<{ value: string, label: string }>;
+    }
+  }>({});
+  
+  const [additionalClaimantLocationOptions, setAdditionalClaimantLocationOptions] = useState<{
+    [key: number]: {
+      states: Array<{ value: string, label: string }>;
+      districts: Array<{ value: string, label: string }>;
+      cities: Array<{ value: string, label: string }>;
+      countries: Array<{ value: string, label: string }>;
+    }
+  }>({});
   
   // File management state - Store files separately from form data
   const [files, setFiles] = useState<Record<string, File | null>>({});
   
+  // Submission confirmation modal state
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<{
+    caseId: string;
+    applicationNumber: string;
+  } | null>(null);
+  
+  // Initialize files state
+  useEffect(() => {
+    if (Object.keys(files).length === 0) {
+      setFiles({
+        'claimant.coi': null,
+        'claimant.panCard': null,
+        'claimant.gstCert': null,
+        'agreementFile': null,
+      });
+    }
+  }, []);
+  
   // Make files accessible to FileField components
   useEffect(() => {
     (window as any).currentFiles = files;
+  }, [files]);
+  
+  // Debug: Monitor files state changes
+  useEffect(() => {
+    console.log('🔧 Files state changed:', files);
+    console.log('🔧 Company files in state:', {
+      coi: files['claimant.coi'],
+      panCard: files['claimant.panCard'],
+      gstCert: files['claimant.gstCert']
+    });
   }, [files]);
   
   // Check authentication status on component mount - using an empty dependency array to run only once
@@ -1017,6 +1399,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   const [additionalClaimantEmailVerified, setAdditionalClaimantEmailVerified] = useState<boolean[]>([]);
   const [additionalClaimantPhoneVerified, setAdditionalClaimantPhoneVerified] = useState<boolean[]>([]);
   
+  // Manager verification states (arrays to handle multiple managers)
+  const [managerEmailVerified, setManagerEmailVerified] = useState<boolean[]>([]);
+  const [managerPhoneVerified, setManagerPhoneVerified] = useState<boolean[]>([]);
+  
+  // Respondent verification states (arrays to handle multiple respondents)
+  const [respondentEmailVerified, setRespondentEmailVerified] = useState<boolean[]>([]);
+  const [respondentPhoneVerified, setRespondentPhoneVerified] = useState<boolean[]>([]);
+  
   // Main claimant verification states
   const [showEmailOTP, setShowEmailOTP] = useState(false);
   const [showPhoneOTP, setShowPhoneOTP] = useState(false);
@@ -1032,6 +1422,37 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   const [additionalPhoneOTP, setAdditionalPhoneOTP] = useState<string[]>([]);
   const [sentAdditionalEmailOTP, setSentAdditionalEmailOTP] = useState<string[]>([]);
   const [sentAdditionalPhoneOTP, setSentAdditionalPhoneOTP] = useState<string[]>([]);
+
+  // Respondent modal states
+  const [showRespondentEmailModal, setShowRespondentEmailModal] = useState<boolean[]>([]);
+  const [showRespondentPhoneModal, setShowRespondentPhoneModal] = useState<boolean[]>([]);
+  const [respondentEmailOTPs, setRespondentEmailOTPs] = useState<string[]>([]);
+  const [respondentPhoneOTPs, setRespondentPhoneOTPs] = useState<string[]>([]);
+  const [respondentEmailOTPInputs, setRespondentEmailOTPInputs] = useState<string[]>([]);
+  const [respondentPhoneOTPInputs, setRespondentPhoneOTPInputs] = useState<string[]>([]);
+
+  // Duplicate check dialog state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateCheckResult, setDuplicateCheckResult] = useState<any>(null);
+  const [pendingSubmissionData, setPendingSubmissionData] = useState<any>(null);
+  
+  // Draft list modal state
+  const [showDraftList, setShowDraftList] = useState(false);
+  
+  // Define steps for navigation
+  const steps = [
+    { id: 0, title: "Step 1: Claimant Details", description: "Personal and business information" },
+    { id: 1, title: "Step 2: Additional Claimants", description: "Co-claimants and authorized managers" },
+    { id: 2, title: "Step 3: Respondent Details", description: "Opposing party information" },
+    { id: 3, title: "Step 4: Arbitration Agreement", description: "Agreement terms and arbitrator selection" },
+    { id: 4, title: "Step 5: Nature of Dispute", description: "Category and background details" },
+    { id: 5, title: "Step 6: Dispute Description", description: "Detailed claims and supporting facts" },
+    { id: 6, title: "Step 7: Prayers & Reliefs", description: "Specific remedies sought" },
+    { id: 7, title: "Step 8: Documents", description: "Evidence and supporting files" },
+    { id: 8, title: "Step 9: Payment", description: "Fee structure and payment details" },
+    { id: 9, title: "Step 10: Arguments", description: "Legal arguments for each prayer" },
+    { id: 10, title: "Step 11: Review & Submit", description: "Final review before submission" }
+  ];
   
   const stepRefs = useRef<(HTMLElement | null)[]>(Array(steps.length).fill(null));
   
@@ -1053,17 +1474,13 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       managerDetails: [initialManagerDetails],
       respondents: [initialRespondent],
       arbitrationAgreement: initialArbitrationAgreement,
-      natureOfDispute: initialNatureOfDispute,
+      natureOfDispute: [initialNatureOfDispute], // Add default nature of dispute
       disputeDescriptions: [initialDisputeDescription],
       documentsEvidence: [initialDocumentEvidence],
       prayers: initialPrayers,
       payment: initialPayment,
       arguments: initialArguments,
-      documents: {
-        supportingDocuments: [],
-        evidenceFiles: [],
-        documentTypes: {},
-      },
+      documents: initialDocuments,
     }
   });
   
@@ -1114,10 +1531,42 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     name: "disputeDescriptions",
   });
 
+  // Field array for nature of dispute (multiple)
+  const { 
+    fields: natureOfDisputeFields, 
+    append: appendNatureOfDispute,
+    remove: removeNatureOfDispute
+  } = useFieldArray({
+    control,
+    name: "natureOfDispute",
+  });
+
+  // Field array for prayers
+  const { 
+    fields: prayerFields, 
+    append: appendPrayer,
+    remove: removePrayer
+  } = useFieldArray({
+    control,
+    name: "prayers.prayers",
+  });
+
+  // Field array for documents
+  const { 
+    fields: documentFields, 
+    append: appendDocument,
+    remove: removeDocument
+  } = useFieldArray({
+    control,
+    name: "documents.scannedDocuments",
+  });
+
   // Removed documentsEvidence field array since we eliminated the duplicate Documents/Evidence step
   
   // Watch form values
   const formValues = watch();
+
+
 
   // Effect to load initial data when in edit mode (after useForm is defined)
   useEffect(() => {
@@ -1205,6 +1654,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             setValue('documentsEvidence', completeFormData.documentsEvidence);
           }
           
+          console.log('🔧 Initial data loaded:', {
+            hasFileMetadata: !!initialData.fileMetadata,
+            fileMetadataKeys: initialData.fileMetadata ? Object.keys(initialData.fileMetadata) : [],
+            hasFiles: !!initialData.files,
+            filesKeys: initialData.files ? Object.keys(initialData.files) : [],
+            completeFormData: completeFormData
+          });
+          
                                 // CRITICAL FIX: Restore file metadata for file visibility
           if (initialData.fileMetadata) {
             // Create a file metadata state for display purposes
@@ -1224,7 +1681,28 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
               }
             });
             
+            console.log('🔧 Loading file metadata for edit mode:', fileDisplayState);
+            console.log('🔧 Available file metadata keys:', Object.keys(initialData.fileMetadata));
+            
+            // CRITICAL DEBUG: Log specific document files
+            console.log('🔧 Document files being set:', {
+              scannedDocs: Object.keys(fileDisplayState).filter(key => key.startsWith('scannedDoc_')),
+              affidavits: Object.keys(fileDisplayState).filter(key => key.startsWith('affidavit_')),
+              certificates: Object.keys(fileDisplayState).filter(key => key.startsWith('certificate_')),
+              allFiles: Object.keys(fileDisplayState)
+            });
+            
             setFiles(fileDisplayState);
+            
+            // CRITICAL FIX: Expose files state globally for FileField components
+            (window as any).currentFiles = fileDisplayState;
+            
+            // Debug: Log the specific company document files
+            console.log('🔧 Company document files:', {
+              coi: fileDisplayState['claimant.coi'],
+              panCard: fileDisplayState['claimant.panCard'],
+              gstCert: fileDisplayState['claimant.gstCert']
+            });
             
             // ENHANCEMENT: Also populate DocumentsTabs file fields
             // Map backend field names to frontend form structure
@@ -1318,8 +1796,8 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             
             // Set verification for additional claimants
             if (completeFormData.additionalClaimants) {
-              const emailStates = completeFormData.additionalClaimants.map(ac => !!ac.email);
-              const phoneStates = completeFormData.additionalClaimants.map(ac => !!ac.phone);
+              const emailStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.email);
+              const phoneStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.phone);
               setAdditionalClaimantEmailVerified(emailStates);
               setAdditionalClaimantPhoneVerified(phoneStates);
             }
@@ -1334,6 +1812,14 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       loadInitialData();
     }
   }, [initialData, petitionId]); // Removed reset and setValue from dependencies to avoid circular dependency
+  
+  // Load draft when draftId is provided
+  useEffect(() => {
+    if (draftId && isAuthenticated) {
+      console.log('🔧 ArbitrationForm: Loading draft with ID:', draftId);
+      loadDraft(draftId);
+    }
+  }, [draftId, isAuthenticated]);
   
   // Watch for pincode changes and fetch location data
   const pincode = watch('claimant.pincode');
@@ -1364,10 +1850,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
             
             // Convert to option objects for dropdowns
-            setCountryOptions([{ value: postOffice.Country, label: postOffice.Country }]);
-            setStateOptions([{ value: postOffice.State, label: postOffice.State }]);
-            setDistrictOptions([{ value: postOffice.District, label: postOffice.District }]);
-            setCityOptions(cities.map(city => ({ value: city, label: city })));
+            setClaimantLocationOptions({
+              states: [{ value: postOffice.State, label: postOffice.State }],
+              districts: [{ value: postOffice.District, label: postOffice.District }],
+              cities: cities.map(city => ({ value: city, label: city })),
+              countries: [{ value: postOffice.Country, label: postOffice.Country }]
+            });
             
             // Update form fields with new values
             setValue('claimant.country', postOffice.Country);
@@ -1412,43 +1900,22 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 // Extract unique cities from all post offices
                 const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
                 
+                // CRITICAL FIX: Update location options for respondent forms
+                setRespondentLocationOptions(prev => ({
+                  ...prev,
+                  [index]: {
+                    states: [{ value: postOffice.State, label: postOffice.State }],
+                    districts: [{ value: postOffice.District, label: postOffice.District }],
+                    cities: cities.map(city => ({ value: city, label: city })),
+                    countries: [{ value: postOffice.Country, label: postOffice.Country }]
+                  }
+                }));
+                
                 // Update form fields with new values for this specific respondent
                 setValue(`respondents.${index}.country`, postOffice.Country);
                 setValue(`respondents.${index}.state`, postOffice.State);
                 setValue(`respondents.${index}.district`, postOffice.District);
                 setValue(`respondents.${index}.city`, cities[0] || "");
-                
-                // CRITICAL FIX: Update location options for respondent forms
-                setCountryOptions(prev => {
-                  const existing = prev.find(opt => opt.value === postOffice.Country);
-                  if (!existing) {
-                    return [...prev, { value: postOffice.Country, label: postOffice.Country }];
-                  }
-                  return prev;
-                });
-                
-                setStateOptions(prev => {
-                  const existing = prev.find(opt => opt.value === postOffice.State);
-                  if (!existing) {
-                    return [...prev, { value: postOffice.State, label: postOffice.State }];
-                  }
-                  return prev;
-                });
-                
-                setDistrictOptions(prev => {
-                  const existing = prev.find(opt => opt.value === postOffice.District);
-                  if (!existing) {
-                    return [...prev, { value: postOffice.District, label: postOffice.District }];
-                  }
-                  return prev;
-                });
-                
-                setCityOptions(prev => {
-                  const newCities = cities.map(city => ({ value: city, label: city }));
-                  const existingValues = prev.map(opt => opt.value);
-                  const filteredNewCities = newCities.filter(city => !existingValues.includes(city.value));
-                  return [...prev, ...filteredNewCities];
-                });
                 
                 toast.success(`Respondent ${index + 1}: Pincode ${respPincode} found, location details loaded.`);
               } else {
@@ -1488,6 +1955,17 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                 
                 // Extract unique cities from all post offices
                 const cities = Array.from(new Set(data[0].PostOffice.map(po => po.Name)));
+                
+                // CRITICAL FIX: Update location options for additional claimant forms
+                setAdditionalClaimantLocationOptions(prev => ({
+                  ...prev,
+                  [index]: {
+                    states: [{ value: postOffice.State, label: postOffice.State }],
+                    districts: [{ value: postOffice.District, label: postOffice.District }],
+                    cities: cities.map(city => ({ value: city, label: city })),
+                    countries: [{ value: postOffice.Country, label: postOffice.Country }]
+                  }
+                }));
                 
                 // Update form fields with new values
                 setValue(`additionalClaimants.${index}.country`, postOffice.Country);
@@ -1568,6 +2046,61 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     }
   }, [additionalClaimants, initialData, editMode, petitionId, additionalClaimantEmailVerified, additionalClaimantPhoneVerified]);
   
+  // Reset verification when email/phone changes
+  useEffect(() => {
+    // Reset main claimant email verification if email changes (unless it's initial load)
+    if (currentEmail && !editMode && !petitionId) {
+      // Only reset if we're not in edit mode and this isn't the initial load
+      const previousEmail = formValues.claimant?.email;
+      if (previousEmail && previousEmail !== currentEmail && emailVerified) {
+        setEmailVerified(false);
+        toast.info('Email changed. Please verify your new email address.');
+      }
+    }
+  }, [currentEmail, editMode, petitionId, emailVerified, formValues.claimant?.email]);
+
+  useEffect(() => {
+    // Reset main claimant phone verification if phone changes (unless it's initial load)
+    if (currentPhone && !editMode && !petitionId) {
+      // Only reset if we're not in edit mode and this isn't the initial load
+      const previousPhone = formValues.claimant?.phone;
+      if (previousPhone && previousPhone !== currentPhone && phoneVerified) {
+        setPhoneVerified(false);
+        toast.info('Phone number changed. Please verify your new phone number.');
+      }
+    }
+  }, [currentPhone, editMode, petitionId, phoneVerified, formValues.claimant?.phone]);
+
+  // Reset additional claimant verification when their contact info changes
+  useEffect(() => {
+    additionalClaimants.forEach((claimant, index) => {
+      if (!editMode && !petitionId) {
+        // Check if email changed for this additional claimant
+        const previousClaimants = formValues.additionalClaimants || [];
+        const previousEmail = previousClaimants[index]?.email;
+        if (previousEmail && previousEmail !== claimant.email && additionalClaimantEmailVerified[index]) {
+          setAdditionalClaimantEmailVerified(prev => {
+            const newVerified = [...prev];
+            newVerified[index] = false;
+            return newVerified;
+          });
+          toast.info(`Additional Claimant ${index + 1}: Email changed. Please verify the new email address.`);
+        }
+
+        // Check if phone changed for this additional claimant
+        const previousPhone = previousClaimants[index]?.phone;
+        if (previousPhone && previousPhone !== claimant.phone && additionalClaimantPhoneVerified[index]) {
+          setAdditionalClaimantPhoneVerified(prev => {
+            const newVerified = [...prev];
+            newVerified[index] = false;
+            return newVerified;
+          });
+          toast.info(`Additional Claimant ${index + 1}: Phone number changed. Please verify the new phone number.`);
+        }
+      }
+    });
+  }, [additionalClaimants, editMode, petitionId, additionalClaimantEmailVerified, additionalClaimantPhoneVerified, formValues.additionalClaimants]);
+  
   // Helper functions for field arrays
   const addAdditionalClaimant = () => {
     appendAdditionalClaimant(initialAdditionalClaimant);
@@ -1599,6 +2132,9 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   
   const addManager = () => {
     appendManager(initialManagerDetails);
+    // Add verification states for the new manager
+    setManagerEmailVerified(prev => [...prev, false]);
+    setManagerPhoneVerified(prev => [...prev, false]);
   };
   
   const addRespondent = () => {
@@ -1620,6 +2156,9 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       pan: "",
       cin: "",
     });
+    // Add verification states for the new respondent
+    setRespondentEmailVerified(prev => [...prev, false]);
+    setRespondentPhoneVerified(prev => [...prev, false]);
   };
   
   const addArgument = () => {
@@ -1628,6 +2167,16 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
 
   const addDisputeDescription = () => {
     appendDisputeDescription(initialDisputeDescription);
+  };
+
+  const addNatureOfDispute = () => {
+    appendNatureOfDispute({
+      category: "",
+      subCategory: "",
+      natureOfDispute: "",
+      dateWhenRightToClaimArose: "",
+      standardisedPrayerClauses: "",
+    });
   };
 
   // Removed addDocumentEvidence function since we eliminated the duplicate Documents/Evidence step
@@ -1700,6 +2249,35 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       toast.success('Phone verified successfully!');
     } else {
       toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  // Draft management functions
+  const hasSavedDraft = () => {
+    if (typeof window === 'undefined') return false;
+    return !!localStorage.getItem('arbitration_draft_timestamp');
+  };
+
+  const loadLocalDraft = () => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const draftData = localStorage.getItem('arbitration_draft_data');
+      const savedStep = localStorage.getItem('arbitration_draft_step');
+      
+      if (draftData) {
+        const parsedData = JSON.parse(draftData);
+        reset(parsedData);
+        
+        if (savedStep) {
+          setActiveStep(parseInt(savedStep));
+        }
+        
+        toast.success('Draft loaded successfully');
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+      toast.error('Failed to load draft');
     }
   };
 
@@ -1863,9 +2441,236 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     setShowAdditionalPhoneOTP(newShowModals);
     setAdditionalPhoneOTP(newOTPs);
   };
+
+  // Manager verification functions
+  const sendManagerPhoneVerification = async (index: number) => {
+    const phone = watch(`managerDetails.${index}.phone`);
+    const countryCode = watch(`managerDetails.${index}.phoneCountryCode`);
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      toast.success(`Demo OTP sent to ${countryCode} ${phone}: ${otp}`);
+      
+      // Mark as verified for demo
+      setManagerPhoneVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      toast.success(`Phone verified successfully for Manager ${index + 1}`);
+    } catch (error) {
+      toast.error('Failed to send verification SMS');
+    }
+  };
+
+  const sendManagerEmailVerification = async (index: number) => {
+    const email = watch(`managerDetails.${index}.email`);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      toast.success(`Demo OTP sent to ${email}: ${otp}`);
+      
+      // Mark as verified for demo
+      setManagerEmailVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      toast.success(`Email verified successfully for Manager ${index + 1}`);
+    } catch (error) {
+      toast.error('Failed to send verification email');
+    }
+  };
+
+  // Respondent verification functions
+  const sendRespondentPhoneVerification = async (index: number) => {
+    const phone = watch(`respondents.${index}.phone`);
+    const countryCode = watch(`respondents.${index}.phoneCountryCode`);
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      // Store OTP for verification
+      setRespondentPhoneOTPs(prev => {
+        const newOTPs = [...prev];
+        newOTPs[index] = otp;
+        return newOTPs;
+      });
+      
+      // Show OTP modal
+      setShowRespondentPhoneModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = true;
+        return newModals;
+      });
+      
+      toast.success(`Demo OTP sent to ${countryCode} ${phone}: ${otp}`);
+    } catch (error) {
+      toast.error('Failed to send verification SMS');
+    }
+  };
+
+  const sendRespondentEmailVerification = async (index: number) => {
+    const email = watch(`respondents.${index}.email`);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    try {
+      // Generate OTP for demo
+      const otp = generateOTP();
+      
+      // Store OTP for verification
+      setRespondentEmailOTPs(prev => {
+        const newOTPs = [...prev];
+        newOTPs[index] = otp;
+        return newOTPs;
+      });
+      
+      // Show OTP modal
+      setShowRespondentEmailModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = true;
+        return newModals;
+      });
+      
+      toast.success(`Demo OTP sent to ${email}: ${otp}`);
+    } catch (error) {
+      toast.error('Failed to send verification email');
+    }
+  };
+
+  const verifyRespondentEmailOTP = (index: number) => {
+    const enteredOTP = respondentEmailOTPInputs[index];
+    const correctOTP = respondentEmailOTPs[index];
+    
+    if (enteredOTP === correctOTP) {
+      setRespondentEmailVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      // Clear OTP input
+      setRespondentEmailOTPInputs(prev => {
+        const newInputs = [...prev];
+        newInputs[index] = '';
+        return newInputs;
+      });
+      
+      // Close modal
+      setShowRespondentEmailModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = false;
+        return newModals;
+      });
+      
+      toast.success(`Email verified successfully for Respondent ${index + 1}`);
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const verifyRespondentPhoneOTP = (index: number) => {
+    const enteredOTP = respondentPhoneOTPInputs[index];
+    const correctOTP = respondentPhoneOTPs[index];
+    
+    if (enteredOTP === correctOTP) {
+      setRespondentPhoneVerified(prev => {
+        const newVerified = [...prev];
+        newVerified[index] = true;
+        return newVerified;
+      });
+      
+      // Clear OTP input
+      setRespondentPhoneOTPInputs(prev => {
+        const newInputs = [...prev];
+        newInputs[index] = '';
+        return newInputs;
+      });
+      
+      // Close modal
+      setShowRespondentPhoneModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = false;
+        return newModals;
+      });
+      
+      toast.success(`Phone verified successfully for Respondent ${index + 1}`);
+    } else {
+      toast.error('Invalid OTP. Please try again.');
+    }
+  };
+
+  const handleRespondentEmailOTPChange = (index: number, value: string) => {
+    setRespondentEmailOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = value;
+      return newInputs;
+    });
+  };
+
+  const handleRespondentPhoneOTPChange = (index: number, value: string) => {
+    setRespondentPhoneOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = value;
+      return newInputs;
+    });
+  };
+
+  const closeRespondentEmailModal = (index: number) => {
+    setShowRespondentEmailModal(prev => {
+      const newModals = [...prev];
+      newModals[index] = false;
+      return newModals;
+    });
+    
+    // Clear OTP input
+    setRespondentEmailOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = '';
+      return newInputs;
+    });
+  };
+
+  const closeRespondentPhoneModal = (index: number) => {
+    setShowRespondentPhoneModal(prev => {
+      const newModals = [...prev];
+      newModals[index] = false;
+      return newModals;
+    });
+    
+    // Clear OTP input
+    setRespondentPhoneOTPInputs(prev => {
+      const newInputs = [...prev];
+      newInputs[index] = '';
+      return newInputs;
+    });
+  };
   
   // Validate current step
   const validateCurrentStep = async (isDraftSave = false) => {
+    console.log('🔧 validateCurrentStep: Starting validation for step', activeStep, 'isDraftSave:', isDraftSave);
     let fieldsToValidate: Array<keyof FormData | string> = [];
     
     switch (activeStep) {
@@ -1878,57 +2683,93 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         ];
         
         // Check if email and phone are verified (skip if already verified or in edit mode)
-        if (!emailVerified) {
+        console.log('🔧 Claimant verification check:', {
+          emailVerified,
+          phoneVerified,
+          editMode,
+          mode
+        });
+        
+        if (!emailVerified && mode !== 'edit') {
+          console.log('🔧 EMAIL NOT VERIFIED - blocking progression');
           toast.error('Please verify your email address before proceeding');
+          console.log('🔧 About to return false for email verification');
           return false;
         }
-        if (!phoneVerified) {
+        if (!phoneVerified && mode !== 'edit') {
+          console.log('🔧 PHONE NOT VERIFIED - blocking progression');
           toast.error('Please verify your phone number before proceeding');
+          console.log('🔧 About to return false for phone verification');
           return false;
         }
         
+        console.log('🔧 Email and phone verification passed, continuing...');
+        
         // Check required document uploads (only when not saving draft)
         if (!isDraftSave) {
-          if (!files['claimant.coi']) {
-            toast.error('Certificate of Incorporation (COI) is required');
+          const claimantData = watch('claimant');
+          
+          // Smart document validation - only require documents for filled fields
+          if (claimantData.pan && !files['claimant.panCard']) {
+            toast.error('PAN Card document is required when PAN number is provided');
             return false;
           }
-          if (!files['claimant.panCard']) {
-            toast.error('PAN Card document is required');
+          
+          if (claimantData.gst && !files['claimant.gstCert']) {
+            toast.error('GST Registration Certificate is required when GST number is provided');
             return false;
           }
-          if (!files['claimant.gstCert']) {
-            toast.error('GST Registration Certificate is required');
+          
+          if (claimantData.cin && !files['claimant.coi']) {
+            toast.error('Certificate of Incorporation is required when CIN is provided');
+            return false;
+          }
+          
+          // At least one identification field must be filled and corresponding document uploaded
+          const hasAnyIdField = claimantData.pan || claimantData.gst || claimantData.cin;
+          const hasAnyIdDoc = (claimantData.pan && files['claimant.panCard']) || 
+                              (claimantData.gst && files['claimant.gstCert']) || 
+                              (claimantData.cin && files['claimant.coi']);
+          
+          if (!hasAnyIdField) {
+            toast.error('Please provide at least one identification number (PAN, GST, or CIN)');
+            return false;
+          }
+          
+          if (!hasAnyIdDoc) {
+            toast.error('Please upload the document for at least one identification field you have filled');
+            return false;
+          }
+        } else {
+          // Even for draft save, ensure if any field is filled, at least one field is provided
+          const claimantData = watch('claimant');
+          const hasAnyIdField = claimantData.pan || claimantData.gst || claimantData.cin;
+          
+          if (!hasAnyIdField) {
+            toast.error('Please provide at least one identification number (PAN, GST, or CIN) before proceeding');
             return false;
           }
         }
         break;
       case 1: // Additional Claimants & Manager
-        // Validate managers if any exist
-        managerFields.forEach((_, index) => {
-          // If name is provided, validate required fields
-          if (formValues.managerDetails?.[index]?.name) {
-            fieldsToValidate.push(
-              `managerDetails.${index}.name`,
-              `managerDetails.${index}.designation`,
-              `managerDetails.${index}.authority`
-            );
-            
-            // If email is provided, validate it's in correct format
-            if (formValues.managerDetails?.[index]?.email) {
-              fieldsToValidate.push(`managerDetails.${index}.email`);
-            }
-            
-            // If phone is provided, validate it's in correct format
-            if (formValues.managerDetails?.[index]?.phone) {
-              fieldsToValidate.push(`managerDetails.${index}.phone`);
-            }
-          }
-        });
+        console.log('🔧 Step 2 validation started');
+        // CRITICAL FIX: Enforce mandatory validation for Additional Claimants
+        const additionalClaimantFields = watch('additionalClaimants') || [];
+        console.log('🔧 Additional claimants:', additionalClaimantFields);
         
-        // Validate additional claimants if any exist
-        additionalClaimantFields.forEach((_, index) => {
+        // ENFORCE: At least 1 additional claimant required
+        if (additionalClaimantFields.length === 0) {
+          toast.error('At least one additional claimant is required');
+          return false;
+        }
+        
+        for (let index = 0; index < additionalClaimantFields.length; index++) {
+          const claimant = formValues.additionalClaimants?.[index];
+          
+          // ALL mandatory fields must be filled for each additional claimant
+          if (claimant) {
           fieldsToValidate.push(
+              `additionalClaimants.${index}.type`,
             `additionalClaimants.${index}.name`,
             `additionalClaimants.${index}.email`,
             `additionalClaimants.${index}.phone`,
@@ -1939,26 +2780,156 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             `additionalClaimants.${index}.state`,
             `additionalClaimants.${index}.country`
           );
-        });
+            
+            // Smart document validation - check files state, not form data
+            if (!isDraftSave) {
+              console.log(`🔧 Validating Additional Claimant ${index + 1}:`, {
+                pan: claimant.pan,
+                gst: claimant.gst,
+                cin: claimant.cin,
+                panCardFile: files[`additionalClaimants.${index}.panCard`],
+                gstCertFile: files[`additionalClaimants.${index}.gstCert`],
+                coiFile: files[`additionalClaimants.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (claimant.pan && !files[`additionalClaimants.${index}.panCard`]) {
+                toast.error(`PAN Card document is required for Additional Claimant ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (claimant.gst && !files[`additionalClaimants.${index}.gstCert`]) {
+                toast.error(`GST Registration Certificate is required for Additional Claimant ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (claimant.cin && !files[`additionalClaimants.${index}.coi`]) {
+                toast.error(`Certificate of Incorporation is required for Additional Claimant ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = claimant.pan || claimant.gst || claimant.cin;
+              const hasAnyIdDoc = (claimant.pan && files[`additionalClaimants.${index}.panCard`]) || 
+                                  (claimant.gst && files[`additionalClaimants.${index}.gstCert`]) || 
+                                  (claimant.cin && files[`additionalClaimants.${index}.coi`]);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Additional Claimant ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Additional Claimant ${index + 1}`);
+                return false;
+              }
+            }
+          }
+        }
+        
+        // CRITICAL FIX: Enforce mandatory validation for Manager Details
+        const managerFields = watch('managerDetails') || [];
+        console.log('🔧 Manager fields:', managerFields);
+        
+        // ENFORCE: At least 1 manager required
+        if (managerFields.length === 0) {
+          toast.error('At least one manager is required');
+          return false;
+        }
+        
+        for (let index = 0; index < managerFields.length; index++) {
+          const manager = formValues.managerDetails?.[index];
+          
+          // ALL mandatory fields must be filled for each manager
+          if (manager) {
+            fieldsToValidate.push(
+              `managerDetails.${index}.name`,
+              `managerDetails.${index}.email`,
+              `managerDetails.${index}.phone`,
+              `managerDetails.${index}.address1`,
+              `managerDetails.${index}.managerId`
+            );
+            
+            // Smart document validation - check files state, not form data
+            if (!isDraftSave) {
+              console.log(`🔧 Validating Manager ${index + 1}:`, {
+                pan: manager.pan,
+                gst: manager.gst,
+                cin: manager.cin,
+                panCardFile: files[`managerDetails.${index}.panCard`],
+                gstCertFile: files[`managerDetails.${index}.gstCert`],
+                coiFile: files[`managerDetails.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (manager.pan && !files[`managerDetails.${index}.panCard`]) {
+                toast.error(`PAN Card document is required for Manager ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (manager.gst && !files[`managerDetails.${index}.gstCert`]) {
+                toast.error(`GST Registration Certificate is required for Manager ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (manager.cin && !files[`managerDetails.${index}.coi`]) {
+                toast.error(`Certificate of Incorporation is required for Manager ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = manager.pan || manager.gst || manager.cin;
+              const hasAnyIdDoc = (manager.pan && files[`managerDetails.${index}.panCard`]) || 
+                                  (manager.gst && files[`managerDetails.${index}.gstCert`]) || 
+                                  (manager.cin && files[`managerDetails.${index}.coi`]);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Manager ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Manager ${index + 1}`);
+                return false;
+              }
+            }
+          }
+        }
         
         // Check if additional claimant email and phone are verified (skip if already verified or in edit mode)
         for (let index = 0; index < additionalClaimantFields.length; index++) {
-          if (!additionalClaimantEmailVerified[index]) {
+          const claimant = formValues.additionalClaimants?.[index];
+          console.log(`🔧 Checking verification for Additional Claimant ${index + 1}:`, {
+            email: claimant?.email,
+            phone: claimant?.phone,
+            emailVerified: additionalClaimantEmailVerified[index],
+            phoneVerified: additionalClaimantPhoneVerified[index]
+          });
+          
+          // Only check verification if the field is actually filled
+          if (claimant && claimant.email && claimant.email.trim() !== '' && !additionalClaimantEmailVerified[index]) {
             toast.error(`Please verify email for Additional Claimant ${index + 1}`);
             return false;
           }
-          if (!additionalClaimantPhoneVerified[index]) {
+          if (claimant && claimant.phone && claimant.phone.trim() !== '' && !additionalClaimantPhoneVerified[index]) {
             toast.error(`Please verify phone number for Additional Claimant ${index + 1}`);
             return false;
           }
         }
         break;
       case 2: // Respondent Details
-        respondentFields.forEach((_, index) => {
+        // CRITICAL FIX: Enforce mandatory validation for Respondents
+        const respondentFields = watch('respondents') || [];
+        for (let index = 0; index < respondentFields.length; index++) {
+          const respondent = formValues.respondents?.[index];
+          
+          // If any field is filled, ALL mandatory fields must be filled
+          if (respondent && (respondent.name || respondent.email || respondent.phone || respondent.address1)) {
           fieldsToValidate.push(
             `respondents.${index}.type`,
             `respondents.${index}.name`, 
             `respondents.${index}.email`,
+              `respondents.${index}.phone`,
             `respondents.${index}.pincode`,
             `respondents.${index}.address1`,
             `respondents.${index}.city`,
@@ -1966,7 +2937,52 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             `respondents.${index}.state`,
             `respondents.${index}.country`
           );
-        });
+            
+            // Smart document validation - check files state, not form data
+            if (!isDraftSave) {
+              console.log(`🔧 Validating Respondent ${index + 1}:`, {
+                pan: respondent.pan,
+                gst: respondent.gst,
+                cin: respondent.cin,
+                panCardFile: files[`respondents.${index}.panCard`],
+                gstCertFile: files[`respondents.${index}.gstCert`],
+                coiFile: files[`respondents.${index}.coi`]
+              });
+              
+              // Check specific ID field requirements using files state
+              if (respondent.pan && !files[`respondents.${index}.panCard`]) {
+                toast.error(`PAN Card document is required for Respondent ${index + 1} when PAN number is provided`);
+                return false;
+              }
+              
+              if (respondent.gst && !files[`respondents.${index}.gstCert`]) {
+                toast.error(`GST Registration Certificate is required for Respondent ${index + 1} when GST number is provided`);
+                return false;
+              }
+              
+              if (respondent.cin && !files[`respondents.${index}.coi`]) {
+                toast.error(`Certificate of Incorporation is required for Respondent ${index + 1} when CIN is provided`);
+                return false;
+              }
+              
+              // At least one identification field must be filled and corresponding document uploaded
+              const hasAnyIdField = respondent.pan || respondent.gst || respondent.cin;
+              const hasAnyIdDoc = (respondent.pan && files[`respondents.${index}.panCard`]) || 
+                                  (respondent.gst && files[`respondents.${index}.gstCert`]) || 
+                                  (respondent.cin && files[`respondents.${index}.coi`]);
+              
+              if (!hasAnyIdField) {
+                toast.error(`Please provide at least one identification number (PAN, GST, or CIN) for Respondent ${index + 1}`);
+                return false;
+              }
+              
+              if (!hasAnyIdDoc) {
+                toast.error(`Please upload the document for at least one identification field for Respondent ${index + 1}`);
+                return false;
+              }
+            }
+          }
+        }
         break;
       case 3: // Arbitration Agreement
         fieldsToValidate = [
@@ -1976,11 +2992,30 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         ];
         break;
       case 4: // Nature of Dispute
-        fieldsToValidate = [
-          'natureOfDispute.category', 'natureOfDispute.subCategory',
-          'natureOfDispute.natureOfDispute', 'natureOfDispute.dateWhenRightToClaimArose',
-          'natureOfDispute.standardisedPrayerClauses'
-        ];
+        // Validate all nature of dispute entries
+        const natureOfDisputeEntries = watch('natureOfDispute') || [];
+        if (natureOfDisputeEntries.length === 0) {
+          toast.error('Please add at least one nature of dispute');
+          return false;
+        }
+        
+        for (let i = 0; i < natureOfDisputeEntries.length; i++) {
+          const fieldPaths = [
+            `natureOfDispute.${i}.category`,
+            `natureOfDispute.${i}.subCategory`,
+            `natureOfDispute.${i}.natureOfDispute`,
+            `natureOfDispute.${i}.dateWhenRightToClaimArose`,
+            `natureOfDispute.${i}.standardisedPrayerClauses`
+          ];
+          
+          for (const fieldPath of fieldPaths) {
+            const isValid = await trigger(fieldPath as any);
+            if (!isValid) {
+              toast.error(`Please complete all required fields for Nature of Dispute ${i + 1}`);
+              return false;
+            }
+          }
+        }
         break;
       case 5: // Dispute Description
         // Validate all dispute descriptions
@@ -2006,109 +3041,153 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         }
         return true;
       case 6: // Prayers & Reliefs
-        fieldsToValidate = ['prayers.prayers'];
-        break;
+        // Validate all prayers
+        const prayers = watch('prayers.prayers') || [];
+        if (prayers.length === 0) {
+          toast.error('Please add at least one prayer');
+          return false;
+        }
+        
+        // Validate each prayer has required fields
+        if (Array.isArray(prayers)) {
+          for (let i = 0; i < prayers.length; i++) {
+            const prayer = prayers[i];
+            if (typeof prayer === 'object' && prayer !== null) {
+              if (!prayer.title?.trim()) {
+                toast.error(`Prayer ${i + 1}: Title is required`);
+                return false;
+              }
+              if (!prayer.description?.trim()) {
+                toast.error(`Prayer ${i + 1}: Description is required`);
+                return false;
+              }
+              if (prayer.reliefType === 'monetary' && (!prayer.amount || parseFloat(prayer.amount) <= 0)) {
+                toast.error(`Prayer ${i + 1}: Amount is required for monetary relief`);
+                return false;
+              }
+            }
+          }
+        }
+        return true;
+      case 6: // Prayers & Reliefs (Rendering)
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
+            <PrayersSection 
+              control={control}
+              name="prayers.prayers"
+            />
+          </div>
+        )
       case 7: // Documents
-        // Check at least one of the document types has been uploaded
-        const scannedDocs = watch('documents.scannedDocuments') || [];
-        const affidavits = watch('documents.affidavits') || [];
-        const electronicEvidence = watch('documents.electronicEvidence') || [];
-        const oldSupportingDocs = watch('documents.supportingDocuments') || [];
+        // Create default issues in case arguments don't exist yet
+        const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
+          (watch('arguments.argumentsPerIssue') || []).map((arg, index) => ({
+            value: `issue_${index + 1}`,
+            label: `Issue ${index + 1}${arg ? ` - ${arg.substring(0, 30)}...` : ''}`
+          })) : 
+          [
+            { value: "issue_default_1", label: "Issue 1 - Breach of Contract" },
+            { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
+            { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
+          ];
+          
+  
         
-        // Ensure at least one document of any type exists
-        if (
-          scannedDocs.length === 0 &&
-          affidavits.length === 0 &&
-          electronicEvidence.length === 0 &&
-          oldSupportingDocs.length === 0
-        ) {
-          toast.error('Please upload at least one document or affidavit');
-          return false;
-        }
-        
-        // Validate any scanned documents that exist
-        if (scannedDocs.length > 0) {
-          for (let i = 0; i < scannedDocs.length; i++) {
-            const fieldPaths = [
-              `documents.scannedDocuments.${i}.file`,
-              `documents.scannedDocuments.${i}.description`,
-              `documents.scannedDocuments.${i}.linkedIssue`,
-              `documents.scannedDocuments.${i}.date`
-            ];
-            const result = await trigger(fieldPaths as any);
-            if (!result) return false;
-          }
-        }
-        
-        // Validate any affidavits that exist
-        if (affidavits.length > 0) {
-          for (let i = 0; i < affidavits.length; i++) {
-            const fieldPaths = [
-              `documents.affidavits.${i}.file`,
-              `documents.affidavits.${i}.type`,
-              `documents.affidavits.${i}.deponentName`,
-              `documents.affidavits.${i}.date`,
-              `documents.affidavits.${i}.place`,
-              `documents.affidavits.${i}.event`,
-              `documents.affidavits.${i}.linkedIssue`
-            ];
-            const result = await trigger(fieldPaths as any);
-            if (!result) return false;
-          }
-        }
-        
-        // Validate any electronic evidence that exist
-        if (electronicEvidence.length > 0) {
-          for (let i = 0; i < electronicEvidence.length; i++) {
-            const fieldPaths = [
-              `documents.electronicEvidence.${i}.certificateFile`,
-              `documents.electronicEvidence.${i}.description`,
-              `documents.electronicEvidence.${i}.linkedIssue`,
-              `documents.electronicEvidence.${i}.tabulatedList`
-            ];
-            const result = await trigger(fieldPaths as any);
-            if (!result) return false;
-          }
-        }
-        
-        // For backward compatibility, check old supporting documents field
-        if (oldSupportingDocs.length > 0) {
-          await trigger('documents.supportingDocuments' as any);
-        }
-        
-        return true;
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[7] = el; }}>
+            <DocumentsTabs 
+              control={control as any}
+              watch={watch}
+              setValue={setValue}
+              disputeIssues={disputeIssues}
+              files={files}
+            />
+          </div>
+        )
       case 8: // Payment
-        fieldsToValidate = [
-          'payment.paymentHead', 'payment.paymentAmount', 'payment.paymentDetails'
-        ];
-        break;
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[8] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Payment</h3>
+            <div className="space-y-4">
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Payment Head"
+                  name="payment.paymentHead"
+                  type="select"
+                  required
+                  options={[
+                    { value: "filing_fee", label: "Filing Fee" },
+                    { value: "arbitrator_fee", label: "Arbitrator Fee" },
+                    { value: "administrative_fee", label: "Administrative Fee" },
+                    { value: "emergency_fee", label: "Emergency Arbitration Fee" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </div>
+              <div>
+                <ControlledFormField
+                  control={control}
+                  label="Payment Amount (INR)"
+                  name="payment.paymentAmount"
+                  type="number"
+                  required
+                  maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
+                  placeholder="Enter amount in INR"
+                />
+                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_PAYMENT_AMOUNT.toLocaleString()} INR</p>
+              </div>
+              <div>
+                <ControlledTextAreaField
+                  control={control}
+                  label="Payment Details"
+                  name="payment.paymentDetails"
+                  required
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Provide detailed payment information"
+                />
+              </div>
+            </div>
+                      </div>
+          )
       case 9: // Arguments
-        if (argumentFields.length > 0) {
-          argumentFields.forEach((_, index) => {
-            fieldsToValidate.push(`arguments.argumentsPerIssue.${index}`);
-          });
-        } else {
-          // If no argument fields yet, create an error
-          toast.error('Please add at least one argument');
-          return false;
-        }
-        break;
-      default:
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
+            <ArgumentsSection 
+              control={control}
+              prayersName="prayers.prayers"
+              argumentsName="arguments.argumentsPerPrayer"
+            />
+          </div>
+        )
+      case 10: // Review & Submit
+        // For the final step, just return true as validation is complete
         return true;
+        break;
     }
     
+    // First check form field validation
     if (fieldsToValidate.length > 0) {
+      console.log('🔧 validateCurrentStep: Triggering validation for fields:', fieldsToValidate);
       const result = await trigger(fieldsToValidate as any); // Type assertion to work around TypeScript error
-      return result;
+      console.log('🔧 validateCurrentStep: Trigger result:', result);
+      if (!result) {
+        console.log('🔧 validateCurrentStep: Form field validation failed');
+        return false;
+      }
     }
     
+    console.log('🔧 validateCurrentStep: All validation passed, returning true');
     return true;
   };
   
   // Handle next button click
   const handleNext = async () => {
     // Validate current step
+    console.log('🔧 handleNext: Starting validation for step', activeStep);
     const isStepValid = await validateCurrentStep();
+    console.log('🔧 handleNext: Validation result:', isStepValid);
     
     if (isStepValid) {
     if (activeStep < steps.length - 1) {
@@ -2139,74 +3218,193 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   
   // Handle file changes
   const handleFileChange = (fieldName: string, file: File | null | File[]) => {
-    // Only handle single file uploads here, not arrays
-    if (!Array.isArray(file)) {
+    if (Array.isArray(file)) {
+      // Handle multiple files - store first file for now since Record expects single file
+      const firstFile = file.length > 0 ? file[0] : null;
+      setFiles(prev => ({
+        ...prev,
+        [fieldName]: firstFile
+      }));
+      
+      // Trigger OCR processing for document uploads
+      if (firstFile && fieldName.includes('.')) {
+        performOCR(firstFile, fieldName);
+      }
+    } else {
+      // Handle single file
       setFiles(prev => ({
         ...prev,
         [fieldName]: file
       }));
-      setFormChanged(true);
       
-      // CRITICAL FIX: Also store file info in form data for documents sections
-      if (fieldName.includes('documentsEvidence') && file) {
-        // Extract indices from field name like "documentsEvidence_0_attachedDocuments_0"
-        const matches = fieldName.match(/documentsEvidence_(\d+)_attachedDocuments_(\d+)/);
-        if (matches) {
-          const evidenceIndex = parseInt(matches[1]);
-          const fileIndex = parseInt(matches[2]);
-          
-          // Update the form data to include this file
-          const currentEvidence = watch('documentsEvidence') || [];
-          if (currentEvidence[evidenceIndex]) {
-            const updatedAttachedDocs = [...(currentEvidence[evidenceIndex].attachedDocuments || [])];
-            updatedAttachedDocs[fileIndex] = file;
-            setValue(`documentsEvidence.${evidenceIndex}.attachedDocuments`, updatedAttachedDocs);
-          }
-        }
+      // Trigger OCR processing for document uploads
+      if (file && fieldName.includes('.')) {
+        performOCR(file, fieldName);
       }
     }
   };
-  
-  // Form submission handler
-  const onSubmit = async (data: FormData) => {
+
+  // OCR processing function
+  const performOCR = async (file: File, fieldName: string) => {
     try {
-      // Check authentication
-      if (!isAuthenticated) {
-        toast.error('Please log in to submit your petition');
-        router.push('/auth/login');
+      // Show loading toast
+      toast.loading("Extracting data from document...", {
+        duration: 3000,
+        id: `ocr-${fieldName}`
+      });
+
+      // Convert File to base64 for OCR processing
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data:image/jpeg;base64, prefix
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // Determine document type based on field name
+      let cardType = 'PAN';
+      if (fieldName.includes('aadhaar') || fieldName.includes('uidai')) {
+        cardType = 'AADHAAR';
+      }
+
+      // Call backend OCR API
+      const response = await fetch('/api/ocr/extract-fast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: base64,
+          cardType: cardType,
+          fieldName: fieldName
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('OCR API request failed');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'OCR extraction failed');
+      }
+
+      // Check if we got any extracted data
+      if (!result.extractedData || Object.keys(result.extractedData).length === 0) {
+        console.log('No data extracted from document');
+        toast.info('No specific data found in document. Please check the document quality or try a different image.', {
+          id: `ocr-${fieldName}`,
+          duration: 5000
+        });
         return;
       }
+
+      const extractedData = result.extractedData || {};
+
+      // Extract entity path and index from fieldName
+      const parts = fieldName.split('.');
+      let entityPath = '';
+      let index = -1;
+
+      if (parts[0] === 'claimant') {
+        entityPath = 'claimant';
+      } else if (parts[0] === 'additionalClaimants') {
+        entityPath = 'additionalClaimants';
+        index = parseInt(parts[1]);
+      } else if (parts[0] === 'managerDetails') {
+        entityPath = 'managerDetails';
+        index = parseInt(parts[1]);
+      } else if (parts[0] === 'respondents') {
+        entityPath = 'respondents';
+        index = parseInt(parts[1]);
+      }
+
+      // Auto-populate form fields
+      Object.entries(extractedData).forEach(([key, value]) => {
+        if (entityPath && index >= 0) {
+          setValue(`${entityPath}.${index}.${key}` as any, value);
+        } else if (entityPath) {
+          setValue(`${entityPath}.${key}` as any, value);
+        }
+      });
+
+      // Show success toast with extracted values
+      const extractedValues = Object.entries(extractedData)
+        .map(([key, value]) => `${key.toUpperCase()}: ${value}`)
+        .join(', ');
+      
+      // Log the raw text for debugging
+      if (result.rawText) {
+        console.log('OCR Raw Text:', result.rawText);
+      }
+      
+      toast.success(`OCR completed! Extracted: ${extractedValues}`, {
+        id: `ocr-${fieldName}`,
+        duration: 5000
+      });
+
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      toast.error("Failed to extract data from document", {
+        id: `ocr-${fieldName}`
+      });
+    }
+  };
+  
+  // CRITICAL FIX: Effect to restore files when navigating between steps
+  useEffect(() => {
+    const restoreFiles = () => {
+      const globalFiles = (window as any).currentFiles;
+      if (globalFiles && typeof globalFiles === 'object') {
+        setFiles(prev => ({
+          ...prev,
+          ...globalFiles
+        }));
+      }
+    };
     
-      // Check if files are uploaded when required
-      const fileErrors: Record<string, string> = {};
-      
-      // Check required files based on form structure (using correct field names)
-      if (!files['claimant.coi']) {
-        fileErrors.coi = "Certificate of Incorporation (COI) is required";
+    restoreFiles();
+  }, [activeStep]); // Restore files when step changes
+  
+  // Form submission handler
+  const handleFormSubmission = async (data: FormData) => {
+    setIsSubmitting(true);
+
+    // Validate file requirements before submitting
+    const fileErrors: { [key: string]: string } = {};
+    
+    // Validate claimant documents if required
+    if (data.claimant.type !== 'individual') {
+      if (data.claimant.gst && !files['claimant.gstCert']) {
+        fileErrors['claimant.gstCert'] = 'GST Certificate';
       }
-      
-      if (!files['claimant.panCard']) {
-        fileErrors.panCard = "PAN Card is required";
+      if (data.claimant.pan && !files['claimant.panCard']) {
+        fileErrors['claimant.panCard'] = 'PAN Card';
       }
-      
-      // Agreement file is only required if there's an arbitration agreement
-      if (data.arbitrationAgreement?.agreementType && !files.agreementFile) {
-        fileErrors.agreementFile = "Agreement file is required";
+      if (data.claimant.cin && !files['claimant.coi']) {
+        fileErrors['claimant.coi'] = 'Certificate of Incorporation';
       }
-      
+    }
+    
+    // Check if we have validation errors and return
       if (Object.keys(fileErrors).length > 0) {
-        // Show specific error messages for missing files
+      setIsSubmitting(false);
         const missingFiles = Object.values(fileErrors).join(', ');
-        toast.error(`Please upload all required files: ${missingFiles}`);
+      toast.error(`Please upload required files: ${missingFiles}`);
         return;
       }
 
       // Create FormData for submission
-      const formData = new FormData();
+    const formDataForSubmission = new FormData();
       
       // Add the draft ID if editing
       if (currentDraftId) {
-        formData.append('id', currentDraftId);
+      formDataForSubmission.append('id', currentDraftId);
       }
       
       // Restructure data to match backend expectations
@@ -2230,105 +3428,121 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         pan: data.claimant.pan,
         cin: data.claimant.cin,
         
-        // Include other data as is
+      // Include all other form data
         additionalClaimants: data.additionalClaimants,
         managerDetails: data.managerDetails,
         respondents: data.respondents,
         arbitrationAgreement: data.arbitrationAgreement,
-        disputeDetails: data.disputeDetails,
+      natureOfDispute: data.natureOfDispute,
+      disputeDescriptions: data.disputeDescriptions,
+      documentsEvidence: data.documentsEvidence,
         prayers: data.prayers,
-        payment: data.payment,
         arguments: data.arguments,
-        
-        // Include documents and evidence data (but not the file objects, just metadata)
+      payment: data.payment,
         documents: data.documents,
-        documentsEvidence: data.documentsEvidence ? data.documentsEvidence.map(evidence => ({
-          ...evidence,
-          // Remove file objects from the JSON data (they're sent separately as FormData)
-          attachedDocuments: evidence.attachedDocuments ? evidence.attachedDocuments.map((file, index) => 
-            file instanceof File ? { name: file.name, size: file.size, type: file.type, index } : file
-          ) : []
-        })) : []
-      };
       
-      // Add structured data as JSON
-      formData.append('data', JSON.stringify(restructuredData));
-      
-      // Add files
+      // Store the complete form data structure
+      formData: data
+    };
+
+    // Remove file objects from the JSON data (they're sent separately as FormData)
+    const cleanedData = JSON.parse(JSON.stringify(restructuredData, (key, value) => {
+      if (value && typeof value === 'object' && value.constructor === File) {
+        return undefined; // Remove File objects
+      }
+      return value;
+    }));
+
+    formDataForSubmission.append('data', JSON.stringify(cleanedData));
+
+    // Append files
       Object.entries(files).forEach(([key, file]) => {
-        if (file) {
-          formData.append(key, file);
+      if (file && file instanceof File) {
+        formDataForSubmission.append(key, file);
+      }
+    });
+
+    // Handle supporting documents
+    data.documents?.supportingDocuments?.forEach((doc: any, index: number) => {
+      if (doc.file && doc.file instanceof File) {
+        formDataForSubmission.append(`supportingDocuments_${index}`, doc.file);
+      }
+    });
+
+    // Handle evidence files
+    data.documents?.evidenceFiles?.forEach((file: any, index: number) => {
+      if (file && file instanceof File) {
+        formDataForSubmission.append(`evidenceFiles_${index}`, file);
+      }
+    });
+
+    // Get document types from documents object
+    const documentTypes = data.documents?.documentTypes || {};
+    formDataForSubmission.append('documentTypes', JSON.stringify(documentTypes));
+
+    // Handle scanned documents
+    data.documents?.scannedDocuments?.forEach((doc: any, index: number) => {
+      if (doc.file && doc.file instanceof File) {
+        formDataForSubmission.append(`scannedDoc_${index}`, doc.file);
+      }
+    });
+
+    // Handle affidavits
+    data.documents?.affidavits?.forEach((affidavit: any, index: number) => {
+      if (affidavit.file && affidavit.file instanceof File) {
+        formDataForSubmission.append(`affidavit_${index}`, affidavit.file);
+      }
+    });
+
+    // Handle electronic evidence
+    data.documents?.electronicEvidence?.forEach((evidence: any, index: number) => {
+      if (evidence.certificateFile && evidence.certificateFile instanceof File) {
+        formDataForSubmission.append(`certificate_${index}`, evidence.certificateFile);
+      }
+      
+      evidence.supportingFiles?.forEach((file: any, fileIndex: number) => {
+        if (file && file instanceof File) {
+          formDataForSubmission.append(`supporting_files_${index}`, file);
         }
       });
-      
-      // Add document files from React Hook Form state
-      const { supportingDocuments = [], evidenceFiles = [], documentTypes = {} } = data.documents;
-      
-      if (supportingDocuments.length > 0) {
-        supportingDocuments.forEach((file, index) => {
-          formData.append(`supportingDocuments_${index}`, file);
-        });
+    });
+
+    // Handle remaining file fields
+    Object.entries(files).forEach(([key, file]) => {
+      if (file && file instanceof File && !key.includes('.')) {
+        const fieldName = key.replace(/\./g, '_');
+        formDataForSubmission.append(fieldName, file);
       }
-      
-      if (evidenceFiles.length > 0) {
-        evidenceFiles.forEach((file, index) => {
-          formData.append(`evidenceFiles_${index}`, file);
-        });
-      }
-      
-      // Add document types
-      formData.append('documentTypes', JSON.stringify(documentTypes));
-      
-      // Add files from the new DocumentsTabs component (using correct field names)
-      const { scannedDocuments = [], affidavits = [], electronicEvidence = [] } = data.documents;
-      
-      // Add scanned documents files (backend expects scannedDoc_${index})
-      if (scannedDocuments.length > 0) {
-        scannedDocuments.forEach((doc, index) => {
-          if (doc && doc.file instanceof File) {
-            formData.append(`scannedDoc_${index}`, doc.file);
-          }
-        });
-      }
-      
-      // Add affidavit files (backend expects affidavit_${index})
-      if (affidavits.length > 0) {
-        affidavits.forEach((affidavit, index) => {
-          if (affidavit && affidavit.file instanceof File) {
-            formData.append(`affidavit_${index}`, affidavit.file);
-          }
-        });
-      }
-      
-      // Add electronic evidence files (backend expects certificate_${index} and supporting_files_${index})
-      if (electronicEvidence.length > 0) {
-        electronicEvidence.forEach((evidence, index) => {
-          if (evidence && evidence.certificateFile instanceof File) {
-            formData.append(`certificate_${index}`, evidence.certificateFile);
-          }
-          if (evidence && evidence.supportingFiles && Array.isArray(evidence.supportingFiles)) {
-            evidence.supportingFiles.forEach((file, fileIndex) => {
-              if (file instanceof File) {
-                formData.append(`supporting_files_${index}`, file);
-              }
+    });
+
+    try {
+      // Check for duplicates only for new cases (not updates)
+      if (!currentDraftId || (initialData && initialData.isDraft)) {
+        toast.loading('Checking for duplicate cases...');
+        
+        try {
+          const duplicateCheck = await arbitrationApi.checkDuplicates(data);
+          
+          toast.dismiss(); // Dismiss the checking toast
+          
+          if (duplicateCheck.isDuplicate || (duplicateCheck.matchingCases && duplicateCheck.matchingCases.length > 0)) {
+            // Store the submission data and show duplicate dialog
+            // Store formData as regular object to avoid .has() method issue
+            setPendingSubmissionData({ 
+              data, 
+              formDataForSubmission, // Store the FormData separately
+              restructuredData: cleanedData // Store clean data for resubmission
             });
+            setDuplicateCheckResult(duplicateCheck);
+            setShowDuplicateDialog(true);
+            return; // Stop submission until user decides
           }
-        });
-      }
-      
-      // Add documentsEvidence files (legacy support for existing data)
-      if (data.documentsEvidence && Array.isArray(data.documentsEvidence)) {
-        data.documentsEvidence.forEach((evidence, evidenceIndex) => {
-          if (evidence && evidence.attachedDocuments && Array.isArray(evidence.attachedDocuments)) {
-            evidence.attachedDocuments.forEach((file, fileIndex) => {
-              if (file instanceof File) {
-                // Use exact field name format expected by backend controller
-                const fieldName = `documentsEvidence_${evidenceIndex}_attachedDocuments_${fileIndex}`;
-                formData.append(fieldName, file);
-              }
-            });
-          }
-        });
+        } catch (duplicateError) {
+          toast.dismiss();
+          console.error('Duplicate check failed:', duplicateError);
+          // Continue with submission if duplicate check fails
+          toast.warning('Could not check for duplicates, proceeding with submission...');
+        }
       }
       
       // Show submission toast
@@ -2339,105 +3553,131 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         // If editing a submitted case (not a draft), use update API
         if (initialData && !initialData.isDraft && initialData.status !== 'draft') {
           try {
-            const response = await arbitrationApi.update(currentDraftId, formData);
+            const response = await arbitrationApi.update(currentDraftId, formDataForSubmission);
             
             // Dismiss the loading toast
             toast.dismiss();
             
-            toast.success('Case updated successfully!');
+            // Show success modal
+            const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
+            console.log('🔧 About to call showSubmissionSuccess with caseId:', caseId);
+            showSubmissionSuccess(caseId);
             
-            // Redirect back to the case detail page
-            router.push(`/dashboard/case/${currentDraftId}`);
-          } catch (updateError: any) {
-            // Dismiss the loading toast
+            // Generate and download PDF
+            try {
+              const currentFormData = watch();
+              // Add missing disputeDetails for PDF generation
+              const pdfData = {
+                ...currentFormData,
+                disputeDetails: currentFormData.disputeDetails || {
+                  disputeType: '',
+                  disputeAmount: '',
+                  disputeDescription: '',
+                  disputeDate: ''
+                }
+              };
+              const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
+              downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
+            } catch (pdfError) {
+              console.error('PDF generation failed:', pdfError);
+              toast.error('PDF generation failed, but your application was submitted successfully.');
+            }
+            
+            return;
+          } catch (error: any) {
             toast.dismiss();
-            
-            toast.error(`Failed to update case: ${updateError.message || 'Unknown error'}`);
-            throw updateError;
+            toast.error(error.response?.data?.message || 'Failed to update case');
+            return;
           }
         } else {
-          // If editing a draft, submit it
+          // This is a draft being submitted
           try {
             const response = await arbitrationApi.submitDraft(currentDraftId);
           
           // Dismiss the loading toast
           toast.dismiss();
           
-        const caseId = response.caseId;
+            // Show success modal
+            const caseId = response.caseId || response.caseNumber || response.id;
         if (caseId) {
-          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
+              console.log('🔧 About to call showSubmissionSuccess with caseId (draft submit):', caseId);
+              showSubmissionSuccess(caseId);
+              
+              // Generate and download PDF
+              try {
+                const currentFormData = watch();
+                // Add missing disputeDetails for PDF generation
+                const pdfData = {
+                  ...currentFormData,
+                  disputeDetails: currentFormData.disputeDetails || {
+                    disputeType: '',
+                    disputeAmount: '',
+                    disputeDescription: '',
+                    disputeDate: ''
+                  }
+                };
+                const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
+                downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
+              } catch (pdfError) {
+                console.error('PDF generation failed:', pdfError);
+                toast.error('PDF generation failed, but your application was submitted successfully.');
+              }
         } else {
-          toast.success('Arbitration request submitted successfully!');
-        }
-      
-        // Reload drafts
-        const drafts = await arbitrationApi.getDrafts();
-        setDraftList(drafts);
-        setCurrentDraftId(null);
-        reset();
-        
-        // Redirect to dashboard after successful submission
-        router.push("/dashboard");
-      } catch (submitError: any) {
-        // Dismiss the loading toast
+              // Show success modal even if no caseId
+              showSubmissionSuccess('DRAFT_SUBMITTED');
+            }
+            
+            return;
+          } catch (error: any) {
         toast.dismiss();
-        
-        toast.error(`Failed to submit draft: ${submitError.message || "Unknown error"}`);
-        throw submitError; // Re-throw to be caught by the outer catch
+            toast.error(error.response?.data?.message || 'Failed to submit draft');
+            return;
       }
     }
   } else {
-    // New submission
+        // Creating a new case
     try {
-        const response = await arbitrationApi.create(formData);
+          const response = await arbitrationApi.create(formDataForSubmission, { skipDuplicateCheck: true });
           
           // Dismiss the loading toast
           toast.dismiss();
           
-        const caseId = response.caseId;
-        if (caseId) {
-          toast.success(`Arbitration request submitted successfully with Case ID: ${caseId}`);
-        } else {
-          toast.success('Arbitration request submitted successfully!');
-        }
+          // Show success modal
+          const caseId = response.caseId || response.caseNumber || response.id;
+          console.log('🔧 About to call showSubmissionSuccess with caseId (new case):', caseId);
+          showSubmissionSuccess(caseId);
           
-        reset();
-        
-        // Redirect to dashboard after successful submission
-          router.push('/dashboard');
-        } catch (createError: any) {
-          // Dismiss the loading toast
+          // Generate and download PDF
+          try {
+            const currentFormData = watch();
+            // Add missing disputeDetails for PDF generation
+            const pdfData = {
+              ...currentFormData,
+              disputeDetails: currentFormData.disputeDetails || {
+                disputeType: '',
+                disputeAmount: '',
+                disputeDescription: '',
+                disputeDate: ''
+              }
+            };
+            const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
+            downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
+          } catch (pdfError) {
+            console.error('PDF generation failed:', pdfError);
+            toast.error('PDF generation failed, but your application was submitted successfully.');
+          }
+          
+          return;
+        } catch (error: any) {
           toast.dismiss();
-          
-          toast.error(`Failed to submit: ${createError.message || 'Unknown error'}`);
-          throw createError; // Re-throw to be caught by the outer catch
+          toast.error(error.response?.data?.message || 'Failed to create case');
+          return;
         }
       }
-      
-      // Reset form and files
-      setFiles({
-        coi: null,
-        panCard: null,
-        gstCert: null,
-        agreementFile: null,
-      });
-      
-      // Reset to first step
-      setActiveStep(0);
-      
-      return true;
-      
     } catch (error: any) {
-      // Dismiss any existing toasts
+      console.error('Submission error:', error);
       toast.dismiss();
-      
-      // Display appropriate error message
-      if (error.message) {
-      toast.error(`Error: ${error.message}`);
-      } else {
-        toast.error('An unexpected error occurred during submission. Please try again.');
-      }
-      return false;
+      toast.error(error.response?.data?.message || 'Failed to submit petition');
     } finally {
       setIsSubmitting(false);
     }
@@ -2477,7 +3717,12 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
         respondents: data.respondents || [],
         // Ensure objects are properly initialized
         arbitrationAgreement: data.arbitrationAgreement || {},
-        disputeDetails: data.disputeDetails || {},
+        disputeDetails: {
+          disputeType: '',
+          disputeAmount: '',
+          disputeDescription: '',
+          disputeDate: ''
+        },
         // Include new dispute structure
         natureOfDispute: data.natureOfDispute || {},
         disputeDescriptions: data.disputeDescriptions || [],
@@ -2491,7 +3736,11 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           emailVerified,
           phoneVerified,
           additionalClaimantEmailVerified,
-          additionalClaimantPhoneVerified
+          additionalClaimantPhoneVerified,
+          managerEmailVerified,
+          managerPhoneVerified,
+          respondentEmailVerified,
+          respondentPhoneVerified
         }
       };
       
@@ -2500,7 +3749,7 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       
       // Add files (only if they exist - drafts allow incomplete data)
       // Map frontend file keys to backend expected keys
-      const fileKeyMapping = {
+      const fileKeyMapping: Record<string, string> = {
         'claimant.coi': 'coi',
         'claimant.panCard': 'panCard', 
         'claimant.gstCert': 'gstCert',
@@ -2513,6 +3762,52 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
           formData.append(backendKey, file);
         }
       });
+      
+      // CRITICAL FIX: Add Additional Claimants, Manager Details, and Respondent files
+      // Additional Claimants files
+      if (data.additionalClaimants && Array.isArray(data.additionalClaimants)) {
+        data.additionalClaimants.forEach((claimant, index) => {
+          if (claimant && claimant.coi instanceof File) {
+            formData.append(`additionalClaimants.${index}.coi`, claimant.coi);
+          }
+          if (claimant && claimant.panCard instanceof File) {
+            formData.append(`additionalClaimants.${index}.panCard`, claimant.panCard);
+          }
+          if (claimant && claimant.gstCert instanceof File) {
+            formData.append(`additionalClaimants.${index}.gstCert`, claimant.gstCert);
+          }
+        });
+      }
+      
+      // Manager Details files
+      if (data.managerDetails && Array.isArray(data.managerDetails)) {
+        data.managerDetails.forEach((manager, index) => {
+          if (manager && manager.coi instanceof File) {
+            formData.append(`managerDetails.${index}.coi`, manager.coi);
+          }
+          if (manager && manager.panCard instanceof File) {
+            formData.append(`managerDetails.${index}.panCard`, manager.panCard);
+          }
+          if (manager && manager.gstCert instanceof File) {
+            formData.append(`managerDetails.${index}.gstCert`, manager.gstCert);
+          }
+        });
+      }
+      
+      // Respondent Details files
+      if (data.respondents && Array.isArray(data.respondents)) {
+        data.respondents.forEach((respondent, index) => {
+          if (respondent && respondent.coi instanceof File) {
+            formData.append(`respondents.${index}.coi`, respondent.coi);
+          }
+          if (respondent && respondent.panCard instanceof File) {
+            formData.append(`respondents.${index}.panCard`, respondent.panCard);
+          }
+          if (respondent && respondent.gstCert instanceof File) {
+            formData.append(`respondents.${index}.gstCert`, respondent.gstCert);
+          }
+        });
+      }
       
       // CRITICAL FIX: Add file metadata to indicate which files are present
       const fileMetadata = {
@@ -2622,10 +3917,13 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Load draft handler
   const loadDraft = async (draftId: string) => {
     try {
+      console.log('🔧 loadDraft: Starting to load draft with ID:', draftId);
       setIsLoadingDrafts(true);
       
       // Get the specific draft by ID
+      console.log('🔧 loadDraft: Calling arbitrationApi.getDraft...');
       const draftResponse = await arbitrationApi.getDraft(draftId);
+      console.log('🔧 loadDraft: Received draft response:', draftResponse);
       
       // The response might be directly the draft or it might contain the draft in a property
       // Try to find the actual draft data in common response formats
@@ -2646,13 +3944,19 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       }
       
       // Check if we found a draft
+      console.log('🔧 loadDraft: Processing draft data:', draft);
       if (!draft) {
+        console.error('🔧 loadDraft: No draft found in response');
         toast.error('Failed to load draft: Invalid draft format');
         return;
       }
       
       // Check if we have the new formData structure, otherwise fallback to reconstruction
       let completeFormData;
+      
+      console.log('🔧 loadDraft: Checking draft structure...');
+      console.log('🔧 loadDraft: draft.formData exists:', !!draft.formData);
+      console.log('🔧 loadDraft: draft.formData type:', typeof draft.formData);
       
       if (draft.formData && typeof draft.formData === 'object') {
         // Use the stored formData structure (new format)
@@ -2743,6 +4047,10 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       
       // CRITICAL FIX: Restore file metadata for file visibility
       if (draft.fileMetadata) {
+        // DEBUG: Log what file metadata we received from backend
+        console.log('🔧 RECEIVED FILE METADATA FROM BACKEND:', draft.fileMetadata);
+        console.log('🔧 FILE METADATA KEYS:', Object.keys(draft.fileMetadata));
+        
         // Create a file metadata state for display purposes
         const fileDisplayState: Record<string, any> = {};
         
@@ -2818,6 +4126,138 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             }
           });
         }
+
+        // CRITICAL FIX: Handle Additional Claimants documents
+        if (completeFormData.additionalClaimants) {
+          completeFormData.additionalClaimants.forEach((ac: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `additionalClaimants.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `additionalClaimants.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `additionalClaimants.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // CRITICAL FIX: Handle Manager Details documents
+        if (completeFormData.managerDetails) {
+          completeFormData.managerDetails.forEach((manager: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `managerDetails.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `managerDetails.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `managerDetails.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // CRITICAL FIX: Handle Respondent Details documents
+        if (completeFormData.respondents) {
+          completeFormData.respondents.forEach((respondent: any, index: number) => {
+            // Handle COI files
+            const coiFieldName = `respondents.${index}.coi`;
+            if (draft.fileMetadata[coiFieldName]) {
+              fileDisplayState[coiFieldName] = {
+                name: draft.fileMetadata[coiFieldName].name,
+                size: draft.fileMetadata[coiFieldName].size,
+                type: draft.fileMetadata[coiFieldName].type,
+                path: draft.fileMetadata[coiFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle PAN Card files
+            const panCardFieldName = `respondents.${index}.panCard`;
+            if (draft.fileMetadata[panCardFieldName]) {
+              fileDisplayState[panCardFieldName] = {
+                name: draft.fileMetadata[panCardFieldName].name,
+                size: draft.fileMetadata[panCardFieldName].size,
+                type: draft.fileMetadata[panCardFieldName].type,
+                path: draft.fileMetadata[panCardFieldName].path,
+                isExisting: true,
+              };
+            }
+            
+            // Handle GST Certificate files
+            const gstCertFieldName = `respondents.${index}.gstCert`;
+            if (draft.fileMetadata[gstCertFieldName]) {
+              fileDisplayState[gstCertFieldName] = {
+                name: draft.fileMetadata[gstCertFieldName].name,
+                size: draft.fileMetadata[gstCertFieldName].size,
+                type: draft.fileMetadata[gstCertFieldName].type,
+                path: draft.fileMetadata[gstCertFieldName].path,
+                isExisting: true,
+              };
+            }
+          });
+        }
+
+        // DEBUG: Log the complete file display state being set
+        console.log('🔧 CRITICAL DEBUG - Complete fileDisplayState being set:', fileDisplayState);
+        console.log('🔧 CRITICAL DEBUG - Additional Claimants files:', Object.keys(fileDisplayState).filter(key => key.includes('additionalClaimants')));
+        console.log('🔧 CRITICAL DEBUG - Manager Details files:', Object.keys(fileDisplayState).filter(key => key.includes('managerDetails')));
+        console.log('🔧 CRITICAL DEBUG - Respondent files:', Object.keys(fileDisplayState).filter(key => key.includes('respondents')));
+
+        // Update the files state with all file information
+        setFiles(fileDisplayState);
       } else if (draft.files) {
         // Fallback to old format
         setFiles(draft.files);
@@ -2825,6 +4265,49 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       
       // Set edit mode
       setEditMode(true);
+
+      // CRITICAL FIX: Restore verification states if available
+      if (draft.verificationStates) {
+        setEmailVerified(draft.verificationStates.emailVerified || false);
+        setPhoneVerified(draft.verificationStates.phoneVerified || false);
+        setAdditionalClaimantEmailVerified(draft.verificationStates.additionalClaimantEmailVerified || []);
+        setAdditionalClaimantPhoneVerified(draft.verificationStates.additionalClaimantPhoneVerified || []);
+        setManagerEmailVerified(draft.verificationStates.managerEmailVerified || []);
+        setManagerPhoneVerified(draft.verificationStates.managerPhoneVerified || []);
+        setRespondentEmailVerified(draft.verificationStates.respondentEmailVerified || []);
+        setRespondentPhoneVerified(draft.verificationStates.respondentPhoneVerified || []);
+      } else {
+        // For existing data without verification states, assume verified if email/phone exist
+        const hasEmail = completeFormData.claimant?.email;
+        const hasPhone = completeFormData.claimant?.phone;
+        
+        if (hasEmail) setEmailVerified(true);
+        if (hasPhone) setPhoneVerified(true);
+        
+        // Set verification for additional claimants based on existing data
+        if (completeFormData.additionalClaimants) {
+          const emailStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.email);
+          const phoneStates = completeFormData.additionalClaimants.map((ac: any) => !!ac.phone);
+          setAdditionalClaimantEmailVerified(emailStates);
+          setAdditionalClaimantPhoneVerified(phoneStates);
+        }
+        
+        // Set verification for managers based on existing data
+        if (completeFormData.managerDetails) {
+          const emailStates = completeFormData.managerDetails.map((md: any) => !!md.email);
+          const phoneStates = completeFormData.managerDetails.map((md: any) => !!md.phone);
+          setManagerEmailVerified(emailStates);
+          setManagerPhoneVerified(phoneStates);
+        }
+        
+        // Set verification for respondents based on existing data
+        if (completeFormData.respondents) {
+          const emailStates = completeFormData.respondents.map((r: any) => !!r.email);
+          const phoneStates = completeFormData.respondents.map((r: any) => !!r.phone);
+          setRespondentEmailVerified(emailStates);
+          setRespondentPhoneVerified(phoneStates);
+        }
+      }
       
       toast.success('Draft loaded successfully');
     } catch (error: any) {
@@ -2834,9 +4317,32 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     }
   };
 
+  // Show submission success modal
+  const showSubmissionSuccess = (caseId: string) => {
+    console.log('🔧 showSubmissionSuccess called with caseId:', caseId);
+    setSubmissionResult({
+      caseId: caseId,
+      applicationNumber: caseId
+    });
+    setShowSubmissionModal(true);
+    console.log('🔧 Modal state set to true');
+  };
+
+  // Handle modal actions
+  const handleViewDashboard = () => {
+    setShowSubmissionModal(false);
+    router.push('/dashboard');
+  };
+
+  const handleGoToMyCases = () => {
+    setShowSubmissionModal(false);
+    router.push('/dashboard/my-cases');
+  };
+
   // Render form steps
   const renderFormContent = () => {
     // Get current form values for review page
+    const formData = watch();
     const { 
       claimant, 
       additionalClaimants, 
@@ -2848,761 +4354,1829 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
       documentsEvidence,
       prayers, 
       payment, 
-      arguments: { argumentsPerIssue }, 
-      documents,
-      disputeDetails
-    } = watch();
+      arguments: argumentsData, 
+      documents
+    } = formData;
+    
+    const argumentsPerIssue = argumentsData?.argumentsPerIssue || [];
     
     switch (activeStep) {
       case 0: // Claimant Details
         return (
-          <div className="space-y-4" ref={(el) => { stepRefs.current[0] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Claimant Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <ControlledFormField
+          <div className="space-y-6" ref={(el) => { stepRefs.current[0] = el; }}>
+            <h3 className="text-lg font-medium mb-4">Step 1: Claimant Details</h3>
+            
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <Controller
+                control={control}
+                name="claimant.type"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.1 Type"
+                    name="claimant.type"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    required
+                    options={[
+                      { value: "individual", label: "Individual" },
+                      { value: "company", label: "Company" },
+                      { value: "partnership", label: "Partnership" },
+                      { value: "llp", label: "LLP" },
+                    ]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="claimant.name"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.2 Name"
+                    name="claimant.name"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    maxLength={MAX_NAME_LENGTH}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Controller
                   control={control}
-                  label="Type*"
-                  name="claimant.type"
-                  type="select"
-                  options={[
-                    { value: "individual", label: "Individual" },
-                    { value: "company", label: "Company" },
-                    { value: "partnership", label: "Partnership" },
-                    { value: "llp", label: "LLP" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Name*"
-                  name="claimant.name"
-                  maxLength={MAX_NAME_LENGTH}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Pincode*"
-                  name="claimant.pincode"
-                  maxLength={6}
-                />
-                <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Address Line 1*"
-                  name="claimant.address1"
-                  maxLength={MAX_ADDRESS_LENGTH}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Address Line 2"
-                  name="claimant.address2"
-                  maxLength={MAX_ADDRESS_LENGTH}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="City*"
-                  name="claimant.city"
-                  type="select"
-                  options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="District*"
-                  name="claimant.district"
-                  type="select"
-                  options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="State*"
-                  name="claimant.state"
-                  type="select"
-                  options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Country*"
-                  name="claimant.country"
-                  type="select"
-                  options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
-                />
-              </div>
-              <div className="relative">
-                <ControlledFormField
-                  control={control}
-                  label={emailVerified ? "Email* ✓" : "Email*"}
                   name="claimant.email"
-                  maxLength={MAX_EMAIL_LENGTH}
+                  render={({ field, fieldState }) => (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        1.3 Email Address {emailVerified ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          disabled={emailVerified}
+                          className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                            emailVerified ? 'border-green-500 bg-gray-100 cursor-not-allowed' : 'hover:border-gray-300'
+                          }`}
+                        />
+                        {!emailVerified && field.value && (
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            size="sm"
+                            onClick={sendEmailVerification}
+                            disabled={!field.value}
+                          >
+                            Verify
+                          </Button>
+                        )}
+                        {emailVerified && (
+                          <Button 
+                            type="button" 
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              setEmailVerified(false);
+                              field.onChange('');
+                              toast.info('Please enter a new email address and verify it');
+                            }}
+                            className="bg-orange-600 hover:bg-orange-700"
+                          >
+                            Change
+                          </Button>
+                        )}
+                      </div>
+                      {fieldState.error && (
+                        <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                      )}
+                      {emailVerified && (
+                        <div className="text-green-600 text-xs mt-1 flex items-center">
+                          <span className="mr-1">✓</span> Email address verified
+                        </div>
+                      )}
+                    </div>
+                  )}
                 />
-                <Button 
-                  type="button" 
-                  variant={emailVerified ? "default" : "outline"}
-                  size="sm"
-                  className={`absolute top-6 right-2 h-8 px-3 ${emailVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                  onClick={emailVerified ? undefined : sendEmailVerification}
-                  disabled={emailVerified || !watch('claimant.email') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch('claimant.email') || '')}
-                >
-                  {emailVerified ? "✓ Verified" : "Verify"}
-                </Button>
-              </div>
-              <div className="relative">
-                <PhoneField
+                
+                <Controller
                   control={control}
-                  phoneFieldName="claimant.phone"
-                  countryCodeFieldName="claimant.phoneCountryCode"
-                  label={phoneVerified ? "Phone* ✓" : "Phone*"}
-                  error={!formValues.claimant.phone ? "Phone is required" : ""}
+                  name="claimant.phone"
+                  render={({ field: phoneField, fieldState }) => (
+                    <Controller
+                      control={control}
+                      name="claimant.phoneCountryCode"
+                      render={({ field: countryCodeField }) => (
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            1.4 Phone Number {phoneVerified ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <select
+                              value={countryCodeField.value || "+91"}
+                              onChange={countryCodeField.onChange}
+                              disabled={phoneVerified}
+                              className={`px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300 ${
+                                phoneVerified ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              <option value="+91">+91</option>
+                              <option value="+1">+1</option>
+                              <option value="+44">+44</option>
+                              <option value="+49">+49</option>
+                              <option value="+86">+86</option>
+                            </select>
+                            <input
+                              type="tel"
+                              value={phoneField.value || ""}
+                              onChange={(e) => {
+                                // Only allow numbers and limit to 10 digits
+                                const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                                phoneField.onChange(value);
+                              }}
+                              placeholder="10-digit number"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={MAX_PHONE_LENGTH}
+                              disabled={phoneVerified}
+                              className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                                phoneVerified ? 'border-green-500 bg-gray-100' : 'hover:border-gray-300'
+                              } ${phoneVerified ? 'cursor-not-allowed' : ''}`}
+                            />
+                            {!phoneVerified && phoneField.value && phoneField.value.length === 10 && (
+                              <Button 
+                                type="button" 
+                                variant="outline"
+                                size="sm"
+                                onClick={sendPhoneVerification}
+                                disabled={!phoneField.value}
+                              >
+                                Verify
+                              </Button>
+                            )}
+                            {phoneVerified && (
+                              <Button 
+                                type="button" 
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setPhoneVerified(false);
+                                  phoneField.onChange('');
+                                  toast.info('Please enter a new phone number and verify it');
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700"
+                              >
+                                Change
+                              </Button>
+                            )}
+                          </div>
+                          {fieldState.error && (
+                            <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                          )}
+                          {phoneVerified && (
+                            <div className="text-green-600 text-xs mt-1 flex items-center">
+                              <span className="mr-1">✓</span> Phone number verified
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">Enter a valid phone number (max 10 digits)</p>
+                        </div>
+                      )}
+                    />
+                  )}
                 />
-                <Button 
-                  type="button" 
-                  variant={phoneVerified ? "default" : "outline"}
-                  size="sm"
-                  className={`absolute top-6 right-2 h-8 px-3 ${phoneVerified ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                  onClick={phoneVerified ? undefined : sendPhoneVerification}
-                  disabled={phoneVerified || !watch('claimant.phone') || !/^\d{10}$/.test(watch('claimant.phone') || '')}
-                >
-                  {phoneVerified ? "✓ Verified" : "Verify"}
-                </Button>
               </div>
-              <div>
-                <ControlledFormField
+              
+              <Controller
+                control={control}
+                name="claimant.pincode"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.5 Pincode"
+                    name="claimant.pincode"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    maxLength={6}
+                    placeholder="Enter 6-digit pincode"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Controller
                   control={control}
-                  label="GST Number"
-                  name="claimant.gst"
-                  placeholder="22AAAAA0000A1Z5"
-                  maxLength={MAX_GST_LENGTH}
+                  name="claimant.address1"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.6 Address Line 1"
+                      name="claimant.address1"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
-                <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
-              </div>
-              <div>
-                <ControlledFormField
+                
+                <Controller
                   control={control}
-                  label="PAN Number"
-                  name="claimant.pan"
-                  placeholder="AAAPL1234C"
-                  maxLength={MAX_PAN_LENGTH}
+                  name="claimant.address2"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.7 Address Line 2"
+                      name="claimant.address2"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      maxLength={MAX_ADDRESS_LENGTH}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
-                <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
               </div>
-              <div>
-                <ControlledFormField
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Controller
                   control={control}
-                  label="CIN"
-                  name="claimant.cin"
-                  placeholder="U74140MH2014PTC123456"
-                  maxLength={MAX_CIN_LENGTH}
+                  name="claimant.city"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.8 City"
+                      name="claimant.city"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={claimantLocationOptions.cities.length > 0 ? claimantLocationOptions.cities : [{ value: "", label: "Select City" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
                 />
-                <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+                
+                <Controller
+                  control={control}
+                  name="claimant.district"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.9 District"
+                      name="claimant.district"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={claimantLocationOptions.districts.length > 0 ? claimantLocationOptions.districts : [{ value: "", label: "Select District" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                
+                <Controller
+                  control={control}
+                  name="claimant.state"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="1.10 State"
+                      name="claimant.state"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={claimantLocationOptions.states.length > 0 ? claimantLocationOptions.states : [{ value: "", label: "Select State" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
               </div>
-              <div>
-                {/* Empty div to maintain 2-column layout */}
-              </div>
+              
+              <Controller
+                control={control}
+                name="claimant.country"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="1.11 Country"
+                    name="claimant.country"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    options={claimantLocationOptions.countries.length > 0 ? claimantLocationOptions.countries : [{ value: "", label: "Select Country" }]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </div>
             
             {/* Document Upload Section */}
             <div className="mt-6 border-t pt-6">
               <h4 className="font-medium text-md mb-4">Document Upload</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
+              </p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <FileField
-                    label="Certificate of Incorporation (COI)*"
+                    label="1.12 Certificate of Incorporation (COI)"
                     name="claimant.coi"
                     onChange={(file) => handleFileChange('claimant.coi', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    existingFile={files['claimant.coi']}
                   />
+                  <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
                 </div>
                 <div>
                   <FileField
-                    label="PAN Card*"
+                    label="1.13 PAN Card"
                     name="claimant.panCard"
                     onChange={(file) => handleFileChange('claimant.panCard', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    existingFile={files['claimant.panCard']}
                   />
+                  <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
                 </div>
                 <div className="col-span-2">
                   <FileField
-                    label="GST Registration Certificate*"
+                    label="1.14 GST Registration Certificate"
                     name="claimant.gstCert"
                     onChange={(file) => handleFileChange('claimant.gstCert', file)}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    existingFile={files['claimant.gstCert']}
                   />
+                  <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
                 </div>
               </div>
             </div>
-          </div>
-        )
-      case 1: // Additional Claimants & Manager
-        return (
-          <div className="space-y-4" ref={(el) => { stepRefs.current[1] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Additional Claimants</h3>
-            <div className="space-y-6">
-              {additionalClaimantFields.map((field, index) => (
-                <div key={field.id} className="border p-4 rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Additional Claimant {index + 1}</h4>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeAdditionalClaimant(index)}
-                    >
-                      Remove
-                    </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Name"
-                        name={`additionalClaimants.${index}.name`}
-                      required
-                      maxLength={MAX_NAME_LENGTH}
-                    />
-                  </div>
-                  <div className="relative">
-                      <ControlledFormField
-                        control={control}
-                        label={additionalClaimantEmailVerified[index] ? "Email* ✓" : "Email*"}
-                        name={`additionalClaimants.${index}.email`}
-                      required
-                      maxLength={MAX_EMAIL_LENGTH}
-                    />
-                    <Button 
-                      type="button" 
-                      variant={additionalClaimantEmailVerified[index] ? "default" : "outline"}
-                      size="sm"
-                      className={`absolute top-6 right-2 h-8 px-3 ${additionalClaimantEmailVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                      onClick={additionalClaimantEmailVerified[index] ? undefined : () => sendAdditionalClaimantEmailVerification(index)}
-                      disabled={additionalClaimantEmailVerified[index] || !watch(`additionalClaimants.${index}.email`) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch(`additionalClaimants.${index}.email`) || '')}
-                    >
-                      {additionalClaimantEmailVerified[index] ? "✓ Verified" : "Verify"}
-                    </Button>
-                  </div>
-                  <div className="relative">
-                      <PhoneField
-                        control={control}
-                        phoneFieldName={`additionalClaimants.${index}.phone`}
-                        countryCodeFieldName={`additionalClaimants.${index}.phoneCountryCode`}
-                        label={additionalClaimantPhoneVerified[index] ? "Phone* ✓" : "Phone*"}
-                      required
-                      />
-                    <Button 
-                      type="button" 
-                      variant={additionalClaimantPhoneVerified[index] ? "default" : "outline"}
-                      size="sm"
-                      className={`absolute top-6 right-2 h-8 px-3 ${additionalClaimantPhoneVerified[index] ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                      onClick={additionalClaimantPhoneVerified[index] ? undefined : () => sendAdditionalClaimantPhoneVerification(index)}
-                      disabled={additionalClaimantPhoneVerified[index] || !watch(`additionalClaimants.${index}.phone`) || !/^\d{10}$/.test(watch(`additionalClaimants.${index}.phone`) || '')}
-                    >
-                      {additionalClaimantPhoneVerified[index] ? "✓ Verified" : "Verify"}
-                    </Button>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Pincode"
-                        name={`additionalClaimants.${index}.pincode`}
-                      required
-                      maxLength={MAX_PINCODE_LENGTH}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                      <ControlledFormField
-                        control={control}
-                      label="Address Line 1"
-                        name={`additionalClaimants.${index}.address1`}
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                      <ControlledFormField
-                        control={control}
-                      label="Address Line 2"
-                        name={`additionalClaimants.${index}.address2`}
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="City*"
-                        name={`additionalClaimants.${index}.city`}
-                      type="select"
-                      options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="District*"
-                        name={`additionalClaimants.${index}.district`}
-                      type="select"
-                      options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="State*"
-                        name={`additionalClaimants.${index}.state`}
-                      type="select"
-                      options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Country*"
-                        name={`additionalClaimants.${index}.country`}
-                      type="select"
-                      options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-              
-              <div className="flex justify-end">
-            <Button onClick={addAdditionalClaimant} variant="outline">
-                  Add Another Claimant
-            </Button>
-              </div>
-            </div>
-            
-            <div className="mt-8">
-              <h3 className="font-medium text-lg mb-4">Manager Details</h3>
-              {managerFields.map((field, index) => (
-                <div key={field.id} className="border p-4 rounded-lg mb-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-medium">Manager {index + 1}</h4>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeManagerField(index)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-              <div className="grid grid-cols-2 gap-4">
+  
+            {/* Business Information Section */}
+            <div className="mt-6 border-t pt-6">
+              <h4 className="font-medium text-md mb-4">Business Information</h4>
+              <div className="space-y-4">
                 <div>
-                    <ControlledFormField
-                      control={control}
-                      label="Name"
-                        name={`managerDetails.${index}.name`}
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Designation"
-                        name={`managerDetails.${index}.designation`}
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Email"
-                        name={`managerDetails.${index}.email`}
-                    maxLength={MAX_EMAIL_LENGTH}
-                  />
-                </div>
-                <div>
-                    <PhoneField
-                      control={control}
-                        phoneFieldName={`managerDetails.${index}.phone`}
-                        countryCodeFieldName={`managerDetails.${index}.phoneCountryCode`}
-                    label="Phone"
-                    />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Address"
-                        name={`managerDetails.${index}.address`}
-                    maxLength={MAX_ADDRESS_LENGTH}
-                  />
-                </div>
-                <div>
-                    <ControlledFormField
-                      control={control}
-                    label="Authority"
-                        name={`managerDetails.${index}.authority`}
-                    maxLength={MAX_NAME_LENGTH}
-                  />
-                  </div>
-                </div>
-                </div>
-              ))}
-              <div className="flex justify-end">
-                <Button onClick={addManager} variant="outline">
-                  Add Another Manager
-                </Button>
-              </div>
-            </div>
-          </div>
-        )
-      case 2: // Respondent Details
-        return (
-          <div className="space-y-4" ref={(el) => { stepRefs.current[2] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Respondent Details</h3>
-            <div className="space-y-6">
-              {respondentFields.map((field, index) => (
-                <div key={field.id} className="border p-4 rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Respondent {index + 1}</h4>
-                    {respondentFields.length > 1 && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                        onClick={() => removeRespondentField(index)}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Type"
-                        name={`respondents.${index}.type`}
-                      required
-                        type="select"
-                      options={[
-                        { value: "individual", label: "Individual" },
-                        { value: "company", label: "Company" },
-                        { value: "partnership", label: "Partnership" },
-                        { value: "llp", label: "LLP" },
-                      ]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Name"
-                        name={`respondents.${index}.name`}
-                      required
-                      maxLength={MAX_NAME_LENGTH}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Email"
-                        name={`respondents.${index}.email`}
-                      required
-                      maxLength={MAX_EMAIL_LENGTH}
-                    />
-                  </div>
-                  <div>
-                      <PhoneField
-                        control={control}
-                        phoneFieldName={`respondents.${index}.phone`}
-                        countryCodeFieldName={`respondents.${index}.phoneCountryCode`}
-                      label="Phone"
-                      />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Pincode"
-                        name={`respondents.${index}.pincode`}
-                      required
-                      maxLength={MAX_PINCODE_LENGTH}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Enter 6-digit pincode (numbers only) for automatic location lookup</p>
-                  </div>
-                    <div className="col-span-2">
-                      <ControlledFormField
-                        control={control}
-                      label="Address Line 1"
-                        name={`respondents.${index}.address1`}
-                      required
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                      <ControlledFormField
-                        control={control}
-                      label="Address Line 2"
-                        name={`respondents.${index}.address2`}
-                      maxLength={MAX_ADDRESS_LENGTH}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="City*"
-                        name={`respondents.${index}.city`}
-                      type="select"
-                      options={cityOptions.length > 0 ? cityOptions : [{ value: "", label: "Select City" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="District*"
-                        name={`respondents.${index}.district`}
-                      type="select"
-                      options={districtOptions.length > 0 ? districtOptions : [{ value: "", label: "Select District" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="State*"
-                        name={`respondents.${index}.state`}
-                      type="select"
-                      options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select State" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="Country*"
-                        name={`respondents.${index}.country`}
-                      type="select"
-                      options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "Select Country" }]}
-                    />
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="GST Number"
-                        name={`respondents.${index}.gst`}
+                  <Controller
+                    control={control}
+                    name="claimant.gst"
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="1.15 GST Number"
+                        name="claimant.gst"
+                        value={field.value || ""}
+                        onChange={field.onChange}
                         placeholder="22AAAAA0000A1Z5"
                         maxLength={MAX_GST_LENGTH}
+                        error={fieldState.error?.message}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="PAN Number"
-                        name={`respondents.${index}.pan`}
-                        placeholder="AAAPL1234C"
-                        maxLength={MAX_PAN_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
-                  </div>
-                  <div>
-                      <ControlledFormField
-                        control={control}
-                      label="CIN"
-                        name={`respondents.${index}.cin`}
-                        placeholder="U74140MH2014PTC123456"
-                        maxLength={MAX_CIN_LENGTH}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
-                        </div>
-                </div>
-              </div>
-            ))}
-              
-              <div className="flex justify-end">
-            <Button onClick={addRespondent} variant="outline">
-                  Add Another Respondent
-            </Button>
-              </div>
-            </div>
-          </div>
-        )
-      case 3: // Arbitration Agreement
-        return (
-          <div className="space-y-4" ref={(el) => { stepRefs.current[3] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Arbitration Agreement Details</h3>
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <Controller
-                  control={control}
-                  name="arbitrationAgreement.agreementDate"
-                  render={({ field, fieldState }) => (
-                <FormField
-                  label="Date of Arbitration Agreement / Agreement containing the arbitration clause*"
-                  name="agreementDate"
-                  type="date"
-                      value={field.value || ""}
-                      onChange={field.onChange}
-                  required
-                  max={new Date().toISOString().split('T')[0]}
-                      error={fieldState.error?.message}
-                />
-                )}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Place where the Arbitration Agreement / Agreement containing the arbitration clause was signed*"
-                  name="arbitrationAgreement.placeOfSigning"
-                  required
-                  maxLength={MAX_ARBITRATION_FIELD_LENGTH}
-                  placeholder="Enter the place where the agreement was signed"
-                />
-              </div>
-              <div>
-                <ControlledTextAreaField
-                  control={control}
-                  label="Text of Arbitration Agreement/clause*"
-                  name="arbitrationAgreement.arbitrationText"
-                  required
-                  maxLength={2000}
-                  rows={5}
-                  placeholder="Enter the exact text of the arbitration agreement or clause"
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Percentage of the Agreement value / Amount of stamp duty paid on the Arbitration Agreement / Agreement containing the arbitration clause*"
-                  name="arbitrationAgreement.stampDutyPercentage"
-                  required
-                  placeholder="Enter percentage or amount"
-                  maxLength={50}
-                />
-                <p className="text-xs text-gray-500 mt-1">Enter as percentage of agreement value or actual amount paid</p>
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Number of Arbitrators as per Agreement*"
-                  name="arbitrationAgreement.numberOfArbitrators"
-                  required
-                  type="select"
-                  options={[
-                    { value: "1", label: "1 (Sole Arbitrator)" },
-                    { value: "3", label: "3 (Tribunal)" },
-                    { value: "5", label: "5" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
-        )
-      case 4: // Nature of Dispute
-        return (
-          <div className="space-y-6">
-            {/* Nature of Dispute Section */}
-            <div className="border rounded-lg p-4">
-              <h3 className="font-medium text-lg mb-4">Nature of Dispute</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <ControlledFormField
-                    control={control}
-                    label="Category"
-                    name="natureOfDispute.category"
-                    required
-                    type="select"
-                    options={[
-                      { value: "commercial", label: "Commercial" },
-                      { value: "construction", label: "Construction" },
-                      { value: "employment", label: "Employment" },
-                      { value: "intellectual_property", label: "Intellectual Property" },
-                      { value: "corporate", label: "Corporate" },
-                      { value: "real_estate", label: "Real Estate" },
-                      { value: "banking", label: "Banking & Finance" },
-                      { value: "other", label: "Other" },
-                    ]}
+                    )}
                   />
-                </div>
-                <div>
-                  <ControlledFormField
-                    control={control}
-                    label="Sub Category"
-                    name="natureOfDispute.subCategory"
-                    required
-                    type="select"
-                    options={[
-                      { value: "breach", label: "Breach of Contract" },
-                      { value: "payment", label: "Payment Dispute" },
-                      { value: "quality", label: "Quality/Performance Issue" },
-                      { value: "delivery", label: "Delivery Delay" },
-                      { value: "warranty", label: "Warranty Claim" },
-                      { value: "termination", label: "Contract Termination" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <ControlledFormField
-                    control={control}
-                    label="Nature of Dispute"
-                    name="natureOfDispute.natureOfDispute"
-                    required
-                    type="select"
-                    options={[
-                      { value: "civil", label: "Civil" },
-                      { value: "commercial", label: "Commercial" },
-                      { value: "constitutional", label: "Constitutional" },
-                      { value: "family", label: "Family" },
-                      { value: "property", label: "Property" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
                 </div>
                 <div>
                   <Controller
                     control={control}
-                    name="natureOfDispute.dateWhenRightToClaimArose"
+                    name="claimant.pan"
                     render={({ field, fieldState }) => (
                       <FormField
-                        label="Date when right to claim arose"
-                        name="dateWhenRightToClaimArose"
-                        type="date"
+                        label="1.16 PAN Number"
+                        name="claimant.pan"
                         value={field.value || ""}
                         onChange={field.onChange}
-                        required
-                        max={new Date().toISOString().split('T')[0]}
+                        placeholder="AAAPL1234C"
+                        maxLength={MAX_PAN_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+                </div>
+                <div>
+                  <Controller
+                    control={control}
+                    name="claimant.cin"
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="1.17 CIN"
+                        name="claimant.cin"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="U74140MH2014PTC123456"
+                        maxLength={MAX_CIN_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+  
+      case 1: // Additional Claimants
+        return (
+          <div className="space-y-6" ref={(el) => { stepRefs.current[1] = el; }}>
+            <h3 className="text-lg font-medium mb-4">Step 2: Additional Claimants</h3>
+          
+            {additionalClaimantFields.map((field, index) => (
+              <div key={field.id} className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-md font-semibold">Additional Claimant {index + 1}</h4>
+                  <Button variant="destructive" size="sm" onClick={() => removeAdditionalClaimant(index)}>
+                    Remove
+                  </Button>
+                </div>
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.type`}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="2.1 Type"
+                      name={`additionalClaimants.${index}.type`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      required
+                      options={[
+                        { value: "individual", label: "Individual" },
+                        { value: "company", label: "Company" },
+                        { value: "partnership", label: "Partnership" },
+                        { value: "llp", label: "LLP" }
+                      ]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.name`}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="2.2 Name"
+                      name={`additionalClaimants.${index}.name`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      required
+                      maxLength={MAX_NAME_LENGTH}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+  
+                {/* Email Field with Verify Button */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Controller
+                    name={`additionalClaimants.${index}.email`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          2.3 Email Address {additionalClaimantEmailVerified[index] ? "✓" : ""} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            disabled={additionalClaimantEmailVerified[index]}
+                            className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                              additionalClaimantEmailVerified[index] ? "border-green-500 bg-gray-100 cursor-not-allowed" : "hover:border-gray-300"
+                            }`}
+                          />
+                          {!additionalClaimantEmailVerified[index] && field.value && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendAdditionalClaimantEmailVerification(index)}
+                              disabled={!field.value}
+                            >
+                              Verify
+                            </Button>
+                          )}
+                          {additionalClaimantEmailVerified[index] && (
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                setAdditionalClaimantEmailVerified(prev => {
+                                  const newVerified = [...prev];
+                                  newVerified[index] = false;
+                                  return newVerified;
+                                });
+                                field.onChange('');
+                                toast.info(`Additional Claimant ${index + 1}: Please enter a new email address and verify it`);
+                              }}
+                              className="bg-orange-600 hover:bg-orange-700"
+                            >
+                              Change
+                            </Button>
+                          )}
+                        </div>
+                        {fieldState.error && (
+                          <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                        )}
+                        {additionalClaimantEmailVerified[index] && (
+                          <div className="text-green-600 text-xs mt-1 flex items-center">
+                            <span className="mr-1">✓</span> Email address verified
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  />
+  
+                  {/* Phone Field with Country Code + Verify */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      2.4 Mobile Number {additionalClaimantPhoneVerified[index] ? "✓" : ""} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <Controller
+                        name={`additionalClaimants.${index}.phoneCountryCode`}
+                        control={control}
+                        render={({ field }) => (
+                          <select
+                            value={field.value || "+91"}
+                            onChange={field.onChange}
+                            disabled={additionalClaimantPhoneVerified[index]}
+                            className={`px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-300 ${
+                              additionalClaimantPhoneVerified[index] ? 'bg-gray-100 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <option value="+91">+91</option>
+                            <option value="+1">+1</option>
+                            <option value="+44">+44</option>
+                            <option value="+49">+49</option>
+                            <option value="+86">+86</option>
+                          </select>
+                        )}
+                      />
+                      <Controller
+                        name={`additionalClaimants.${index}.phone`}
+                        control={control}
+                        render={({ field, fieldState }) => (
+                          <>
+                            <input
+                              type="tel"
+                              value={field.value || ""}
+                              onChange={(e) => {
+                                // Only allow numbers and limit to 10 digits
+                                const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                                field.onChange(value);
+                              }}
+                              placeholder="10-digit number"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={MAX_PHONE_LENGTH}
+                              disabled={additionalClaimantPhoneVerified[index]}
+                              className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                additionalClaimantPhoneVerified[index] ? "border-green-500 bg-gray-100 cursor-not-allowed" : "hover:border-gray-300"
+                              }`}
+                            />
+                            {!additionalClaimantPhoneVerified[index] && field.value && field.value.length === 10 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => sendAdditionalClaimantPhoneVerification(index)}
+                                disabled={!field.value}
+                              >
+                                Verify
+                              </Button>
+                            )}
+                            {additionalClaimantPhoneVerified[index] && (
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setAdditionalClaimantPhoneVerified(prev => {
+                                    const newVerified = [...prev];
+                                    newVerified[index] = false;
+                                    return newVerified;
+                                  });
+                                  field.onChange('');
+                                  toast.info(`Additional Claimant ${index + 1}: Please enter a new phone number and verify it`);
+                                }}
+                                className="bg-orange-600 hover:bg-orange-700"
+                              >
+                                Change
+                              </Button>
+                            )}
+                            {fieldState.error && (
+                              <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                            )}
+                            {additionalClaimantPhoneVerified[index] && (
+                              <div className="text-green-600 text-xs mt-1 flex items-center">
+                                <span className="mr-1">✓</span> Phone number verified
+                              </div>
+                            )}
+                          </>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.pincode`}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="2.5 Pincode"
+                      name={`additionalClaimants.${index}.pincode`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      maxLength={6}
+                      placeholder="Enter 6-digit pincode"
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.address1`}
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="2.6 Address Line 1"
+                        name={`additionalClaimants.${index}.address1`}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        maxLength={MAX_ADDRESS_LENGTH}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.address2`}
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="2.7 Address Line 2"
+                        name={`additionalClaimants.${index}.address2`}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        maxLength={MAX_ADDRESS_LENGTH}
                         error={fieldState.error?.message}
                       />
                     )}
                   />
                 </div>
-                <div className="col-span-2">
-                  <ControlledFormField
+  
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Controller
                     control={control}
-                    label="Standardised prayer clauses"
-                    name="natureOfDispute.standardisedPrayerClauses"
-                    required
-                    type="select"
-                    options={[
-                      { value: "monetary_relief", label: "Monetary Relief" },
-                      { value: "specific_performance", label: "Specific Performance" },
-                      { value: "declaratory_relief", label: "Declaratory Relief" },
-                      { value: "injunctive_relief", label: "Injunctive Relief" },
-                      { value: "damages", label: "Damages" },
-                      { value: "costs", label: "Costs and Expenses" },
-                      { value: "other", label: "Other" },
-                    ]}
+                    name={`additionalClaimants.${index}.city`}
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="2.8 City"
+                        name={`additionalClaimants.${index}.city`}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="select"
+                        options={additionalClaimantLocationOptions[index]?.cities.length > 0 ? additionalClaimantLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.district`}
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="2.9 District"
+                        name={`additionalClaimants.${index}.district`}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="select"
+                        options={additionalClaimantLocationOptions[index]?.districts.length > 0 ? additionalClaimantLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name={`additionalClaimants.${index}.state`}
+                    render={({ field, fieldState }) => (
+                      <FormField
+                        label="2.10 State"
+                        name={`additionalClaimants.${index}.state`}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="select"
+                        options={additionalClaimantLocationOptions[index]?.states.length > 0 ? additionalClaimantLocationOptions[index].states : [{ value: "", label: "Select State" }]}
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
                 </div>
+  
+                <Controller
+                  control={control}
+                  name={`additionalClaimants.${index}.country`}
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="2.11 Country"
+                      name={`additionalClaimants.${index}.country`}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      type="select"
+                      options={additionalClaimantLocationOptions[index]?.countries.length > 0 ? additionalClaimantLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+  
+                {/* Document Upload Section */}
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <h5 className="text-md font-medium mb-4">Document Upload</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FileField 
+                      label="2.12 Certificate of Incorporation (COI)" 
+                      name={`additionalClaimants.${index}.coi`} 
+                      onChange={(file) => handleFileChange(`additionalClaimants.${index}.coi`, file)} 
+                      existingFile={files[`additionalClaimants.${index}.coi`]} 
+                    />
+                    <FileField 
+                      label="2.13 PAN Card" 
+                      name={`additionalClaimants.${index}.panCard`} 
+                      onChange={(file) => handleFileChange(`additionalClaimants.${index}.panCard`, file)} 
+                      existingFile={files[`additionalClaimants.${index}.panCard`]} 
+                    />
+                    <div className="col-span-2">
+                      <FileField 
+                        label="2.14 GST Registration Certificate" 
+                        name={`additionalClaimants.${index}.gstCert`} 
+                        onChange={(file) => handleFileChange(`additionalClaimants.${index}.gstCert`, file)} 
+                        existingFile={files[`additionalClaimants.${index}.gstCert`]} 
+                      />
+                    </div>
+                  </div>
+                </div>
+  
+                {/* Business Info Section */}
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <h5 className="text-md font-medium mb-4">Business Information</h5>
+                  <div className="space-y-4">
+                    <div>
+                      <Controller
+                        control={control}
+                        name={`additionalClaimants.${index}.gst`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="2.15 GST Number"
+                            name={`additionalClaimants.${index}.gst`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="22AAAAA0000A1Z5"
+                            maxLength={MAX_GST_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
+                    </div>
+                    
+                    <div>
+                      <Controller
+                        control={control}
+                        name={`additionalClaimants.${index}.pan`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="2.16 PAN Number"
+                            name={`additionalClaimants.${index}.pan`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="AAAPL1234C"
+                            maxLength={MAX_PAN_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+                    </div>
+                    
+                    <div>
+                      <Controller
+                        control={control}
+                        name={`additionalClaimants.${index}.cin`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="2.17 CIN"
+                            name={`additionalClaimants.${index}.cin`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="U74140MH2014PTC123456"
+                            maxLength={MAX_CIN_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          
+            <div className="flex justify-end">
+              <Button onClick={addAdditionalClaimant} variant="outline">
+                Add Another Claimant
+              </Button>
+            </div>
+          
+            <div className="mt-8">
+  <h3 className="font-medium text-lg mb-4">Manager Details</h3>
+  {managerFields.map((field, index) => (
+    <div key={field.id} className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white shadow-sm mb-4">
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="font-medium">Manager {index + 1}</h4>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => removeManagerField(index)}
+        >
+          Remove
+        </Button>
+      </div>
+      
+      <div className="space-y-4">
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.name`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Name"
+              name={`managerDetails.${index}.name`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              required
+              maxLength={MAX_NAME_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.designation`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Designation"
+              name={`managerDetails.${index}.designation`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              maxLength={MAX_NAME_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.managerId`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Manager ID Number"
+              name={`managerDetails.${index}.managerId`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              required
+              maxLength={50}
+              placeholder="Enter unique manager ID"
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Controller
+            control={control}
+            name={`managerDetails.${index}.email`}
+            render={({ field, fieldState }) => (
+              <FormField
+                label="Email Address"
+                name={`managerDetails.${index}.email`}
+                value={field.value || ""}
+                onChange={field.onChange}
+                type="email"
+                required
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone Number <span className="text-red-500 ml-1">*</span>
+            </label>
+            <div className="flex gap-2">
+              <Controller
+                control={control}
+                name={`managerDetails.${index}.phoneCountryCode`}
+                render={({ field }) => (
+                  <select
+                    value={field.value || "+91"}
+                    onChange={field.onChange}
+                    className="px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300"
+                  >
+                    <option value="+91">+91</option>
+                    <option value="+1">+1</option>
+                    <option value="+44">+44</option>
+                    <option value="+49">+49</option>
+                    <option value="+86">+86</option>
+                  </select>
+                )}
+              />
+              <Controller
+                control={control}
+                name={`managerDetails.${index}.phone`}
+                render={({ field, fieldState }) => (
+                  <>
+                    <input
+                      type="tel"
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        // Only allow numbers and limit to 10 digits
+                        const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                        field.onChange(value);
+                      }}
+                      placeholder="10-digit number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={MAX_PHONE_LENGTH}
+                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 hover:border-gray-300"
+                    />
+                    {fieldState.error && (
+                      <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Enter a valid phone number (max 10 digits)</p>
+                  </>
+                )}
+              />
+            </div>
+          </div>
+        </div>
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.address1`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Address"
+              name={`managerDetails.${index}.address1`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              required
+              maxLength={MAX_ADDRESS_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name={`managerDetails.${index}.authority`}
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Authority"
+              name={`managerDetails.${index}.authority`}
+              value={field.value || ""}
+              onChange={field.onChange}
+              maxLength={MAX_NAME_LENGTH}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+      </div>
+      
+      {/* Document Upload Section for Manager */}
+      <div className="mt-6 border-t border-gray-200 pt-6">
+        <h5 className="text-md font-medium mb-4">Document Upload</h5>
+        <p className="text-sm text-gray-600 mb-3">
+          Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <FileField
+              label="Certificate of Incorporation (COI)"
+              name={`managerDetails.${index}.coi`}
+              onChange={(file) => handleFileChange(`managerDetails.${index}.coi`, file)}
+              accept=".pdf,.jpg,.jpeg,.png"
+              existingFile={files[`managerDetails.${index}.coi`]}
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
+          </div>
+          <div>
+            <FileField
+              label="PAN Card"
+              name={`managerDetails.${index}.panCard`}
+              onChange={(file) => handleFileChange(`managerDetails.${index}.panCard`, file)}
+              accept=".pdf,.jpg,.jpeg,.png"
+              existingFile={files[`managerDetails.${index}.panCard`]}
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
+          </div>
+          <div className="col-span-2">
+            <FileField
+              label="GST Registration Certificate"
+              name={`managerDetails.${index}.gstCert`}
+              onChange={(file) => handleFileChange(`managerDetails.${index}.gstCert`, file)}
+              accept=".pdf,.jpg,.jpeg,.png"
+              existingFile={files[`managerDetails.${index}.gstCert`]}
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Business Information Section for Manager */}
+      <div className="mt-6 border-t border-gray-200 pt-6">
+        <h5 className="text-md font-medium mb-4">Business Information</h5>
+        <div className="space-y-4">
+          <div>
+            <Controller
+              control={control}
+              name={`managerDetails.${index}.gst`}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label="GST Number"
+                  name={`managerDetails.${index}.gst`}
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="22AAAAA0000A1Z5"
+                  maxLength={MAX_GST_LENGTH}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
+          </div>
+          
+          <div>
+            <Controller
+              control={control}
+              name={`managerDetails.${index}.pan`}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label="PAN Number"
+                  name={`managerDetails.${index}.pan`}
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="AAAPL1234C"
+                  maxLength={MAX_PAN_LENGTH}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+          </div>
+          
+          <div>
+            <Controller
+              control={control}
+              name={`managerDetails.${index}.cin`}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label="CIN"
+                  name={`managerDetails.${index}.cin`}
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  placeholder="U74140MH2014PTC123456"
+                  maxLength={MAX_CIN_LENGTH}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ))}
+  
+  <div className="flex justify-end">
+    <Button onClick={addManager} variant="outline">
+      Add Another Manager
+    </Button>
+  </div>
+</div>
+
+          </div>
+        )
+  
+      case 2: // Respondent Details
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[2] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Step 3: Respondent Details</h3>
+            <div className="space-y-6">
+              {respondentFields.map((field, index) => (
+                <div key={field.id} className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium">Respondent {index + 1}</h4>
+                    {respondentFields.length > 1 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeRespondentField(index)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.type`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.1 Type"
+                          name={`respondents.${index}.type`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "individual", label: "Individual" },
+                            { value: "company", label: "Company" },
+                            { value: "partnership", label: "Partnership" },
+                            { value: "llp", label: "LLP" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.name`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.2 Name"
+                          name={`respondents.${index}.name`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          maxLength={MAX_NAME_LENGTH}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.email`}
+                        render={({ field, fieldState }) => (
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              3.3 Email Address {respondentEmailVerified[index] ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="email"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                disabled={respondentEmailVerified[index]}
+                                className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                                  respondentEmailVerified[index] ? 'border-green-500 bg-gray-100 cursor-not-allowed' : 'hover:border-gray-300'
+                                }`}
+                              />
+                              {!respondentEmailVerified[index] && field.value && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => sendRespondentEmailVerification(index)}
+                                  disabled={!field.value}
+                                >
+                                  Verify
+                                </Button>
+                              )}
+                              {respondentEmailVerified[index] && (
+                                <Button
+                                  type="button"
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespondentEmailVerified(prev => {
+                                      const newVerified = [...prev];
+                                      newVerified[index] = false;
+                                      return newVerified;
+                                    });
+                                    field.onChange('');
+                                    toast.info(`Respondent ${index + 1}: Please enter a new email address and verify it`);
+                                  }}
+                                  className="bg-orange-600 hover:bg-orange-700"
+                                >
+                                  Change
+                                </Button>
+                              )}
+                            </div>
+                            {fieldState.error && (
+                              <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                            )}
+                            {respondentEmailVerified[index] && (
+                              <div className="text-green-600 text-xs mt-1 flex items-center">
+                                <span className="mr-1">✓</span> Email address verified
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      />
+                      
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          3.4 Mobile Number {respondentPhoneVerified[index] ? "✓" : ""} <span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <Controller
+                            control={control}
+                            name={`respondents.${index}.phoneCountryCode`}
+                            render={({ field }) => (
+                              <select
+                                value={field.value || "+91"}
+                                onChange={field.onChange}
+                                disabled={respondentPhoneVerified[index]}
+                                className={`px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm hover:border-gray-300 ${
+                                  respondentPhoneVerified[index] ? 'bg-gray-100 cursor-not-allowed' : ''
+                                }`}
+                              >
+                                <option value="+91">+91</option>
+                                <option value="+1">+1</option>
+                                <option value="+44">+44</option>
+                                <option value="+49">+49</option>
+                                <option value="+86">+86</option>
+                              </select>
+                            )}
+                          />
+                          <Controller
+                            control={control}
+                            name={`respondents.${index}.phone`}
+                            render={({ field, fieldState }) => (
+                              <>
+                                <input
+                                  type="tel"
+                                  value={field.value || ""}
+                                  onChange={(e) => {
+                                    // Only allow numbers and limit to 10 digits
+                                    const value = e.target.value.replace(/\D/g, '').slice(0, MAX_PHONE_LENGTH);
+                                    field.onChange(value);
+                                  }}
+                                  placeholder="10-digit number"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  maxLength={MAX_PHONE_LENGTH}
+                                  disabled={respondentPhoneVerified[index]}
+                                  className={`flex-1 px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm transition duration-200 ${
+                                    respondentPhoneVerified[index] ? 'border-green-500 bg-gray-100 cursor-not-allowed' : 'hover:border-gray-300'
+                                  }`}
+                                />
+                                {!respondentPhoneVerified[index] && field.value && field.value.length === 10 && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => sendRespondentPhoneVerification(index)}
+                                    disabled={!field.value}
+                                  >
+                                    Verify
+                                  </Button>
+                                )}
+                                {respondentPhoneVerified[index] && (
+                                  <Button
+                                    type="button"
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => {
+                                      setRespondentPhoneVerified(prev => {
+                                        const newVerified = [...prev];
+                                        newVerified[index] = false;
+                                        return newVerified;
+                                      });
+                                      field.onChange('');
+                                      toast.info(`Respondent ${index + 1}: Please enter a new phone number and verify it`);
+                                    }}
+                                    className="bg-orange-600 hover:bg-orange-700"
+                                  >
+                                    Change
+                                  </Button>
+                                )}
+                                {fieldState.error && (
+                                  <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>
+                                )}
+                                {respondentPhoneVerified[index] && (
+                                  <div className="text-green-600 text-xs mt-1 flex items-center">
+                                    <span className="mr-1">✓</span> Phone number verified
+                                  </div>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">Enter a valid phone number (max 10 digits)</p>
+                              </>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.pincode`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.5 Pincode"
+                          name={`respondents.${index}.pincode`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          maxLength={6}
+                          placeholder="Enter 6-digit pincode"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.address1`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.6 Address Line 1"
+                            name={`respondents.${index}.address1`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            required
+                            maxLength={MAX_ADDRESS_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.address2`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.7 Address Line 2"
+                            name={`respondents.${index}.address2`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            maxLength={MAX_ADDRESS_LENGTH}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.city`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.8 City"
+                            name={`respondents.${index}.city`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            type="select"
+                            options={respondentLocationOptions[index]?.cities.length > 0 ? respondentLocationOptions[index].cities : [{ value: "", label: "Select City" }]}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                      
+                      <Controller
+                        control={control}
+                        name={`respondents.${index}.state`}
+                        render={({ field, fieldState }) => (
+                          <FormField
+                            label="3.10 State"
+                            name={`respondents.${index}.state`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            type="select"
+                            options={respondentLocationOptions[index]?.states.length > 0 ? respondentLocationOptions[index].states : [{ value: "", label: "Select State" }]}
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.district`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.9 District"
+                          name={`respondents.${index}.district`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          options={respondentLocationOptions[index]?.districts.length > 0 ? respondentLocationOptions[index].districts : [{ value: "", label: "Select District" }]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`respondents.${index}.country`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="3.11 Country"
+                          name={`respondents.${index}.country`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          options={respondentLocationOptions[index]?.countries.length > 0 ? respondentLocationOptions[index].countries : [{ value: "", label: "Select Country" }]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  </div>
+                  
+                  {/* Document Upload Section for Respondent */}
+                  <div className="mt-4 border-t pt-4">
+                    <h5 className="font-medium text-sm mb-3">Document Upload</h5>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <FileField
+                          label="3.12 Certificate of Incorporation (COI)"
+                          name={`respondents.${index}.coi`}
+                          onChange={(file) => handleFileChange(`respondents.${index}.coi`, file)}
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          existingFile={files[`respondents.${index}.coi`]}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Auto-populates CIN field via OCR</p>
+                      </div>
+                      <div>
+                        <FileField
+                          label="3.13 PAN Card"
+                          name={`respondents.${index}.panCard`}
+                          onChange={(file) => handleFileChange(`respondents.${index}.panCard`, file)}
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          existingFile={files[`respondents.${index}.panCard`]}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
+                      </div>
+                      <div className="col-span-2">
+                        <FileField
+                          label="3.14 GST Registration Certificate"
+                          name={`respondents.${index}.gstCert`}
+                          onChange={(file) => handleFileChange(`respondents.${index}.gstCert`, file)}
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          existingFile={files[`respondents.${index}.gstCert`]}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Auto-populates GST field via OCR</p>
+                      </div>
+                    </div>
+                  </div>
+  
+                  {/* Business Information Section for Respondent */}
+                  <div className="mt-4 border-t pt-4">
+                    <h5 className="font-medium text-sm mb-3">Business Information</h5>
+                    <div className="space-y-4">
+                      <div>
+                        <Controller
+                          control={control}
+                          name={`respondents.${index}.gst`}
+                          render={({ field, fieldState }) => (
+                            <FormField
+                              label="3.15 GST Number"
+                              name={`respondents.${index}.gst`}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="22AAAAA0000A1Z5"
+                              maxLength={MAX_GST_LENGTH}
+                              error={fieldState.error?.message}
+                            />
+                          )}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Format: 22AAAAA0000A1Z5 (15 characters)</p>
+                      </div>
+                      
+                      <div>
+                        <Controller
+                          control={control}
+                          name={`respondents.${index}.pan`}
+                          render={({ field, fieldState }) => (
+                            <FormField
+                              label="3.16 PAN Number"
+                              name={`respondents.${index}.pan`}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="AAAPL1234C"
+                              maxLength={MAX_PAN_LENGTH}
+                              error={fieldState.error?.message}
+                            />
+                          )}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Format: AAAPL1234C (5 letters + 4 digits + 1 letter)</p>
+                      </div>
+                      
+                      <div>
+                        <Controller
+                          control={control}
+                          name={`respondents.${index}.cin`}
+                          render={({ field, fieldState }) => (
+                            <FormField
+                              label="3.17 CIN"
+                              name={`respondents.${index}.cin`}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="U74140MH2014PTC123456"
+                              maxLength={MAX_CIN_LENGTH}
+                              error={fieldState.error?.message}
+                            />
+                          )}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Format: U74140MH2014PTC123456 (21 characters)</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex justify-end">
+                <Button onClick={addRespondent} variant="outline">
+                  Add Another Respondent
+                </Button>
               </div>
             </div>
           </div>
         )
+  
+      case 3: // Arbitration Agreement
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[3] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Step 4: Arbitration Agreement Details</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <Controller
+                control={control}
+                name="arbitrationAgreement.agreementDate"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.1 Date of Arbitration Agreement / Agreement containing the arbitration clause*"
+                    name="arbitrationAgreement.agreementDate"
+                    type="date"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    max={new Date().toISOString().split('T')[0]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.placeOfSigning"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.2 Place where the Arbitration Agreement / Agreement containing the arbitration clause was signed*"
+                    name="arbitrationAgreement.placeOfSigning"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    maxLength={MAX_ARBITRATION_FIELD_LENGTH}
+                    placeholder="Enter the place where the agreement was signed"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.arbitrationText"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.3 Text of Arbitration Agreement/clause*"
+                    name="arbitrationAgreement.arbitrationText"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="textarea"
+                    required
+                    maxLength={2000}
+                    rows={5}
+                    placeholder="Enter the exact text of the arbitration agreement or clause"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.stampDutyPercentage"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.4 Percentage of the Agreement value / Amount of stamp duty paid on the Arbitration Agreement / Agreement containing the arbitration clause*"
+                    name="arbitrationAgreement.stampDutyPercentage"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    placeholder="Enter percentage or amount"
+                    maxLength={50}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="arbitrationAgreement.numberOfArbitrators"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="4.5 Number of Arbitrators as per Agreement*"
+                    name="arbitrationAgreement.numberOfArbitrators"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    required
+                    options={[
+                      { value: "1", label: "1 (Sole Arbitrator)" },
+                      { value: "3", label: "3 (Tribunal)" },
+                      { value: "5", label: "5" },
+                      { value: "other", label: "Other" },
+                    ]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+            </div>
+          </div>
+        )
+  
+      case 4: // Nature of Dispute
+        return (
+          <div className="space-y-6">
+            {/* Nature of Dispute Section */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-lg mb-4">Step 5: Nature of Dispute</h3>
+              <p className="text-sm text-gray-600 mb-4">You can add multiple nature of dispute entries. Each entry represents a separate dispute category.</p>
+              
+              {natureOfDisputeFields.map((field, index) => (
+                <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium">Nature of Dispute {index + 1}</h4>
+                    {natureOfDisputeFields.length > 1 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeNatureOfDispute(index)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.category`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.1 Category"
+                          name={`natureOfDispute.${index}.category`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "commercial", label: "Commercial" },
+                            { value: "construction", label: "Construction" },
+                            { value: "employment", label: "Employment" },
+                            { value: "intellectual_property", label: "Intellectual Property" },
+                            { value: "corporate", label: "Corporate" },
+                            { value: "real_estate", label: "Real Estate" },
+                            { value: "banking", label: "Banking & Finance" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.subCategory`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.2 Sub Category"
+                          name={`natureOfDispute.${index}.subCategory`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "breach", label: "Breach of Contract" },
+                            { value: "payment", label: "Payment Dispute" },
+                            { value: "quality", label: "Quality/Performance Issue" },
+                            { value: "delivery", label: "Delivery Delay" },
+                            { value: "warranty", label: "Warranty Claim" },
+                            { value: "termination", label: "Contract Termination" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.natureOfDispute`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.3 Nature of Dispute"
+                          name={`natureOfDispute.${index}.natureOfDispute`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "civil", label: "Civil" },
+                            { value: "commercial", label: "Commercial" },
+                            { value: "constitutional", label: "Constitutional" },
+                            { value: "family", label: "Family" },
+                            { value: "property", label: "Property" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.dateWhenRightToClaimArose`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.4 Date when right to claim arose"
+                          name={`dateWhenRightToClaimArose_${index}`}
+                          type="date"
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          max={new Date().toISOString().split('T')[0]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.standardisedPrayerClauses`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="5.5 Standardised prayer clauses"
+                          name={`natureOfDispute.${index}.standardisedPrayerClauses`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "monetary_relief", label: "Monetary Relief" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "declaratory_relief", label: "Declaratory Relief" },
+                            { value: "injunctive_relief", label: "Injunctive Relief" },
+                            { value: "damages", label: "Damages" },
+                            { value: "costs", label: "Costs and Expenses" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+              ))}
+  
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addNatureOfDispute}
+                  className="mt-4"
+                >
+                  Add Another Nature of Dispute
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+  
       case 5: // Dispute Description
         return (
           <div className="space-y-6">
             {/* Dispute Description Section */}
             <div className="border rounded-lg p-4">
-              <h3 className="font-medium text-lg mb-4">Dispute Description</h3>
+              <h3 className="font-medium text-lg mb-4">Step 6: Dispute Description</h3>
               <p className="text-sm text-gray-600 mb-4">You can add multiple dispute descriptions. Each entry represents a separate claim or issue.</p>
               
               {disputeDescriptionFields.map((field, index) => (
@@ -3620,104 +6194,163 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Claim Type"
-                        name={`disputeDescriptions.${index}.claimType`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "monetary", label: "Monetary" },
-                          { value: "specific_performance", label: "Specific Performance" },
-                          { value: "declaratory", label: "Declaratory Relief" },
-                          { value: "injunctive", label: "Injunctive Relief" },
-                          { value: "combination", label: "Combination of Above" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <ControlledTextAreaField
-                        control={control}
-                        label="Claim Reason"
-                        name={`disputeDescriptions.${index}.claimReason`}
-                        required
-                        rows={2}
-                        placeholder="Provide the primary reason for this claim"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <ControlledTextAreaField
-                        control={control}
-                        label="Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
-                        name={`disputeDescriptions.${index}.lawReliedUpon`}
-                        required
-                        rows={3}
-                        placeholder="List specific Acts, Rules, Regulations, or other legal provisions relied upon"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Relevant Clause Number/Page Number"
-                        name={`disputeDescriptions.${index}.relevantClauseNumber`}
-                        required
-                        placeholder="e.g., Clause 5.2 or Page 7"
-                      />
-                    </div>
-                    <div>
-                      <ControlledTextAreaField
-                        control={control}
-                        label="Clause Supporting Claim"
-                        name={`disputeDescriptions.${index}.clauseSupportingClaim`}
-                        required
-                        rows={2}
-                        placeholder="Describe how this clause supports your claim"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <ControlledTextAreaField
-                        control={control}
-                        label="Clause"
-                        name={`disputeDescriptions.${index}.clause`}
-                        required
-                        rows={3}
-                        placeholder="Enter the exact text of the relevant clause"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Document Supporting Claim"
-                        name={`disputeDescriptions.${index}.documentSupportingClaim`}
-                        required
-                        placeholder="Name/reference of supporting document"
-                      />
-                    </div>
-                    <div>
-                      <ControlledFormField
-                        control={control}
-                        label="Relief Sought"
-                        name={`disputeDescriptions.${index}.reliefSought`}
-                        required
-                        type="select"
-                        options={[
-                          { value: "monetary_compensation", label: "Monetary Compensation" },
-                          { value: "specific_performance", label: "Specific Performance" },
-                          { value: "declaratory_relief", label: "Declaratory Relief" },
-                          { value: "injunctive_relief", label: "Injunctive Relief" },
-                          { value: "restitution", label: "Restitution" },
-                          { value: "rescission", label: "Rescission of Contract" },
-                          { value: "rectification", label: "Rectification" },
-                          { value: "damages_costs", label: "Damages and Costs" },
-                          { value: "interest_penalty", label: "Interest and Penalty" },
-                          { value: "termination", label: "Contract Termination" },
-                          { value: "other", label: "Other" },
-                        ]}
-                      />
-                    </div>
+                  <div className="space-y-4">
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.claimType`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.1 Claim Type"
+                          name={`disputeDescriptions.${index}.claimType`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "monetary", label: "Monetary" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "declaratory", label: "Declaratory Relief" },
+                            { value: "injunctive", label: "Injunctive Relief" },
+                            { value: "combination", label: "Combination of Above" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.claimReason`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.2 Claim Reason"
+                          name={`disputeDescriptions.${index}.claimReason`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={2}
+                          placeholder="Provide the primary reason for this claim"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.lawReliedUpon`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.3 Law relied upon by Claimant to be listed (Acts/Rules/Regulations/Others)"
+                          name={`disputeDescriptions.${index}.lawReliedUpon`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={3}
+                          placeholder="List specific Acts, Rules, Regulations, or other legal provisions relied upon"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.4 Relevant Clause Number/Page Number"
+                          name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="e.g., Clause 5.2 or Page 7"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.5 Clause Supporting Claim"
+                          name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={2}
+                          placeholder="Describe how this clause supports your claim"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.clause`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.6 Clause"
+                          name={`disputeDescriptions.${index}.clause`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="textarea"
+                          rows={3}
+                          placeholder="Enter the exact text of the relevant clause"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="6.7 Document Supporting Claim"
+                          name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="Name/reference of supporting document"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.reliefSought`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Relief Sought"
+                          name={`disputeDescriptions.${index}.reliefSought`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          type="select"
+                          options={[
+                            { value: "monetary_compensation", label: "Monetary Compensation" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "declaratory_relief", label: "Declaratory Relief" },
+                            { value: "injunctive_relief", label: "Injunctive Relief" },
+                            { value: "restitution", label: "Restitution" },
+                            { value: "rescission", label: "Rescission of Contract" },
+                            { value: "rectification", label: "Rectification" },
+                            { value: "damages_costs", label: "Damages and Costs" },
+                            { value: "interest_penalty", label: "Interest and Penalty" },
+                            { value: "termination", label: "Contract Termination" },
+                            { value: "other", label: "Other" },
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
                   </div>
                 </div>
               ))}
@@ -3735,27 +6368,17 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             </div>
           </div>
         )
+  
       case 6: // Prayers & Reliefs
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
-            <div>
-              <ControlledTextAreaField
-                control={control}
-                label="Prayers & Reliefs Sought"
-                name="prayers.prayers"
-                required
-                maxLength={3000}
-                placeholder="Detail the specific remedies, compensation, or actions you are seeking from the arbitral tribunal"
-                rows={6}
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Clearly state each prayer point separately, including monetary claims, specific performance requests, 
-                declaratory reliefs, costs, and any interim measures sought.
-              </p>
-            </div>
+            <PrayersSection 
+              control={control}
+              name="prayers.prayers"
+            />
           </div>
         )
+  
       case 7: // Documents
         // Create default issues in case arguments don't exist yet
         const disputeIssues = (watch('arguments.argumentsPerIssue') || []).length > 0 ? 
@@ -3768,670 +6391,925 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
             { value: "issue_default_2", label: "Issue 2 - Non-payment of Invoice" },
             { value: "issue_default_3", label: "Issue 3 - Delay in Delivery" }
           ];
-          
-  
         
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[7] = el; }}>
             <DocumentsTabs 
-              control={control}
+              control={control as any}
               watch={watch}
+              setValue={setValue}
               disputeIssues={disputeIssues}
+              files={files}
             />
           </div>
         )
+  
       case 8: // Payment
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[8] = el; }}>
             <h3 className="font-medium text-lg mb-4">Payment</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Payment Head"
-                  name="payment.paymentHead"
-                  type="select"
-                  required
-                  options={[
-                    { value: "filing_fee", label: "Filing Fee" },
-                    { value: "arbitrator_fee", label: "Arbitrator Fee" },
-                    { value: "administrative_fee", label: "Administrative Fee" },
-                    { value: "emergency_fee", label: "Emergency Arbitration Fee" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-              <div>
-                <ControlledFormField
-                  control={control}
-                  label="Payment Amount (INR)"
-                  name="payment.paymentAmount"
-                  type="number"
-                  required
-                  maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
-                  placeholder="Enter amount in INR"
-                />
-                <p className="text-xs text-gray-500 mt-1">Maximum amount: {MAX_PAYMENT_AMOUNT.toLocaleString()} INR</p>
-              </div>
-              <div>
-                <ControlledTextAreaField
-                  control={control}
-                  label="Payment Details"
-                  name="payment.paymentDetails"
-                  required
-                  rows={4}
-                  maxLength={1000}
-                  placeholder="Provide detailed payment information"
-                />
-              </div>
+            <div className="space-y-4">
+              <Controller
+                control={control}
+                name="payment.paymentHead"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="Payment Head"
+                    name="payment.paymentHead"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="select"
+                    required
+                    options={[
+                      { value: "filing_fee", label: "Filing Fee" },
+                      { value: "arbitrator_fee", label: "Arbitrator Fee" },
+                      { value: "administrative_fee", label: "Administrative Fee" },
+                      { value: "emergency_fee", label: "Emergency Arbitration Fee" },
+                      { value: "other", label: "Other" },
+                    ]}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="payment.paymentAmount"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="Payment Amount (INR)"
+                    name="payment.paymentAmount"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    type="number"
+                    required
+                    maxLength={MAX_PAYMENT_AMOUNT_LENGTH}
+                    placeholder="Enter amount in INR"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                control={control}
+                name="payment.paymentDetails"
+                render={({ field, fieldState }) => (
+                  <FormField
+                    label="Payment Details"
+                    name="payment.paymentDetails"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    required
+                    type="textarea"
+                    rows={4}
+                    maxLength={1000}
+                    placeholder="Provide detailed payment information"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </div>
-                      </div>
-          )
+          </div>
+        )
+  
       case 9: // Arguments
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[9] = el; }}>
-            <h3 className="font-medium text-lg mb-4">Arguments</h3>
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-sm">
-                  Present your arguments in support of your claims, organized by issue.
-                </p>
-                <Button onClick={addArgument} variant="outline" size="sm">
-                  Add Argument
-                </Button>
-              </div>
-              
-              {argumentFields.length > 0 ? (
-                argumentFields.map((field, index) => (
-                  <div key={field.id} className="border p-4 rounded-lg space-y-2 mb-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Issue/Argument {index + 1}</h4>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeArgumentField(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <ControlledTextAreaField
-                      control={control}
-                      label={`Argument ${index + 1}`}
-                      name={`arguments.argumentsPerIssue.${index}`}
-                      required
-                      rows={6}
-                      maxLength={2000}
-                      placeholder={`Present your argument for issue ${index + 1} (limit: 1 page)`}
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="border p-4 rounded-lg text-center">
-                  <p className="text-gray-500 mb-4">No arguments added yet</p>
-                  <Button onClick={addArgument} variant="outline">
-                    Add Your First Argument
-                  </Button>
-                </div>
-              )}
-              
-              <div className="text-xs text-gray-500 mt-4">
-                Tips:
-                <ul className="list-disc pl-5 mt-1 space-y-1">
-                  <li>Structure each argument around a specific issue or claim</li>
-                  <li>Reference relevant facts, laws, and contract clauses</li>
-                  <li>Limit each argument to approximately one page</li>
-                  <li>Present your strongest arguments first</li>
-                </ul>
-              </div>
-            </div>
+            <ArgumentsSection 
+              control={control}
+              prayersName="prayers.prayers"
+              argumentsName="arguments.argumentsPerPrayer"
+            />
           </div>
-                  )
+        )
+  
       case 10: // Review & Submit
         return (
-          <div ref={(el) => { stepRefs.current[10] = el; }}>
-            <h2 className="text-xl font-semibold mb-6">Review Your Petition</h2>
-            
-            {/* Save/Edit Status */}
-            {editMode && (
-              <div className={`mb-4 p-3 rounded-md ${isSavingDraft ? 'bg-yellow-50 text-yellow-800' : 'bg-green-50 text-green-800'}`}>
-                <div className="flex items-center">
-                  {isSavingDraft ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
-                      <span>Auto-saving your changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>
-                        {lastSaved 
-                          ? `Last saved at ${lastSaved.toLocaleTimeString()}` 
-                          : 'All changes saved'}
-                      </span>
-                    </>
-                  )}
-                </div>
+          <div ref={(el) => { stepRefs.current[10] = el; }} className="w-full">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Review Your Petition</h2>
+                <p className="text-gray-600">Please review all details before submitting your arbitration petition</p>
               </div>
-            )}
-            
-            <div className="bg-indigo-50 p-4 rounded-md mb-6">
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-medium mb-2">Claimant Details</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Type:</span> {claimant.type}
-                    </div>
-                    <div>
-                      <span className="font-medium">Name:</span> {claimant.name}
-                    </div>
-                    <div>
-                      <span className="font-medium">Email:</span> {claimant.email}
-                    </div>
-                    <div>
-                      <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Address:</span> {claimant.address1}, {claimant.address2 && `${claimant.address2}, `}{claimant.city}, {claimant.district}, {claimant.state}, {claimant.country} - {claimant.pincode}
+
+              {/* Auto-save Status */}
+              {currentDraftId && (
+                <div className="mb-6 p-4 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-800">
+                  <div className="flex items-center">
+                    <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-medium">Draft saved - All changes are automatically saved</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-8">
+                {/* Step 1: Claimant Details */}
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <span className="bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</span>
+                      Claimant Details
+                    </h3>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Type</label>
+                        <p className="text-gray-900 capitalize">{claimant?.type || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Name</label>
+                        <p className="text-gray-900">{claimant?.name || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Email</label>
+                        <p className="text-gray-900">{claimant?.email || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">Phone</label>
+                        <p className="text-gray-900">{claimant?.phoneCountryCode} {claimant?.phone || 'Not specified'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                        <label className="text-sm font-medium text-gray-600">Address</label>
+                        <p className="text-gray-900">
+                          {claimant?.address1 && (
+                            <>
+                              {claimant.address1}
+                              {claimant.address2 && `, ${claimant.address2}`}
+                              {claimant.city && `, ${claimant.city}`}
+                              {claimant.district && `, ${claimant.district}`}
+                              {claimant.state && `, ${claimant.state}`}
+                              {claimant.country && `, ${claimant.country}`}
+                              {claimant.pincode && ` - ${claimant.pincode}`}
+                            </>
+                          ) || 'Not specified'}
+                        </p>
+                      </div>
+                      {claimant?.gst && (
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">GST Number</label>
+                          <p className="text-gray-900">{claimant.gst}</p>
+                        </div>
+                      )}
+                      {claimant?.pan && (
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                          <p className="text-gray-900">{claimant.pan}</p>
+                        </div>
+                      )}
+                      {claimant?.cin && (
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                          <p className="text-gray-900">{claimant.cin}</p>
+                        </div>
+                      )}
+                      {/* Show uploaded documents */}
+                      {files['claimant.coi'] && (
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
+                          <p className="text-gray-900">{files['claimant.coi']?.name || 'Document uploaded'}</p>
+                        </div>
+                      )}
+                      {files['claimant.panCard'] && (
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">PAN Card</label>
+                          <p className="text-gray-900">{files['claimant.panCard']?.name || 'Document uploaded'}</p>
+                        </div>
+                      )}
+                      {files['claimant.gstCert'] && (
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">GST Certificate</label>
+                          <p className="text-gray-900">{files['claimant.gstCert']?.name || 'Document uploaded'}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-medium mb-2">Additional Claimants</h4>
-                  {additionalClaimants.length > 0 ? (
-                    additionalClaimants.map((claimant, index) => (
-                      <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
-                        <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="font-medium">Name:</span> {claimant.name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Email:</span> {claimant.email}
-                        </div>
-                        <div>
-                            <span className="font-medium">Phone:</span> {claimant.phoneCountryCode} {claimant.phone}
+                {/* Step 2: Additional Claimants */}
+                {additionalClaimants && additionalClaimants.length > 0 && additionalClaimants.some((ac: any) => ac?.name) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
+                        Additional Claimants
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {additionalClaimants.map((ac: any, index: number) => (
+                        ac?.name && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Additional Claimant {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Type</label>
+                                <p className="text-gray-900 capitalize">{ac.type || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <p className="text-gray-900">{ac.name}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <p className="text-gray-900">{ac.email || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <p className="text-gray-900">{ac.phoneCountryCode} {ac.phone || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <p className="text-gray-900">
+                                  {ac.address1 && (
+                                    <>
+                                      {ac.address1}
+                                      {ac.address2 && `, ${ac.address2}`}
+                                      {ac.city && `, ${ac.city}`}
+                                      {ac.district && `, ${ac.district}`}
+                                      {ac.state && `, ${ac.state}`}
+                                      {ac.country && `, ${ac.country}`}
+                                      {ac.pincode && ` - ${ac.pincode}`}
+                                    </>
+                                  ) || 'Not specified'}
+                                </p>
+                              </div>
+                              {ac?.gst && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
+                                  <p className="text-gray-900">{ac.gst}</p>
+                                </div>
+                              )}
+                              {ac?.pan && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                                  <p className="text-gray-900">{ac.pan}</p>
+                                </div>
+                              )}
+                              {ac?.cin && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                                  <p className="text-gray-900">{ac.cin}</p>
+                                </div>
+                              )}
+                              {/* Show uploaded documents */}
+                              {files[`additionalClaimants.${index}.coi`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
+                                  <p className="text-gray-900">{files[`additionalClaimants.${index}.coi`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                              {files[`additionalClaimants.${index}.panCard`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Card</label>
+                                  <p className="text-gray-900">{files[`additionalClaimants.${index}.panCard`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                              {files[`additionalClaimants.${index}.gstCert`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Certificate</label>
+                                  <p className="text-gray-900">{files[`additionalClaimants.${index}.gstCert`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <span className="font-medium">Pincode:</span> {claimant.pincode}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-medium">Address:</span> {claimant.address1}
-                            {claimant.address2 && `, ${claimant.address2}`}, {claimant.city}, {claimant.district}, {claimant.state}, {claimant.country}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No additional claimants</div>
-                  )}
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Manager Details</h4>
-                  {managerDetails.length > 0 ? (
-                    managerDetails.map((manager, index) => (
-                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
-                        <p className="font-medium">Manager {index + 1}</p>
-                        <div className="grid grid-cols-2 gap-2 mt-1">
-                      <div>
-                            <span className="font-medium">Name:</span> {manager.name}
-                      </div>
-                      <div>
-                            <span className="font-medium">Designation:</span> {manager.designation}
-                      </div>
-                      <div>
-                            <span className="font-medium">Email:</span> {manager.email}
-                      </div>
-                      <div>
-                            <span className="font-medium">Authority:</span> {manager.authority}
-                      </div>
-                    </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No manager details provided</div>
-                  )}
-                </div>
-
-                {/* Respondents */}
-                <div>
-                  <h4 className="font-medium mb-2">Respondents</h4>
-                  {respondents.map((respondent, index) => (
-                    <div key={index} className="mb-4 text-sm border-b pb-2 last:border-b-0">
-                      <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-medium">Type:</span> {respondent.type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Name:</span> {respondent.name}
-                      </div>
-                      <div>
-                        <span className="font-medium">Email:</span> {respondent.email}
-                      </div>
-                      <div>
-                          <span className="font-medium">Phone:</span> {respondent.phoneCountryCode} {respondent.phone}
-                        </div>
-                        <div className="col-span-2">
-                          <span className="font-medium">Address:</span> {respondent.address1}
-                          {respondent.address2 && `, ${respondent.address2}`}, {respondent.city}, {respondent.district}, {respondent.state}, {respondent.country} - {respondent.pincode}
-                        </div>
-                        {respondent.gst && (
-                          <div>
-                            <span className="font-medium">GST:</span> {respondent.gst}
-                          </div>
-                        )}
-                        {respondent.pan && (
-                          <div>
-                            <span className="font-medium">PAN:</span> {respondent.pan}
-                          </div>
-                        )}
-                        {respondent.cin && (
-                          <div>
-                            <span className="font-medium">CIN:</span> {respondent.cin}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* CRITICAL FIX: Enhanced preview with complete information */}
-                
-                <div>
-                  <h4 className="font-medium mb-2">Arbitration Agreement</h4>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="font-medium">Agreement Date:</span> {arbitrationAgreement?.agreementDate || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement?.placeOfSigning || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement?.numberOfArbitrators || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Arbitration Text:</span> 
-                      <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
-                        {arbitrationAgreement?.arbitrationText || 'Not provided'}
-                      </div>
-                    </div>
-                    {files.agreementFile && (
-                      <div>
-                        <span className="font-medium">Agreement File:</span> 
-                        <div className="mt-1 p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                          <span>📎 {files.agreementFile.name}</span>
-                          {files.agreementFile.isExisting && files.agreementFile.path && (
-                            <button
-                              type="button"
-                              onClick={() => window.open(`/api/arbitration/files/${files.agreementFile.path.split('/').pop()}`, '_blank')}
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              View
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Nature of Dispute</h4>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="font-medium">Category:</span> {natureOfDispute?.category || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Sub-category:</span> {natureOfDispute?.subCategory || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Nature of Dispute:</span> {natureOfDispute?.natureOfDispute || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Date when right to claim arose:</span> {natureOfDispute?.dateWhenRightToClaimArose || 'Not specified'}
+                        )
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Dispute Descriptions</h4>
-                  {disputeDescriptions && disputeDescriptions.length > 0 ? (
-                    disputeDescriptions.map((description, index) => (
-                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
-                        <div>
-                          <span className="font-medium">Issue #{index + 1}:</span> {description.issueDescription || 'Not provided'}
-                        </div>
-                        <div className="mt-1">
-                          <span className="font-medium">Facts:</span> {description.factsOfDispute || 'Not provided'}
-                        </div>
-                        <div className="mt-1">
-                          <span className="font-medium">Relief Sought:</span> {description.reliefSought || 'Not provided'}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No dispute descriptions provided</div>
-                  )}
-                </div>
+                {/* Step 2: Manager Details */}
+                {managerDetails && managerDetails.length > 0 && managerDetails.some((md: any) => md?.name) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-orange-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
+                        Manager Details
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {managerDetails.map((manager: any, index: number) => (
+                        manager?.name && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Manager {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <p className="text-gray-900">{manager.name}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Designation</label>
+                                <p className="text-gray-900">{manager.designation || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <p className="text-gray-900">{manager.email || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <p className="text-gray-900">{manager.phoneCountryCode} {manager.phone || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Manager ID</label>
+                                <p className="text-gray-900">{manager.managerId || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <p className="text-gray-900">
+                                  {manager.address1 && (
+                                    <>
+                                      {manager.address1}
+                                      {manager.address2 && `, ${manager.address2}`}
+                                      {manager.city && `, ${manager.city}`}
+                                      {manager.district && `, ${manager.district}`}
+                                      {manager.state && `, ${manager.state}`}
+                                      {manager.country && `, ${manager.country}`}
+                                      {manager.pincode && ` - ${manager.pincode}`}
+                                    </>
+                                  ) || 'Not specified'}
+                                </p>
+                              </div>
+                              {manager?.gst && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
+                                  <p className="text-gray-900">{manager.gst}</p>
+                                </div>
+                              )}
+                              {manager?.pan && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                                  <p className="text-gray-900">{manager.pan}</p>
+                                </div>
+                              )}
+                              {manager?.cin && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                                  <p className="text-gray-900">{manager.cin}</p>
+                                </div>
+                              )}
+                              {/* Show uploaded documents */}
+                              {files[`managerDetails.${index}.coi`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
+                                  <p className="text-gray-900">{files[`managerDetails.${index}.coi`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                              {files[`managerDetails.${index}.panCard`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Card</label>
+                                  <p className="text-gray-900">{files[`managerDetails.${index}.panCard`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                              {files[`managerDetails.${index}.gstCert`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Certificate</label>
+                                  <p className="text-gray-900">{files[`managerDetails.${index}.gstCert`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Documents Evidence</h4>
-                  {documentsEvidence && documentsEvidence.length > 0 ? (
-                    documentsEvidence.map((evidence, index) => (
-                      <div key={index} className="mb-3 text-sm border-b pb-2 last:border-b-0">
-                        <div>
-                          <span className="font-medium">Document Type:</span> {evidence.documentType || 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Relevant Clause:</span> {evidence.relevantClauseNumber || 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Supporting Claim:</span> {evidence.supportingClaimNumber || 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Date of Issue/Sign:</span> {evidence.dateOfIssueSign || 'Not specified'}
-                        </div>
-                        {evidence.attachedDocuments && evidence.attachedDocuments.length > 0 && (
-                          <div>
-                            <span className="font-medium">Attached Documents:</span>
-                            <div className="mt-1 space-y-1">
-                              {evidence.attachedDocuments.map((doc, docIndex) => {
-                                const fileKey = `documentsEvidence_${index}_attachedDocuments_${docIndex}`;
-                                const fileInfo = files[fileKey];
-                                return (
-                                  <div key={docIndex} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                                    <span>📎 {doc instanceof File ? doc.name : (doc?.name || fileInfo?.name || `Document ${docIndex + 1}`)}</span>
-                                    {fileInfo?.isExisting && fileInfo?.path && (
-                                      <button
-                                        type="button"
-                                        onClick={() => window.open(`/api/arbitration/files/${fileInfo.path.split('/').pop()}`, '_blank')}
-                                        className="text-blue-600 hover:text-blue-800 underline"
-                                      >
-                                        View
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                {/* Step 3: Respondents */}
+                {respondents && respondents.length > 0 && respondents.some((r: any) => r?.name) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
+                        Respondents
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {respondents.map((respondent: any, index: number) => (
+                        respondent?.name && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Respondent {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Type</label>
+                                <p className="text-gray-900 capitalize">{respondent.type || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <p className="text-gray-900">{respondent.name}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <p className="text-gray-900">{respondent.email || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <p className="text-gray-900">{respondent.phoneCountryCode} {respondent.phone || 'Not specified'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <p className="text-gray-900">
+                                  {respondent.address1 && (
+                                    <>
+                                      {respondent.address1}
+                                      {respondent.address2 && `, ${respondent.address2}`}
+                                      {respondent.city && `, ${respondent.city}`}
+                                      {respondent.district && `, ${respondent.district}`}
+                                      {respondent.state && `, ${respondent.state}`}
+                                      {respondent.country && `, ${respondent.country}`}
+                                      {respondent.pincode && ` - ${respondent.pincode}`}
+                                    </>
+                                  ) || 'Not specified'}
+                                </p>
+                              </div>
+                              {respondent?.gst && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
+                                  <p className="text-gray-900">{respondent.gst}</p>
+                                </div>
+                              )}
+                              {respondent?.pan && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                                  <p className="text-gray-900">{respondent.pan}</p>
+                                </div>
+                              )}
+                              {respondent?.cin && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                                  <p className="text-gray-900">{respondent.cin}</p>
+                                </div>
+                              )}
+                              {/* Show uploaded documents */}
+                              {files[`respondents.${index}.coi`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
+                                  <p className="text-gray-900">{files[`respondents.${index}.coi`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                              {files[`respondents.${index}.panCard`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">PAN Card</label>
+                                  <p className="text-gray-900">{files[`respondents.${index}.panCard`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                              {files[`respondents.${index}.gstCert`] && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">GST Certificate</label>
+                                  <p className="text-gray-900">{files[`respondents.${index}.gstCert`]?.name || 'Document uploaded'}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Arbitration Agreement */}
+                {arbitrationAgreement && Object.values(arbitrationAgreement).some(val => val) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-indigo-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-indigo-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">4</span>
+                        Arbitration Agreement
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {arbitrationAgreement.agreementDate && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Agreement Date</label>
+                            <p className="text-gray-900">{arbitrationAgreement.agreementDate}</p>
+                          </div>
+                        )}
+                        {arbitrationAgreement.placeOfSigning && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Place of Signing</label>
+                            <p className="text-gray-900">{arbitrationAgreement.placeOfSigning}</p>
+                          </div>
+                        )}
+                        {arbitrationAgreement.numberOfArbitrators && (
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Number of Arbitrators</label>
+                            <p className="text-gray-900">{arbitrationAgreement.numberOfArbitrators}</p>
+                          </div>
+                        )}
+                        {arbitrationAgreement.arbitrationText && (
+                          <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                            <label className="text-sm font-medium text-gray-600">Arbitration Clause</label>
+                            <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
+                              {arbitrationAgreement.arbitrationText}
                             </div>
                           </div>
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No documents evidence provided</div>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Uploaded Files</h4>
-                  <div className="text-sm space-y-2">
-                    {files['claimant.coi'] && (
-                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                        <span>📎 Certificate of Incorporation: {files['claimant.coi'].name}</span>
-                        {files['claimant.coi'].isExisting && files['claimant.coi'].path && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.coi'].path.split('/').pop()}`, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View
-                          </button>
-                        )}
+                {/* Step 5: Nature of Dispute */}
+                {natureOfDispute && natureOfDispute.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-yellow-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">5</span>
+                        Nature of Dispute
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {natureOfDispute.map((dispute: any, index: number) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Dispute {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Title</label>
+                              <p className="text-gray-900">{dispute.title || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Category</label>
+                              <p className="text-gray-900 capitalize">{dispute.category || 'Not specified'}</p>
+                            </div>
+                            {dispute.description && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Description</label>
+                                <p className="text-gray-900">{dispute.description}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 6: Dispute Descriptions */}
+                {disputeDescriptions && disputeDescriptions.length > 0 && disputeDescriptions.some((dd: any) => dd?.description) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">6</span>
+                        Dispute Descriptions
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {disputeDescriptions.map((dispute: any, index: number) => (
+                        dispute?.description && (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Dispute Description {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Description</label>
+                                <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.description}
+                                </div>
+                              </div>
+                              {dispute.lawReliedUpon && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Law Relied Upon</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                    {dispute.lawReliedUpon}
+                                  </div>
+                                </div>
+                              )}
+                              {dispute.relevantClauseNumber && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Relevant Clause Number</label>
+                                  <p className="text-gray-900">{dispute.relevantClauseNumber}</p>
+                                </div>
+                              )}
+                              {dispute.clauseSupportingClaim && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Clause Supporting Claim</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                    {dispute.clauseSupportingClaim}
+                                  </div>
+                                </div>
+                              )}
+                              {dispute.clause && (
+                                <div className="bg-white p-3 rounded md:col-span-2">
+                                  <label className="text-sm font-medium text-gray-600">Clause</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                    {dispute.clause}
+                                  </div>
+                                </div>
+                              )}
+                              {dispute.documentSupportingClaim && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Document Supporting Claim</label>
+                                  <p className="text-gray-900">{dispute.documentSupportingClaim}</p>
+                                </div>
+                              )}
+                              {dispute.reliefSought && (
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Relief Sought</label>
+                                  <p className="text-gray-900 capitalize">{dispute.reliefSought.replace(/_/g, ' ')}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 7: Prayers & Reliefs */}
+                {prayers && prayers.prayers && prayers.prayers.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">7</span>
+                        Prayers & Reliefs
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-3">
+                        {prayers.prayers.map((prayer: any, index: number) => (
+                          <div key={index} className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">Prayer {index + 1}</label>
+                            <p className="text-gray-900">
+                              {typeof prayer === 'string' ? prayer : 
+                               typeof prayer === 'object' && prayer !== null ? 
+                                 prayer.title || prayer.description || 'Prayer content' : 
+                                 'Prayer content'}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    {files['claimant.panCard'] && (
-                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                        <span>📎 PAN Card: {files['claimant.panCard'].name}</span>
-                        {files['claimant.panCard'].isExisting && files['claimant.panCard'].path && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.panCard'].path.split('/').pop()}`, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {files['claimant.gstCert'] && (
-                      <div className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                        <span>📎 GST Certificate: {files['claimant.gstCert'].name}</span>
-                        {files['claimant.gstCert'].isExisting && files['claimant.gstCert'].path && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`/api/arbitration/files/${files['claimant.gstCert'].path.split('/').pop()}`, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {Object.keys(files).filter(key => files[key] && !['claimant.coi', 'claimant.panCard', 'claimant.gstCert', 'agreementFile'].includes(key)).length > 0 && (
-                      <div>
-                        <span className="font-medium">Other Documents:</span>
-                        <div className="mt-1 space-y-1">
-                          {Object.entries(files)
-                            .filter(([key, file]) => file && !['claimant.coi', 'claimant.panCard', 'claimant.gstCert', 'agreementFile'].includes(key))
-                            .map(([key, file]) => (
-                              <div key={key} className="p-2 bg-blue-50 rounded text-xs flex items-center justify-between">
-                                <span>📎 {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}: {file!.name}</span>
-                                {file!.isExisting && file!.path && (
-                                  <button
-                                    type="button"
-                                    onClick={() => window.open(`/api/arbitration/files/${file!.path.split('/').pop()}`, '_blank')}
-                                    className="text-blue-600 hover:text-blue-800 underline"
-                                  >
-                                    View
-                                  </button>
-                                )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 8: Documents */}
+                {documents && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-gray-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-gray-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">8</span>
+                        Documents
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {/* Scanned Documents */}
+                      {documents.scannedDocuments && documents.scannedDocuments.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Scanned Documents</h4>
+                          <div className="space-y-3">
+                            {documents.scannedDocuments.map((doc: any, index: number) => (
+                              <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <h5 className="font-semibold text-gray-900 mb-3">Document {index + 1}</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Document Type</label>
+                                    <p className="text-gray-900">{doc.documentType || 'Not specified'}</p>
+                                  </div>
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Date</label>
+                                    <p className="text-gray-900">{doc.date || 'Not specified'}</p>
+                                  </div>
+                                  {doc.description && (
+                                    <div className="bg-white p-3 rounded md:col-span-2">
+                                      <label className="text-sm font-medium text-gray-600">Description</label>
+                                      <p className="text-gray-900">{doc.description}</p>
+                                    </div>
+                                  )}
+                                  {doc.linkedIssue && (
+                                    <div className="bg-white p-3 rounded">
+                                      <label className="text-sm font-medium text-gray-600">Linked Issue</label>
+                                      <p className="text-gray-900">{doc.linkedIssue}</p>
+                                    </div>
+                                  )}
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Admission Status</label>
+                                    <p className="text-gray-900 capitalize">{doc.admissionStatus || 'pending'}</p>
+                                  </div>
+                                  {doc.file && (
+                                    <div className="bg-white p-3 rounded">
+                                      <label className="text-sm font-medium text-gray-600">File</label>
+                                      <p className="text-gray-900">{doc.file.name || 'File uploaded'}</p>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {Object.keys(files).filter(key => files[key]).length === 0 && (
-                      <div className="text-gray-500">No files uploaded</div>
-                    )}
-                  </div>
-                </div>
+                      )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
-                  <div className="text-sm">
-                    <div className="p-2 bg-gray-50 rounded">
-                      {prayers?.prayers || 'Not provided'}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Payment Details</h4>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="font-medium">Payment Head:</span> {payment?.paymentHead || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Amount:</span> {payment?.paymentAmount || 'Not specified'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Details:</span> {payment?.paymentDetails || 'Not specified'}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Arguments</h4>
-                  {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
-                    argumentsPerIssue.map((argument, index) => (
-                      <div key={index} className="mb-2 text-sm">
-                        <span className="font-medium">Argument {index + 1}:</span>
-                        <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
-                          {argument || 'Not provided'}
+                      {/* Affidavits */}
+                      {documents.affidavits && documents.affidavits.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Affidavits</h4>
+                          <div className="space-y-3">
+                            {documents.affidavits.map((affidavit: any, index: number) => (
+                              <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <h5 className="font-semibold text-gray-900 mb-3">Affidavit {index + 1}</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Affidavit Type</label>
+                                    <p className="text-gray-900">{affidavit.affidavitType || 'Not specified'}</p>
+                                  </div>
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Date</label>
+                                    <p className="text-gray-900">{affidavit.date || 'Not specified'}</p>
+                                  </div>
+                                  {affidavit.description && (
+                                    <div className="bg-white p-3 rounded md:col-span-2">
+                                      <label className="text-sm font-medium text-gray-600">Description</label>
+                                      <p className="text-gray-900">{affidavit.description}</p>
+                                    </div>
+                                  )}
+                                  {affidavit.file && (
+                                    <div className="bg-white p-3 rounded">
+                                      <label className="text-sm font-medium text-gray-600">File</label>
+                                      <p className="text-gray-900">{affidavit.file.name || 'File uploaded'}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">No arguments provided</div>
-                  )}
-                </div>
+                      )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Arbitration Agreement Details</h4>
-                  <div className="text-sm space-y-3">
-                    <div>
-                      <span className="font-medium">Date of Arbitration Agreement:</span> {arbitrationAgreement.agreementDate}
-                    </div>
-                    <div>
-                      <span className="font-medium">Place of Signing:</span> {arbitrationAgreement.placeOfSigning}
-                    </div>
-                    <div>
-                      <span className="font-medium">Text of Arbitration Agreement/clause:</span>
-                      <p className="mt-1 whitespace-pre-line">{arbitrationAgreement.arbitrationText}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">Stamp Duty Percentage/Amount:</span> {arbitrationAgreement.stampDutyPercentage}
-                    </div>
-                    <div>
-                      <span className="font-medium">Number of Arbitrators:</span> {arbitrationAgreement.numberOfArbitrators}
-                    </div>
-                  </div>
-                </div>
+                      {/* Electronic Evidence */}
+                      {documents.electronicEvidence && documents.electronicEvidence.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Electronic Evidence</h4>
+                          <div className="space-y-3">
+                            {documents.electronicEvidence.map((evidence: any, index: number) => (
+                              <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <h5 className="font-semibold text-gray-900 mb-3">Evidence {index + 1}</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Evidence Type</label>
+                                    <p className="text-gray-900">{evidence.evidenceType || 'Not specified'}</p>
+                                  </div>
+                                  <div className="bg-white p-3 rounded">
+                                    <label className="text-sm font-medium text-gray-600">Date</label>
+                                    <p className="text-gray-900">{evidence.date || 'Not specified'}</p>
+                                  </div>
+                                  {evidence.description && (
+                                    <div className="bg-white p-3 rounded md:col-span-2">
+                                      <label className="text-sm font-medium text-gray-600">Description</label>
+                                      <p className="text-gray-900">{evidence.description}</p>
+                                    </div>
+                                  )}
+                                  {evidence.certificateFile && (
+                                    <div className="bg-white p-3 rounded">
+                                      <label className="text-sm font-medium text-gray-600">Certificate</label>
+                                      <p className="text-gray-900">{evidence.certificateFile.name || 'Certificate uploaded'}</p>
+                                    </div>
+                                  )}
+                                  {evidence.supportingFiles && evidence.supportingFiles.length > 0 && (
+                                    <div className="bg-white p-3 rounded">
+                                      <label className="text-sm font-medium text-gray-600">Supporting Files</label>
+                                      <p className="text-gray-900">{evidence.supportingFiles.length} file(s) uploaded</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
-                <div>
-                  <h4 className="font-medium mb-2">Dispute Details</h4>
-                  {disputeDetails ? (
-                    <div className="text-sm grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-medium">Type:</span> {disputeDetails.disputeType || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Service Type:</span> {disputeDetails.serviceType || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Category:</span> {disputeDetails.disputeCategory || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Sub-Category:</span> {disputeDetails.disputeSubCategory || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Claim Type:</span> {disputeDetails.claimType || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Amount:</span> ₹{disputeDetails.disputeAmount || '0'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Date:</span> {disputeDetails.disputeDate || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Nature:</span> {disputeDetails.natureOfDispute || 'Not specified'}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Claim Reason:</span>
-                        <p className="mt-1">{disputeDetails.claimReason || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Applicable Acts:</span> {disputeDetails.applicableActs?.join(', ') || 'Not specified'}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Laws Relied Upon:</span>
-                        <p className="mt-1">{disputeDetails.lawsReliedUpon || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Clause References:</span> {disputeDetails.clauseReferences || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Clause/Page Number:</span> {disputeDetails.clauseNumber || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Supporting Document:</span> {disputeDetails.documentSupportingClaim || 'Not specified'}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Clause Supporting Claim:</span>
-                        <p className="mt-1">{disputeDetails.clauseSupportingClaim || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Clause Text:</span>
-                        <p className="mt-1">{disputeDetails.clause || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Relief Sought:</span>
-                        <p className="mt-1">{disputeDetails.reliefSought || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Facts of the Case:</span>
-                        <p className="mt-1">{disputeDetails.factsOfCase || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Description:</span>
-                        <p className="mt-1">{disputeDetails.disputeDescription || 'Not specified'}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">
-                      No dispute details available
-                    </div>
-                  )}
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Prayers & Reliefs</h4>
-                  <div className="text-sm">
-                    <p className="whitespace-pre-line">{prayers.prayers}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Documents</h4>
-                  <div className="text-sm">
-                    <div className="mb-2">
-                      <span className="font-medium">Supporting Documents:</span> {documents.supportingDocuments.length} files
-                    </div>
-                    <div>
-                      <span className="font-medium">Evidence Files:</span> {documents.evidenceFiles?.length || 0} files
+                      {/* Supporting Documents */}
+                      {documents.supportingDocuments && documents.supportingDocuments.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Supporting Documents</h4>
+                          <p className="text-gray-600">{documents.supportingDocuments.length} file(s) uploaded</p>
+                        </div>
+                      )}
+
+                      {/* Evidence Files */}
+                      {documents.evidenceFiles && documents.evidenceFiles.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Evidence Files</h4>
+                          <p className="text-gray-600">{documents.evidenceFiles.length} file(s) uploaded</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Payment</h4>
-                  <div className="text-sm grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="font-medium">Payment Head:</span> {payment.paymentHead}
+                )}
+
+                {/* Step 9: Payment */}
+                {payment && Object.values(payment).some(val => val) && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">9</span>
+                        Payment Details
+                      </h3>
                     </div>
-                    <div>
-                      <span className="font-medium">Amount:</span> ₹{payment.paymentAmount}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Payment Details:</span> {payment.paymentDetails}
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">Payment Head</label>
+                          <p className="text-gray-900">{payment.paymentHead || 'Not specified'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">Amount (INR)</label>
+                          <p className="text-gray-900">{payment.paymentAmount ? `₹${Number(payment.paymentAmount).toLocaleString()}` : 'Not specified'}</p>
+                        </div>
+                        {payment.paymentDetails && (
+                          <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                            <label className="text-sm font-medium text-gray-600">Payment Details</label>
+                            <p className="text-gray-900">{payment.paymentDetails}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Arguments</h4>
-                  <div className="text-sm">
-                    {argumentsPerIssue && argumentsPerIssue.length > 0 ? (
-                      <div>
-                        <span className="font-medium">{argumentsPerIssue.length} argument(s) provided</span>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500">No arguments provided</div>
-                    )}
+                )}
+
+                {/* Step 10: Arguments */}
+                {argumentsData && argumentsData.argumentsPerPrayer && argumentsData.argumentsPerPrayer.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-pink-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">10</span>
+                        Arguments
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {argumentsData.argumentsPerPrayer.map((argument: any, index: number) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Argument {index + 1}</h4>
+                          <div className="space-y-3">
+                            {argument.prayerTitle && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Related Prayer</label>
+                                <p className="text-gray-900">{argument.prayerTitle}</p>
+                              </div>
+                            )}
+                            {argument.argument && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Argument</label>
+                                <p className="text-gray-900">{argument.argument}</p>
+                              </div>
+                            )}
+                            {argument.legalBasis && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Legal Basis</label>
+                                <p className="text-gray-900">{argument.legalBasis}</p>
+                              </div>
+                            )}
+                            {argument.factualBasis && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Factual Basis</label>
+                                <p className="text-gray-900">{argument.factualBasis}</p>
+                              </div>
+                            )}
+                            {argument.precedents && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Precedents</label>
+                                <p className="text-gray-900">{argument.precedents}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Final Submit Actions */}
+              <div className="bg-white border-2 border-blue-200 rounded-lg p-6 mt-8">
+                <div className="text-center">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => saveDraft()}
+                      disabled={isSubmitting || isSavingDraft}
+                      className="sm:w-auto"
+                    >
+                      {isSavingDraft ? "Saving..." : "Save as Draft"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || isSavingDraft}
+                      className="sm:w-auto bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit Application"}
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )
+  
       default:
         return null;
     }
   }
+  
 
   // Update the auto-save effect
   useEffect(() => {
@@ -4460,13 +7338,21 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
   // Effect to ensure form refreshes when a draft is loaded
   useEffect(() => {
     if (currentDraftId) {
-  
-      
       // Force UI to update
       const timer = setTimeout(() => {
         // Re-apply current form values to trigger a redraw
         const currentValues = watch();
+        
+        // CRITICAL FIX: Preserve files state before form reset
+        const currentFiles = { ...files };
+        
         reset({...currentValues});
+        
+        // CRITICAL FIX: Restore files state after form reset
+        // The files state should not be lost when form is reset
+        // This ensures that existing files remain visible in FileField components
+        setFiles(currentFiles);
+        (window as any).currentFiles = currentFiles;
         
         // Force active step to refresh
         const currentStep = activeStep;
@@ -4480,274 +7366,725 @@ function ArbitrationForm({ initialData, petitionId }: ArbitrationFormProps = {})
     }
   }, [currentDraftId]);
 
+  // Helper functions for duplicate checking dialog
+  const handleDuplicateDialogClose = () => {
+    setShowDuplicateDialog(false);
+    setDuplicateCheckResult(null);
+    setPendingSubmissionData(null);
+  };
+
+  const handleDuplicateDialogProceed = async () => {
+    setShowDuplicateDialog(false);
+    
+    if (!pendingSubmissionData) {
+      toast.error('No pending submission data found');
+      return;
+    }
+
+    const { data, formDataForSubmission } = pendingSubmissionData;
+    
+    try {
+      // Continue with submission, bypassing duplicate check
+      toast.loading('Submitting your petition...');
+      
+      // Submit the form (same logic as before, but forced)
+      if (currentDraftId) {
+        // Handle draft submission or case update
+        if (initialData && !initialData.isDraft && initialData.status !== 'draft') {
+          const response = await arbitrationApi.update(currentDraftId, formDataForSubmission);
+          toast.dismiss();
+          const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
+          showSubmissionSuccess(caseId);
+          
+          // Generate and download PDF
+          try {
+            const currentFormData = watch();
+            // Add missing disputeDetails for PDF generation
+            const pdfData = {
+              ...currentFormData,
+              disputeDetails: currentFormData.disputeDetails || {
+                disputeType: '',
+                disputeAmount: '',
+                disputeDescription: '',
+                disputeDate: ''
+              }
+            };
+            const pdfBlob = await generateApplicationPDF(pdfData as any, caseId);
+            downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
+          } catch (pdfError) {
+            console.error('PDF generation failed:', pdfError);
+            toast.error('PDF generation failed, but your application was submitted successfully.');
+          }
+        } else {
+          const response = await arbitrationApi.submitDraft(currentDraftId);
+          toast.dismiss();
+          const caseId = response.caseId || response.caseNumber || response.id;
+          if (caseId) {
+            showSubmissionSuccess(caseId);
+            try {
+              const currentFormData = watch();
+              const pdfBlob = await generateApplicationPDF(currentFormData, caseId);
+              downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
+            } catch (pdfError) {
+              console.error('PDF generation failed:', pdfError);
+              toast.error('PDF generation failed, but your application was submitted successfully.');
+            }
+          } else {
+            toast.success('Your application is submitted successfully! The PDF of the form is sent to your registered email ID as well as to all managers and respondents.');
+          }
+
+        }
+      } else {
+        // Creating a new case
+        const response = await arbitrationApi.create(formDataForSubmission, { skipDuplicateCheck: true });
+        toast.dismiss();
+        const caseId = response.caseId || response.caseNumber || response.id;
+        showSubmissionSuccess(caseId);
+        
+        // Generate and download PDF
+        try {
+          const currentFormData = watch();
+          const pdfBlob = await generateApplicationPDF(currentFormData, caseId);
+          downloadPDF(pdfBlob, `arbitration-application-${caseId}.pdf`);
+        } catch (pdfError) {
+          console.error('PDF generation failed:', pdfError);
+          toast.error('PDF generation failed, but your application was submitted successfully.');
+        }
+      }
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error(`Error: ${error.message || 'Unknown error occurred'}`);
+    } finally {
+      // Clean up pending data
+      setPendingSubmissionData(null);
+      setDuplicateCheckResult(null);
+    }
+  };
+  
+
   return (
-    <div className="max-w-3xl mx-auto py-8">
-      {/* Add draft list at the top if there are drafts */}
-      {draftList.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-bold mb-4">Your Drafts</h2>
-            {isLoadingDrafts ? (
-              <p>Loading drafts...</p>
-            ) : (
-              <div className="space-y-2">
-                {draftList.map((draft) => (
-                  <div key={draft.id} className="flex items-center justify-between border-b pb-2">
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <FormStepSidebar
+        currentStep={activeStep}
+        completedSteps={[]}
+        steps={sidebarSteps}
+      />
+      
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{draft.name || 'Untitled Draft'}</p>
-                      <p className="text-sm text-gray-500">
-                        Last edited: {new Date(draft.lastEditedAt).toLocaleString()}
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {sidebarSteps[activeStep]?.title || steps[activeStep]}
+                </h1>
+                {currentDraftId && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Draft
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-600">
+                Step {activeStep + 1} of {steps.length}
                       </p>
                     </div>
-                    <Button 
-                      onClick={() => loadDraft(draft.id)}
-                      variant="outline"
-                    >
-                      Continue Editing
-                    </Button>
-                  </div>
-                ))}
+            <div className="text-right">
+              <div className="text-sm text-gray-500">
+                {Math.round(((activeStep + 1) / steps.length) * 100)}% Complete
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex items-center justify-between mb-8">
-        {steps.map((label, idx) => (
-          <div key={label} className="flex-1 flex flex-col items-center">
-            <div
-              className={`rounded-full w-8 h-8 flex items-center justify-center text-white text-sm font-bold ${
-                idx === activeStep
-                  ? "bg-blue-600"
-                  : idx < activeStep
-                  ? "bg-green-500"
-                  : "bg-gray-300"
-              }`}
-            >
-              {idx + 1}
+              <div className="text-xs text-gray-500 mt-1">
+                Auto-saves every 30 seconds
+              </div>
             </div>
-            <span className="text-xs mt-2 text-center w-20 truncate">{label}</span>
           </div>
-        ))}
-      </div>
+          
+          {/* Progress Bar */}
+          <div className="mt-4 bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 rounded-full h-2 transition-all duration-300 ease-in-out"
+              style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+                  {/* Load Draft Notification */}
+        {(hasSavedDraft() || draftList.length > 0) && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">Saved Drafts Available</h4>
+                <p className="text-sm text-yellow-700">
+                  {hasSavedDraft() && draftList.length > 0 
+                    ? "You have local and server drafts available." 
+                    : hasSavedDraft() 
+                      ? "You have a previously saved local draft." 
+                      : "You have server drafts available."}
+                </p>
+              </div>
+              <div className="flex space-x-2">
+                {hasSavedDraft() && (
+                  <button
+                    type="button"
+                    onClick={loadLocalDraft}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-700 transition-colors"
+                  >
+                    Load Local Draft
+                  </button>
+                )}
+                {draftList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDraftList(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Load Server Draft
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+          <form onSubmit={handleSubmit(handleFormSubmission)}>
       <Card>
-        <CardContent className="p-8 min-h-[300px] flex flex-col justify-between">
-          <div className="flex-1">
+              <CardContent className="p-6">
+                {/* Step Content */}
             {renderFormContent()}
-          </div>
-          <div className="flex justify-between mt-8 pt-4 border-t">
+              </CardContent>
+            </Card>
+
+            {/* Navigation */}
+            <div className="flex justify-between items-center mt-6">
             <Button
               variant="outline"
               onClick={handleBack}
               disabled={activeStep === 0}
+                className="px-6 py-2"
             >
-              Back
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
             </Button>
             
-            <div className="flex space-x-2">
+              <div className="flex space-x-3">
               <Button
                 variant="outline"
                 onClick={saveDraft}
                 disabled={isSavingDraft}
-              >
-                {isSavingDraft ? 'Saving...' : 'Save Draft'}
+                  className="px-6 py-2 bg-gray-50 hover:bg-gray-100"
+                >
+                  {isSavingDraft ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Save Draft
+                    </>
+                  )}
               </Button>
               
               {activeStep === steps.length - 1 ? (
               <Button
-                  variant="default"
                   onClick={() => {
                     if (!isSubmitting) {
-                      setIsSubmitting(true);
                       // Get the current form values directly
                       const currentFormValues = watch();
-                      // Call onSubmit directly
-                      onSubmit(currentFormValues as any)
-                        .catch(error => {
-                  
-                          toast.error(`Error: ${error?.message || 'An unexpected error occurred'}`);
-                        })
-                        .finally(() => {
-                          // This should be redundant as onSubmit also sets it false in finally,
-                          // but we'll keep it as a safety measure
-                          setIsSubmitting(false);
-                        });
+                        // Call internal submission handler
+                        handleFormSubmission(currentFormValues as any);
                     }
                   }}
                   disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                    className="px-8 py-2 bg-green-600 hover:bg-green-700"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Submit Application
+                      </>
+                    )}
                 </Button>
               ) : (
-                <Button
-                  variant="outline"
-                onClick={handleNext}
-                disabled={isSubmitting}
-              >
+                  <Button onClick={handleNext} className="px-6 py-2">
                   Next
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
               </Button>
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </form>
+        </div>
+      </div>
 
-      {/* Email OTP Modal */}
-      {showEmailOTP && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Email Verification</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the 6-digit OTP sent to {watch('claimant.email')}
-            </p>
-            <input
+      {/* Email OTP Verification Modal */}
+      <Dialog open={showEmailOTP} onOpenChange={(open) => {
+        // Only allow closing via Cancel button
+        if (!open) {
+          setShowEmailOTP(false);
+          setEmailOTP("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+          // Completely prevent closing on outside click
+          e.preventDefault();
+        }}>
+          <DialogHeader>
+            <DialogTitle>Verify Email Address</DialogTitle>
+            <DialogDescription>
+              Please enter the OTP sent to your email address to verify it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Enter OTP</label>
+              <Input
               type="text"
               value={emailOTP}
               onChange={(e) => setEmailOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Enter 6-digit OTP"
-              className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
               maxLength={6}
-            />
-            <div className="flex space-x-2">
+                className="mt-1"
+                autoFocus
+                onFocus={(e) => e.target.select()}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Tip: You can copy the OTP from your email and paste it here. Click Cancel to close this modal.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowEmailOTP(false);
                   setEmailOTP("");
                 }}
-                className="flex-1"
               >
                 Cancel
               </Button>
-              <Button
-                onClick={verifyEmailOTP}
-                disabled={emailOTP.length !== 6}
-                className="flex-1"
-              >
+            <Button onClick={verifyEmailOTP} disabled={emailOTP.length !== 6}>
                 Verify
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Phone OTP Modal */}
-      {showPhoneOTP && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Phone Verification</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the 6-digit OTP sent to {watch('claimant.phoneCountryCode')} {watch('claimant.phone')}
-            </p>
-            <input
+      {/* Phone OTP Verification Modal */}
+      <Dialog open={showPhoneOTP} onOpenChange={(open) => {
+        // Only allow closing via Cancel button
+        if (!open) {
+          setShowPhoneOTP(false);
+          setPhoneOTP("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+          // Completely prevent closing on outside click
+          e.preventDefault();
+        }}>
+          <DialogHeader>
+            <DialogTitle>Verify Phone Number</DialogTitle>
+            <DialogDescription>
+              Please enter the OTP sent to your phone number to verify it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Enter OTP</label>
+              <Input
               type="text"
               value={phoneOTP}
               onChange={(e) => setPhoneOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Enter 6-digit OTP"
-              className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
               maxLength={6}
-            />
-            <div className="flex space-x-2">
+                className="mt-1"
+                autoFocus
+                onFocus={(e) => e.target.select()}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Tip: You can copy the OTP from your SMS and paste it here. Click Cancel to close this modal.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowPhoneOTP(false);
                   setPhoneOTP("");
                 }}
-                className="flex-1"
               >
                 Cancel
               </Button>
-              <Button
-                onClick={verifyPhoneOTP}
-                disabled={phoneOTP.length !== 6}
-                className="flex-1"
-              >
+            <Button onClick={verifyPhoneOTP} disabled={phoneOTP.length !== 6}>
                 Verify
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Additional Claimant Email OTP Modals */}
-      {showAdditionalEmailOTP.map((show, index) => 
+      {/* Additional Claimant Email OTP Verification Modals */}
+      {showAdditionalEmailOTP.map((show, index) => (
         show && (
-          <div key={`email-${index}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Email Verification - Additional Claimant {index + 1}</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Enter the 6-digit OTP sent to {watch(`additionalClaimants.${index}.email`)}
-              </p>
-              <input
+          <Dialog key={`email-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeAdditionalEmailModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Email Address</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Additional Claimant {index + 1}'s email address.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
                 type="text"
                 value={additionalEmailOTP[index] || ""}
                 onChange={(e) => handleAdditionalEmailOTPChange(index, e.target.value)}
                 placeholder="Enter 6-digit OTP"
-                className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
                 maxLength={6}
-              />
-              <div className="flex space-x-2">
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from the email and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
                 <Button
                   variant="outline"
                   onClick={() => closeAdditionalEmailModal(index)}
-                  className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={() => verifyAdditionalClaimantEmailOTP(index)}
                   disabled={(additionalEmailOTP[index] || "").length !== 6}
-                  className="flex-1"
                 >
                   Verify
                 </Button>
-              </div>
-            </div>
-          </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )
-      )}
+      ))}
 
-      {/* Additional Claimant Phone OTP Modals */}
-      {showAdditionalPhoneOTP.map((show, index) => 
+      {/* Additional Claimant Phone OTP Verification Modals */}
+      {showAdditionalPhoneOTP.map((show, index) => (
         show && (
-          <div key={`phone-${index}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Phone Verification - Additional Claimant {index + 1}</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Enter the 6-digit OTP sent to {watch(`additionalClaimants.${index}.phoneCountryCode`)} {watch(`additionalClaimants.${index}.phone`)}
-              </p>
-              <input
+          <Dialog key={`phone-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeAdditionalPhoneModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Phone Number</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Additional Claimant {index + 1}'s phone number.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
                 type="text"
                 value={additionalPhoneOTP[index] || ""}
                 onChange={(e) => handleAdditionalPhoneOTPChange(index, e.target.value)}
                 placeholder="Enter 6-digit OTP"
-                className="w-full border rounded px-3 py-2 mb-4 text-center text-lg tracking-wider"
                 maxLength={6}
-              />
-              <div className="flex space-x-2">
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from SMS and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
                 <Button
                   variant="outline"
                   onClick={() => closeAdditionalPhoneModal(index)}
-                  className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={() => verifyAdditionalClaimantPhoneOTP(index)}
                   disabled={(additionalPhoneOTP[index] || "").length !== 6}
-                  className="flex-1"
                 >
                   Verify
                 </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      ))}
+
+      {/* Respondent Email OTP Verification Modals */}
+      {showRespondentEmailModal.map((show, index) => (
+        show && (
+          <Dialog key={`respondent-email-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeRespondentEmailModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Email Address</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Respondent {index + 1}'s email address.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
+                    type="text"
+                    value={respondentEmailOTPInputs[index] || ""}
+                    onChange={(e) => handleRespondentEmailOTPChange(index, e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from the email and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => closeRespondentEmailModal(index)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => verifyRespondentEmailOTP(index)}
+                  disabled={(respondentEmailOTPInputs[index] || "").length !== 6}
+                >
+                  Verify
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      ))}
+
+      {/* Respondent Phone OTP Verification Modals */}
+      {showRespondentPhoneModal.map((show, index) => (
+        show && (
+          <Dialog key={`respondent-phone-otp-${index}`} open={true} onOpenChange={(open) => {
+            // Only allow closing via Cancel button
+            if (!open) {
+              closeRespondentPhoneModal(index);
+            }
+          }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+              // Completely prevent closing on outside click
+              e.preventDefault();
+            }}>
+              <DialogHeader>
+                <DialogTitle>Verify Phone Number</DialogTitle>
+                <DialogDescription>
+                  Please enter the OTP sent to Respondent {index + 1}'s phone number.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Enter OTP</label>
+                  <Input
+                    type="text"
+                    value={respondentPhoneOTPInputs[index] || ""}
+                    onChange={(e) => handleRespondentPhoneOTPChange(index, e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="mt-1"
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tip: You can copy the OTP from SMS and paste it here. Click Cancel to close this modal.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => closeRespondentPhoneModal(index)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => verifyRespondentPhoneOTP(index)}
+                  disabled={(respondentPhoneOTPInputs[index] || "").length !== 6}
+                >
+                  Verify
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      ))}
+
+      {/* Duplicate Check Dialog */}
+      {/* Submission Success Modal */}
+      {showSubmissionModal && submissionResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.5 12.75l6 6 9-13.5"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Application Submitted Successfully!
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Your application is submitted successfully. Your application number is{' '}
+                <span className="font-semibold text-gray-900">{submissionResult.applicationNumber}</span>.
+                A PDF copy of your application has been sent to your registered email ID, as well as to all managers and respondents.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleViewDashboard}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  View Dashboard
+                </button>
+                <button
+                  onClick={handleGoToMyCases}
+                  className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Go to My Cases
+                </button>
               </div>
             </div>
           </div>
-        )
+        </div>
+      )}
+
+      {showDuplicateDialog && duplicateCheckResult && (
+        <DuplicateCheckDialog
+          isOpen={showDuplicateDialog}
+          onClose={handleDuplicateDialogClose}
+          onProceed={handleDuplicateDialogProceed}
+          duplicateResult={duplicateCheckResult}
+        />
+      )}
+
+      {/* Draft List Modal */}
+      {showDraftList && (
+        <Dialog open={showDraftList} onOpenChange={setShowDraftList}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Select Draft to Load</DialogTitle>
+              <DialogDescription>
+                Choose a draft from the server to continue your work.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {draftList.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No drafts available</p>
+              ) : (
+                draftList.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onClick={() => {
+                      loadDraft(draft.id);
+                      setShowDraftList(false);
+                    }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{draft.name || draft.caseNumber}</h4>
+                        <p className="text-sm text-gray-600">
+                          {draft.caseNumber} • {draft.type}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Last edited: {new Date(draft.lastEditedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        v{draft.version}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDraftList(false)}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
-  )
+  );
 }
 
 // Export with dynamic to disable SSR

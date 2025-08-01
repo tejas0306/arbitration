@@ -114,7 +114,7 @@ export interface ArbitrationFormData {
 }
 
 export const arbitrationApi = {
-  create: async (formData: FormData) => {
+  create: async (formData: FormData, options: { skipDuplicateCheck?: boolean } = {}) => {
     try {
       // Validate formData
       if (!formData) {
@@ -128,6 +128,11 @@ export const arbitrationApi = {
       }
 
       console.log('Starting arbitration submission to:', `/api/arbitration/submit`);
+      
+      // Add skipDuplicateCheck flag if provided
+      if (options.skipDuplicateCheck) {
+        formData.append('skipDuplicateCheck', 'true');
+      }
       
       // Check if formData has required fields
       const hasData = formData.has('data');
@@ -588,6 +593,18 @@ export const arbitrationApi = {
   delete: async (id: string) => {
     const response = await apiClient.delete(`/arbitration/cases/${id}`);
     return response.data;
+  },
+
+  checkDuplicates: async (formData: any) => {
+    try {
+      console.log('Checking for duplicate cases...');
+      const response = await apiClient.post('/api/arbitration/check-duplicates', formData);
+      console.log('Duplicate check response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error checking duplicates:', error);
+      throw new Error(error.response?.data?.message || 'Failed to check for duplicates');
+    }
   },
 };
 

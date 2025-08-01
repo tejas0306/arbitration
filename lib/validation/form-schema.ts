@@ -70,17 +70,23 @@ export const claimantSchema = z.object({
     .length(10, "Phone number must be exactly 10 digits")
     .regex(/^\d{10}$/, "Phone number must contain only digits"),
   gst: z.string()
-    .regex(gstRegex, "Invalid GST format. Should be like 22AAAAA0000A1Z5")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || gstRegex.test(val),
+      "Invalid GST format. Should be like 22AAAAA0000A1Z5"
+    ),
   pan: z.string()
-    .regex(panRegex, "Invalid PAN format. Should be like AAAPL1234C")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || panRegex.test(val),
+      "Invalid PAN format. Should be like AAAPL1234C"
+    ),
   cin: z.string()
-    .regex(cinRegex, "Invalid CIN format. Should be like U74140MH2014PTC123456")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || cinRegex.test(val),
+      "Invalid CIN format. Should be like U74140MH2014PTC123456"
+    ),
   coi: z.any().optional(),
   panCard: z.any().optional(),
   gstCert: z.any().optional(),
@@ -158,17 +164,23 @@ export const respondentSchema = z.object({
     .regex(/^\d{10}$/, "Phone number must contain only digits")
     .optional(),
   gst: z.string()
-    .regex(gstRegex, "Invalid GST format")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || gstRegex.test(val),
+      "Invalid GST format. Should be like 22AAAAA0000A1Z5"
+    ),
   pan: z.string()
-    .regex(panRegex, "Invalid PAN format")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || panRegex.test(val),
+      "Invalid PAN format. Should be like AAAPL1234C"
+    ),
   cin: z.string()
-    .regex(cinRegex, "Invalid CIN format")
     .optional()
-    .or(z.literal("")),
+    .refine(
+      (val) => !val || val === "" || cinRegex.test(val),
+      "Invalid CIN format. Should be like U74140MH2014PTC123456"
+    ),
 });
 
 // Arbitration agreement schema
@@ -181,32 +193,15 @@ export const arbitrationAgreementSchema = z.object({
   agreementFile: z.any().optional(),
 });
 
-// Dispute details schema
-export const disputeDetailsSchema = z.object({
-  disputeType: z.string().min(1, "Dispute type is required"),
-  disputeAmount: z.string().min(1, "Dispute amount is required"),
-  disputeDescription: z.string().min(1, "Dispute description is required").max(2000),
-  disputeDate: z.string().min(1, "Dispute date is required"),
-  serviceType: z.string().min(1, "Service type is required"),
-  applicableActs: z.array(z.string()).min(1, "At least one applicable act is required"),
-  disputeCategory: z.string().min(1, "Dispute category is required"),
-  disputeSubCategory: z.string().min(1, "Dispute sub-category is required"),
-  natureOfDispute: z.string().min(1, "Nature of dispute is required"),
-  factsOfCase: z.string().min(1, "Facts of case is required").max(2000),
-  clauseReferences: z.string().min(1, "Clause references is required").max(500),
-  claimType: z.string().min(1, "Claim type is required"),
-  claimReason: z.string().min(1, "Claim reason is required").max(1000),
-  lawsReliedUpon: z.string().min(1, "Laws relied upon is required").max(1000),
-  clauseNumber: z.string().min(1, "Clause number/page number is required"),
-  clauseSupportingClaim: z.string().min(1, "Clause supporting claim is required").max(1000),
-  clause: z.string().min(1, "Clause is required").max(1000),
-  documentSupportingClaim: z.string().min(1, "Document supporting claim is required"),
-  reliefSought: z.string().min(1, "Relief sought is required").max(1000),
-});
-
 // Prayers schema
 export const prayersSchema = z.object({
-  prayers: z.string().min(1, "Prayers is required").max(3000),
+  prayers: z.array(z.object({
+    id: z.string().default(() => Math.random().toString(36).substr(2, 9)),
+    title: z.string().min(1, "Prayer title is required").max(100, "Prayer title cannot exceed 100 characters"),
+    description: z.string().min(1, "Prayer description is required").max(1000, "Prayer description cannot exceed 1000 characters"),
+    amount: z.string().optional(),
+    reliefType: z.enum(["monetary", "specific_performance", "declaratory", "injunction", "costs", "interim", "other"]).default("monetary")
+  })).min(1, "At least one prayer is required"),
 });
 
 // Documents schema
@@ -224,7 +219,12 @@ export const documentsSchema = z.object({
       linkedIssue: z.string().min(1, "Linked issue is required").optional(),
       admissionStatus: z.enum(["pending", "admitted", "denied"]).default("pending"),
       crossExaminationRef: z.string().optional(),
-      date: z.string().min(1, "Document date is required").optional()
+      date: z.string().min(1, "Document date is required").optional(),
+      extractedText: z.string().optional(),
+      keyMetadata: z.array(z.object({
+        key: z.string(),
+        value: z.string()
+      })).optional()
     })
   ).optional().default([]),
   
@@ -283,7 +283,61 @@ export const paymentSchema = z.object({
 
 // Arguments schema
 export const argumentsSchema = z.object({
-  argumentsPerIssue: z.array(z.string()).min(1, "At least one argument is required"),
+  argumentsPerPrayer: z.array(z.object({
+    prayerId: z.string(),
+    prayerTitle: z.string(),
+    argument: z.string().min(1, "Argument is required").max(2000, "Argument cannot exceed 2000 characters"),
+    legalBasis: z.string().optional(),
+    factualBasis: z.string().optional(),
+    precedents: z.string().optional()
+  })).optional().default([]),
+});
+
+// Dispute with Document and Prayer structure (1:1:1 relationship)
+export const disputeWithDocumentSchema = z.object({
+  id: z.string().optional(), // For tracking
+  title: z.string().min(1, "Dispute title is required"),
+  description: z.string().min(1, "Dispute description is required").max(2000),
+  category: z.string().min(1, "Category is required"),
+  subCategory: z.string().min(1, "Sub Category is required"),
+  dateWhenRightToClaimArose: z.string().min(1, "Date when right to claim arose is required"),
+  
+  // One prayer per dispute
+  prayer: z.object({
+    id: z.string().optional(),
+    title: z.string().min(1, "Prayer title is required"),
+    description: z.string().min(1, "Prayer description is required").max(1000),
+    reliefType: z.enum(["monetary", "specific_performance", "declaratory", "injunctive", "other"]),
+    amount: z.string().optional(), // For monetary relief
+  }),
+  
+  // Evidence associated with this dispute
+  evidence: z.object({
+    id: z.string().optional(),
+    documentType: z.string().min(1, "Document type is required"),
+    relevantClauseNumber: z.string().min(1, "Relevant clause number is required"),
+    dateOfIssue: z.string().min(1, "Date of issue is required"),
+    description: z.string().min(1, "Evidence description is required"),
+    attachedDocuments: z.array(z.any()).min(1, "At least one document must be attached"),
+  }),
+});
+
+// Arguments with associated prayers
+export const argumentWithPrayersSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Argument title is required"),
+  description: z.string().min(1, "Argument description is required").max(2000),
+  legalBasis: z.string().min(1, "Legal basis is required"),
+  
+  // Multiple prayers can be associated with each argument
+  prayers: z.array(z.object({
+    id: z.string().optional(),
+    title: z.string().min(1, "Prayer title is required"),
+    description: z.string().min(1, "Prayer description is required").max(1000),
+    reliefType: z.enum(["monetary", "specific_performance", "declaratory", "injunctive", "other"]),
+    amount: z.string().optional(), // For monetary relief
+    priority: z.number().min(1).max(10).default(1), // Prayer priority within argument
+  })).min(1, "At least one prayer is required for each argument"),
 });
 
 // Complete form schema
@@ -293,11 +347,11 @@ export const formSchema = z.object({
   managerDetails: z.array(managerSchema),
   respondents: z.array(respondentSchema).min(1, "At least one respondent is required"),
   arbitrationAgreement: arbitrationAgreementSchema,
-  disputeDetails: disputeDetailsSchema,
+  disputes: z.array(disputeWithDocumentSchema).min(1, "At least one dispute is required"),
   prayers: prayersSchema,
   documents: documentsSchema,
   payment: paymentSchema,
-  arguments: argumentsSchema,
+  arguments: z.array(argumentWithPrayersSchema).min(1, "At least one argument is required"),
 });
 
 // Define form data type
@@ -307,7 +361,7 @@ export type AdditionalClaimantData = z.infer<typeof additionalClaimantSchema>;
 export type ManagerData = z.infer<typeof managerSchema>;
 export type RespondentData = z.infer<typeof respondentSchema>;
 export type ArbitrationAgreementData = z.infer<typeof arbitrationAgreementSchema>;
-export type DisputeDetailsData = z.infer<typeof disputeDetailsSchema>;
+export type DisputeDetailsData = z.infer<typeof disputeWithDocumentSchema>;
 export type PrayersData = z.infer<typeof prayersSchema>;
 export type DocumentsData = z.infer<typeof documentsSchema>;
 export type PaymentData = z.infer<typeof paymentSchema>;

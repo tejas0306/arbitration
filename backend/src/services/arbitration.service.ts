@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { DuplicateDetectionService, DuplicateCheckRequest, DuplicateCheckResult } from './duplicate-detection.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -41,14 +42,69 @@ async function generateCaseId(): Promise<string> {
 
 @Injectable()
 export class ArbitrationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private duplicateDetectionService: DuplicateDetectionService
+  ) {}
 
-  async create(data: any, userId: string) {
+  // New method to check for duplicates before case creation
+  async checkDuplicates(formData: any, userId: string): Promise<DuplicateCheckResult> {
+    try {
+      // Extract relevant data for duplicate checking
+      const claimant = formData.claimant || {};
+      const respondents = formData.respondents || [];
+      const disputeDetails = formData.disputeDetails || {};
+      
+      // Use the first respondent for checking (most common case)
+      const primaryRespondent = respondents[0] || {};
+      
+      const request: DuplicateCheckRequest = {
+        claimantEmail: claimant.email,
+        claimantName: claimant.name,
+        claimantPhone: claimant.phone,
+        respondentEmail: primaryRespondent.email,
+        respondentName: primaryRespondent.name,
+        respondentPhone: primaryRespondent.phone,
+        disputeCategory: disputeDetails.disputeCategory,
+        disputeSubCategory: disputeDetails.disputeSubCategory,
+        disputeAmount: disputeDetails.disputeAmount ? parseFloat(disputeDetails.disputeAmount) : undefined,
+        disputeDescription: disputeDetails.disputeDescription,
+        userId: userId,
+      };
+
+      return await this.duplicateDetectionService.checkForDuplicates(request);
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      // Don't fail the submission if duplicate check fails, just log and continue
+      return {
+        isDuplicate: false,
+        score: 0,
+        matchingCases: [],
+        threshold: 0.8,
+      };
+    }
+  }
+
+  async create(data: any, userId: string, skipDuplicateCheck: boolean = false) {
     try {
       console.log('Processing arbitration data:', {
         ...data,
         files: data.files ? 'Files included' : 'No files'
       });
+      
+      // Check for duplicates unless explicitly skipped
+      if (!skipDuplicateCheck) {
+        const duplicateResult = await this.checkDuplicates(data, userId);
+        
+        if (duplicateResult.isDuplicate) {
+          const error = new BadRequestException({
+            message: 'Potential duplicate case detected',
+            duplicateCheck: duplicateResult,
+            code: 'DUPLICATE_CASE_DETECTED'
+          });
+          throw error;
+        }
+      }
       
       // Generate case number using the sequential function
       const caseNumber = await generateCaseId();
@@ -71,7 +127,28 @@ export class ArbitrationService {
         // Evidence files
         evidenceFiles: Object.keys(fileReferences)
           .filter(key => key.startsWith('evidenceFiles_'))
-          .map(key => fileReferences[key])
+          .map(key => fileReferences[key]),
+        // Additional Claimants document files
+        additionalClaimantsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('additionalClaimants.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Manager Details document files  
+        managerDetailsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('managerDetails.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Respondent Details document files
+        respondentsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('respondents.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {})
       };
       
       // Create the arbitration agreement structure
@@ -160,6 +237,27 @@ export class ArbitrationService {
           }, {}),
         electronicEvidence: Object.keys(fileReferences)
           .filter(key => key.startsWith('certificate_') || key.startsWith('supporting_files_'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Additional Claimants document files
+        additionalClaimantsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('additionalClaimants.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Manager Details document files  
+        managerDetailsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('managerDetails.'))
+          .reduce((acc, key) => {
+            acc[key] = fileReferences[key];
+            return acc;
+          }, {}),
+        // Respondent Details document files
+        respondentsFiles: Object.keys(fileReferences)
+          .filter(key => key.startsWith('respondents.'))
           .reduce((acc, key) => {
             acc[key] = fileReferences[key];
             return acc;
@@ -551,7 +649,17 @@ export class ArbitrationService {
       throw new NotFoundException(`Arbitration case with ID ${id} not found`);
     }
 
-    return arbitration;
+    // CRITICAL FIX: Add fileMetadata extraction for submitted cases 
+    // This ensures that uploaded documents are visible in petition edit mode
+    const transformedCase = {
+      ...arbitration,
+      // Convert file metadata to a format the frontend can use
+      fileMetadata: this.extractFileMetadata(arbitration.documents),
+      // Ensure documents structure is properly formatted
+      documents: this.formatDocumentsForFrontend(arbitration.documents),
+    };
+
+    return transformedCase;
   }
 
   async findByCaseNumber(caseNumber: string) {

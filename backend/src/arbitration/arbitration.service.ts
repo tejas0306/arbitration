@@ -113,7 +113,15 @@ export class ArbitrationService {
       throw new NotFoundException(`Arbitration case with ID ${id} not found`);
     }
 
-    return arbitrationCase;
+    // CRITICAL FIX: Add fileMetadata extraction for submitted cases
+    // This ensures that uploaded documents are visible in petition edit mode
+    // Use the existing extractFileMetadata method that's used for drafts
+    const fileMetadata = this.extractFileMetadata(arbitrationCase.documents);
+    
+    return {
+      ...arbitrationCase,
+      fileMetadata, // Add the extracted file metadata
+    };
   }
 
   async updateCaseStatus(id: string, status: string) {
@@ -188,13 +196,23 @@ export class ArbitrationService {
   }
 
   async getDraftById(id: string, userId: string) {
-    const draft = await this.arbitrationCaseRepository.findOne({
-      where: { id, claimantId: userId, status: 'DRAFT' },
+    const draft = await this.prisma.arbitration.findFirst({
+      where: { 
+        id, 
+        userId: userId, 
+        status: 'DRAFT' 
+      },
     });
 
     if (!draft) {
       throw new NotFoundException(`Draft with ID ${id} not found or not accessible`);
     }
+
+    console.log('🔧 getDraftById: Found draft:', {
+      id: draft.id,
+      hasFormData: !!draft.formData,
+      formDataKeys: draft.formData ? Object.keys(draft.formData) : 'NO_FORM_DATA'
+    });
 
     return draft;
   }
@@ -544,5 +562,145 @@ export class ArbitrationService {
         },
       },
     });
+  }
+
+  // Helper to extract fileMetadata from documents
+  private extractFileMetadata(documents: any): Record<string, any> {
+    if (!documents || typeof documents !== 'object') {
+      return {};
+    }
+
+    const fileMetadata: Record<string, any> = {};
+
+    // Extract company documents
+    if (documents.companyDocs) {
+      if (documents.companyDocs.coi) {
+        fileMetadata['claimant.coi'] = {
+          name: documents.companyDocs.coi.originalName || documents.companyDocs.coi.filename,
+          path: documents.companyDocs.coi.path,
+          size: documents.companyDocs.coi.size,
+          type: documents.companyDocs.coi.mimetype,
+        };
+      }
+      if (documents.companyDocs.panCard) {
+        fileMetadata['claimant.panCard'] = {
+          name: documents.companyDocs.panCard.originalName || documents.companyDocs.panCard.filename,
+          path: documents.companyDocs.panCard.path,
+          size: documents.companyDocs.panCard.size,
+          type: documents.companyDocs.panCard.mimetype,
+        };
+      }
+      if (documents.companyDocs.gstCert) {
+        fileMetadata['claimant.gstCert'] = {
+          name: documents.companyDocs.gstCert.originalName || documents.companyDocs.gstCert.filename,
+          path: documents.companyDocs.gstCert.path,
+          size: documents.companyDocs.gstCert.size,
+          type: documents.companyDocs.gstCert.mimetype,
+        };
+      }
+    }
+
+    // Extract all files from allFiles if available
+    if (documents.allFiles) {
+      Object.keys(documents.allFiles).forEach(key => {
+        const file = documents.allFiles[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract supporting documents
+    if (documents.supportingDocuments && Array.isArray(documents.supportingDocuments)) {
+      documents.supportingDocuments.forEach((file, index) => {
+        if (file && typeof file === 'object') {
+          fileMetadata[`supportingDocuments_${index}`] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract evidence files
+    if (documents.evidenceFiles && Array.isArray(documents.evidenceFiles)) {
+      documents.evidenceFiles.forEach((file, index) => {
+        if (file && typeof file === 'object') {
+          fileMetadata[`evidenceFiles_${index}`] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract documents evidence files (legacy)
+    if (documents.documentsEvidenceFiles) {
+      Object.keys(documents.documentsEvidenceFiles).forEach(key => {
+        const file = documents.documentsEvidenceFiles[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    // Extract NEW DocumentsTabs files
+    if (documents.scannedDocuments) {
+      Object.keys(documents.scannedDocuments).forEach(key => {
+        const file = documents.scannedDocuments[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    if (documents.affidavits) {
+      Object.keys(documents.affidavits).forEach(key => {
+        const file = documents.affidavits[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    if (documents.electronicEvidence) {
+      Object.keys(documents.electronicEvidence).forEach(key => {
+        const file = documents.electronicEvidence[key];
+        if (file && typeof file === 'object') {
+          fileMetadata[key] = {
+            name: file.originalName || file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.mimetype,
+          };
+        }
+      });
+    }
+
+    return fileMetadata;
   }
 }

@@ -37,6 +37,19 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  // Exclude problematic packages from client-side bundling
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Exclude pan-aadhaar-ocr from client-side bundling
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
+    }
+    return config;
+  },
 }
 
 export default nextConfig

@@ -43,8 +43,11 @@ export default function DashboardPage() {
         } else if (user.role === 'TEAM_MEMBER') {
           router.push('/team-member/dashboard');
           return;
+        } else if (user.role === 'RESPONDENT') {
+          router.push('/respondent/dashboard');
+          return;
         }
-        // CLAIMANT and RESPONDENT stay on this dashboard
+        // Only CLAIMANT stays on this dashboard
         
       } catch (userErr) {
         toast.error('Unable to load your profile information');

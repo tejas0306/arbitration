@@ -82,6 +82,79 @@ export class ArbitrationController {
         { name: 'evidenceFiles_2', maxCount: 1 },
         { name: 'evidenceFiles_3', maxCount: 1 },
         { name: 'evidenceFiles_4', maxCount: 1 },
+        // NEW: DocumentsTabs field names (matching draft endpoint)
+        // Scanned Documents
+        { name: 'scannedDoc_0', maxCount: 1 },
+        { name: 'scannedDoc_1', maxCount: 1 },
+        { name: 'scannedDoc_2', maxCount: 1 },
+        { name: 'scannedDoc_3', maxCount: 1 },
+        { name: 'scannedDoc_4', maxCount: 1 },
+        // Affidavits
+        { name: 'affidavit_0', maxCount: 1 },
+        { name: 'affidavit_1', maxCount: 1 },
+        { name: 'affidavit_2', maxCount: 1 },
+        { name: 'affidavit_3', maxCount: 1 },
+        { name: 'affidavit_4', maxCount: 1 },
+        // Electronic Evidence - Certificate files
+        { name: 'certificate_0', maxCount: 1 },
+        { name: 'certificate_1', maxCount: 1 },
+        { name: 'certificate_2', maxCount: 1 },
+        { name: 'certificate_3', maxCount: 1 },
+        { name: 'certificate_4', maxCount: 1 },
+        // Electronic Evidence - Supporting files (multiple files per evidence)
+        { name: 'supporting_files_0', maxCount: 10 },
+        { name: 'supporting_files_1', maxCount: 10 },
+        { name: 'supporting_files_2', maxCount: 10 },
+        { name: 'supporting_files_3', maxCount: 10 },
+        { name: 'supporting_files_4', maxCount: 10 },
+        // Additional Claimants document uploads
+        { name: 'additionalClaimants.0.coi', maxCount: 1 },
+        { name: 'additionalClaimants.0.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.0.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.1.coi', maxCount: 1 },
+        { name: 'additionalClaimants.1.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.1.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.2.coi', maxCount: 1 },
+        { name: 'additionalClaimants.2.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.2.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.3.coi', maxCount: 1 },
+        { name: 'additionalClaimants.3.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.3.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.4.coi', maxCount: 1 },
+        { name: 'additionalClaimants.4.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.4.gstCert', maxCount: 1 },
+        // Manager Details document uploads
+        { name: 'managerDetails.0.coi', maxCount: 1 },
+        { name: 'managerDetails.0.panCard', maxCount: 1 },
+        { name: 'managerDetails.0.gstCert', maxCount: 1 },
+        { name: 'managerDetails.1.coi', maxCount: 1 },
+        { name: 'managerDetails.1.panCard', maxCount: 1 },
+        { name: 'managerDetails.1.gstCert', maxCount: 1 },
+        { name: 'managerDetails.2.coi', maxCount: 1 },
+        { name: 'managerDetails.2.panCard', maxCount: 1 },
+        { name: 'managerDetails.2.gstCert', maxCount: 1 },
+        { name: 'managerDetails.3.coi', maxCount: 1 },
+        { name: 'managerDetails.3.panCard', maxCount: 1 },
+        { name: 'managerDetails.3.gstCert', maxCount: 1 },
+        { name: 'managerDetails.4.coi', maxCount: 1 },
+        { name: 'managerDetails.4.panCard', maxCount: 1 },
+        { name: 'managerDetails.4.gstCert', maxCount: 1 },
+        // Respondent Details document uploads
+        { name: 'respondents.0.coi', maxCount: 1 },
+        { name: 'respondents.0.panCard', maxCount: 1 },
+        { name: 'respondents.0.gstCert', maxCount: 1 },
+        { name: 'respondents.1.coi', maxCount: 1 },
+        { name: 'respondents.1.panCard', maxCount: 1 },
+        { name: 'respondents.1.gstCert', maxCount: 1 },
+        { name: 'respondents.2.coi', maxCount: 1 },
+        { name: 'respondents.2.panCard', maxCount: 1 },
+        { name: 'respondents.2.gstCert', maxCount: 1 },
+        { name: 'respondents.3.coi', maxCount: 1 },
+        { name: 'respondents.3.panCard', maxCount: 1 },
+        { name: 'respondents.3.gstCert', maxCount: 1 },
+        { name: 'respondents.4.coi', maxCount: 1 },
+        { name: 'respondents.4.panCard', maxCount: 1 },
+        { name: 'respondents.4.gstCert', maxCount: 1 },
         // Documents Evidence files
         { name: 'documentsEvidence_0_attachedDocuments_0', maxCount: 1 },
         { name: 'documentsEvidence_0_attachedDocuments_1', maxCount: 1 },
@@ -111,13 +184,22 @@ export class ArbitrationController {
       // Parse the JSON data
       const arbitrationData = JSON.parse(arbitrationDataString);
       
+      // Check for skipDuplicateCheck flag in the request body
+      const skipDuplicateCheck = req.body.skipDuplicateCheck === 'true';
+      
       // Map file paths
       const fileData = {};
       if (files) {
         Object.keys(files).forEach(key => {
           const file = files[key][0];
-          // Handle nested field names (e.g., 'claimant.coi' -> 'coi')
-          const normalizedKey = key.includes('.') ? key.split('.')[1] : key;
+          // CRITICAL FIX: Keep full field names for proper restoration
+          // Only normalize simple claimant fields like 'claimant.coi' -> 'coi'
+          // Keep complex ones like 'additionalClaimants.0.coi' as is
+          let normalizedKey = key;
+          if (key.startsWith('claimant.') && !key.includes('additionalClaimants') && !key.includes('managerDetails') && !key.includes('respondents')) {
+            normalizedKey = key.split('.')[1]; // Only for direct claimant fields
+          }
+          
           fileData[normalizedKey] = {
             filename: file.filename,
             originalName: file.originalname,
@@ -137,10 +219,10 @@ export class ArbitrationController {
       
       // Get user ID from request
       const userId = req.user.id;
-      this.logger.log(`Creating arbitration case for user ${userId}`);
+      this.logger.log(`Creating arbitration case for user ${userId}, skipDuplicateCheck: ${skipDuplicateCheck}`);
       
       // Save to database
-      return this.arbitrationService.create(combinedData, userId);
+      return this.arbitrationService.create(combinedData, userId, skipDuplicateCheck);
     } catch (error) {
       this.logger.error(`Error processing arbitration submission: ${error.message}`, error.stack);
       throw error;
@@ -199,6 +281,54 @@ export class ArbitrationController {
         { name: 'supporting_files_2', maxCount: 10 },
         { name: 'supporting_files_3', maxCount: 10 },
         { name: 'supporting_files_4', maxCount: 10 },
+        // Additional Claimants document uploads
+        { name: 'additionalClaimants.0.coi', maxCount: 1 },
+        { name: 'additionalClaimants.0.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.0.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.1.coi', maxCount: 1 },
+        { name: 'additionalClaimants.1.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.1.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.2.coi', maxCount: 1 },
+        { name: 'additionalClaimants.2.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.2.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.3.coi', maxCount: 1 },
+        { name: 'additionalClaimants.3.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.3.gstCert', maxCount: 1 },
+        { name: 'additionalClaimants.4.coi', maxCount: 1 },
+        { name: 'additionalClaimants.4.panCard', maxCount: 1 },
+        { name: 'additionalClaimants.4.gstCert', maxCount: 1 },
+        // Manager Details document uploads
+        { name: 'managerDetails.0.coi', maxCount: 1 },
+        { name: 'managerDetails.0.panCard', maxCount: 1 },
+        { name: 'managerDetails.0.gstCert', maxCount: 1 },
+        { name: 'managerDetails.1.coi', maxCount: 1 },
+        { name: 'managerDetails.1.panCard', maxCount: 1 },
+        { name: 'managerDetails.1.gstCert', maxCount: 1 },
+        { name: 'managerDetails.2.coi', maxCount: 1 },
+        { name: 'managerDetails.2.panCard', maxCount: 1 },
+        { name: 'managerDetails.2.gstCert', maxCount: 1 },
+        { name: 'managerDetails.3.coi', maxCount: 1 },
+        { name: 'managerDetails.3.panCard', maxCount: 1 },
+        { name: 'managerDetails.3.gstCert', maxCount: 1 },
+        { name: 'managerDetails.4.coi', maxCount: 1 },
+        { name: 'managerDetails.4.panCard', maxCount: 1 },
+        { name: 'managerDetails.4.gstCert', maxCount: 1 },
+        // Respondent Details document uploads
+        { name: 'respondents.0.coi', maxCount: 1 },
+        { name: 'respondents.0.panCard', maxCount: 1 },
+        { name: 'respondents.0.gstCert', maxCount: 1 },
+        { name: 'respondents.1.coi', maxCount: 1 },
+        { name: 'respondents.1.panCard', maxCount: 1 },
+        { name: 'respondents.1.gstCert', maxCount: 1 },
+        { name: 'respondents.2.coi', maxCount: 1 },
+        { name: 'respondents.2.panCard', maxCount: 1 },
+        { name: 'respondents.2.gstCert', maxCount: 1 },
+        { name: 'respondents.3.coi', maxCount: 1 },
+        { name: 'respondents.3.panCard', maxCount: 1 },
+        { name: 'respondents.3.gstCert', maxCount: 1 },
+        { name: 'respondents.4.coi', maxCount: 1 },
+        { name: 'respondents.4.panCard', maxCount: 1 },
+        { name: 'respondents.4.gstCert', maxCount: 1 },
         // LEGACY: Keep old documentsEvidence field names for backward compatibility
         { name: 'documentsEvidence_0_attachedDocuments_0', maxCount: 1 },
         { name: 'documentsEvidence_0_attachedDocuments_1', maxCount: 1 },
@@ -263,8 +393,14 @@ export class ArbitrationController {
         this.logger.log('🔥 BACKEND: Processing files:', Object.keys(files));
         Object.keys(files).forEach(key => {
           const file = files[key][0];
-          // Handle nested field names (e.g., 'claimant.coi' -> 'coi')
-          const normalizedKey = key.includes('.') ? key.split('.')[1] : key;
+          // CRITICAL FIX: Keep full field names for proper restoration
+          // Only normalize simple claimant fields like 'claimant.coi' -> 'coi'
+          // Keep complex ones like 'additionalClaimants.0.coi' as is
+          let normalizedKey = key;
+          if (key.startsWith('claimant.') && !key.includes('additionalClaimants') && !key.includes('managerDetails') && !key.includes('respondents')) {
+            normalizedKey = key.split('.')[1]; // Only for direct claimant fields
+          }
+          
           fileData[normalizedKey] = {
             filename: file.filename,
             originalName: file.originalname,
@@ -291,6 +427,26 @@ export class ArbitrationController {
       return result;
     } catch (error) {
       this.logger.error(`Error saving draft: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Post('check-duplicates')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async checkDuplicates(@Req() req, @Body() formData: any) {
+    try {
+      const userId = req.user.id;
+      this.logger.log(`Checking for duplicate cases for user ${userId}`);
+      
+      const result = await this.arbitrationService.checkDuplicates(formData, userId);
+      
+      return {
+        success: true,
+        ...result
+      };
+    } catch (error) {
+      this.logger.error(`Error checking duplicates: ${error.message}`, error.stack);
       throw error;
     }
   }

@@ -22,6 +22,7 @@ export const initialClaimant = {
 };
 
 export const initialAdditionalClaimant = {
+  type: "",
   name: "",
   email: "",
   phoneCountryCode: "+91",
@@ -33,16 +34,33 @@ export const initialAdditionalClaimant = {
   district: "",
   state: "",
   country: "",
+  gst: "",
+  pan: "",
+  cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 };
 
 export const initialManagerDetails = {
+  type: "",
   name: "",
   email: "",
   phoneCountryCode: "+91",
   phone: "",
-  address: "",
-  designation: "",
-  authority: "",
+  pincode: "",
+  address1: "",
+  address2: "",
+  city: "",
+  district: "",
+  state: "",
+  country: "",
+  gst: "",
+  pan: "",
+  cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 };
 
 export const initialRespondent = {
@@ -61,6 +79,9 @@ export const initialRespondent = {
   gst: "",
   pan: "",
   cin: "",
+  coi: null,
+  panCard: null,
+  gstCert: null,
 };
 
 export const initialArbitrationAgreement = {
@@ -71,13 +92,13 @@ export const initialArbitrationAgreement = {
   numberOfArbitrators: "",
 };
 
-export const initialNatureOfDispute = {
+export const initialNatureOfDispute = [{
   category: "",
   subCategory: "",
   natureOfDispute: "",
   dateWhenRightToClaimArose: "",
   standardisedPrayerClauses: "",
-};
+}];
 
 export const initialDisputeDescription = {
   claimType: "",
@@ -100,7 +121,15 @@ export const initialDocumentEvidence = {
 };
 
 export const initialPrayers = {
-  prayers: "",
+  prayers: [
+    {
+      id: Math.random().toString(36).substr(2, 9),
+      title: "",
+      description: "",
+      amount: "",
+      reliefType: "monetary" as const
+    }
+  ],
 };
 
 export const initialDocuments = {
@@ -115,7 +144,9 @@ export const initialDocuments = {
     linkedIssue: string,
     admissionStatus: "pending" | "admitted" | "denied",
     crossExaminationRef: string,
-    date: string
+    date: string,
+    extractedText?: string,
+    keyMetadata?: Array<{key: string, value: string}>
   }>,
   
   affidavits: [] as Array<{
@@ -159,7 +190,14 @@ export const initialPayment = {
 };
 
 export const initialArguments = {
-  argumentsPerIssue: [] as string[],
+  argumentsPerPrayer: [] as Array<{
+    prayerId: string;
+    prayerTitle: string;
+    argument: string;
+    legalBasis?: string;
+    factualBasis?: string;
+    precedents?: string;
+  }>,
 };
 
 export const initialFormState = {
@@ -173,4 +211,45 @@ export const initialFormState = {
   documents: initialDocuments,
   payment: initialPayment,
   arguments: initialArguments,
+}; 
+
+export const initialDisputeWithDocument = {
+  id: undefined,
+  title: "",
+  description: "",
+  category: "",
+  subCategory: "",
+  dateWhenRightToClaimArose: "",
+  prayer: {
+    id: undefined,
+    title: "",
+    description: "",
+    reliefType: "monetary" as const,
+    amount: "",
+  },
+  evidence: {
+    id: undefined,
+    documentType: "",
+    relevantClauseNumber: "",
+    dateOfIssue: "",
+    description: "",
+    attachedDocuments: [],
+  },
+};
+
+export const initialArgumentWithPrayers = {
+  id: undefined,
+  title: "",
+  description: "",
+  legalBasis: "",
+  prayers: [
+    {
+      id: undefined,
+      title: "",
+      description: "",
+      reliefType: "monetary" as const,
+      amount: "",
+      priority: 1,
+    },
+  ],
 }; 

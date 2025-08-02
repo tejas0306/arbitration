@@ -4672,7 +4672,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
               <p className="text-sm text-gray-600 mb-3">
                 Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <FileField
                     label="1.12 Certificate of Incorporation (COI)"
@@ -4693,7 +4693,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                   />
                   <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <FileField
                     label="1.14 GST Registration Certificate"
                     name="claimant.gstCert"
@@ -5094,7 +5094,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 {/* Document Upload Section */}
                 <div className="mt-6 border-t border-gray-200 pt-6">
                   <h5 className="text-md font-medium mb-4">Document Upload</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FileField 
                       label="2.12 Certificate of Incorporation (COI)" 
                       name={`additionalClaimants.${index}.coi`} 
@@ -5107,14 +5107,12 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                       onChange={(file) => handleFileChange(`additionalClaimants.${index}.panCard`, file)} 
                       existingFile={files[`additionalClaimants.${index}.panCard`]} 
                     />
-                    <div className="col-span-2">
-                      <FileField 
-                        label="2.14 GST Registration Certificate" 
-                        name={`additionalClaimants.${index}.gstCert`} 
-                        onChange={(file) => handleFileChange(`additionalClaimants.${index}.gstCert`, file)} 
-                        existingFile={files[`additionalClaimants.${index}.gstCert`]} 
-                      />
-                    </div>
+                    <FileField 
+                      label="2.14 GST Registration Certificate" 
+                      name={`additionalClaimants.${index}.gstCert`} 
+                      onChange={(file) => handleFileChange(`additionalClaimants.${index}.gstCert`, file)} 
+                      existingFile={files[`additionalClaimants.${index}.gstCert`]} 
+                    />
                   </div>
                 </div>
   
@@ -5360,7 +5358,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
         <p className="text-sm text-gray-600 mb-3">
           Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <FileField
               label="Certificate of Incorporation (COI)"
@@ -5381,7 +5379,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
             />
             <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
           </div>
-          <div className="col-span-2">
+          <div>
             <FileField
               label="GST Registration Certificate"
               name={`managerDetails.${index}.gstCert`}
@@ -5805,7 +5803,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                     <p className="text-xs text-gray-600 mb-3">
                       Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
                     </p>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <FileField
                           label="3.12 Certificate of Incorporation (COI)"
@@ -5826,7 +5824,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                         />
                         <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
                       </div>
-                      <div className="col-span-2">
+                      <div>
                         <FileField
                           label="3.14 GST Registration Certificate"
                           name={`respondents.${index}.gstCert`}
@@ -6932,10 +6930,32 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                               <label className="text-sm font-medium text-gray-600">Category</label>
                               <p className="text-gray-900 capitalize">{dispute.category || 'Not specified'}</p>
                             </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Sub Category</label>
+                              <p className="text-gray-900 capitalize">{dispute.subCategory || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Dispute Amount</label>
+                              <p className="text-gray-900">₹{dispute.amount ? Number(dispute.amount).toLocaleString() : 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Dispute Date</label>
+                              <p className="text-gray-900">{dispute.date || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Dispute Type</label>
+                              <p className="text-gray-900 capitalize">{dispute.disputeType || 'Not specified'}</p>
+                            </div>
                             {dispute.description && (
                               <div className="bg-white p-3 rounded md:col-span-2">
                                 <label className="text-sm font-medium text-gray-600">Description</label>
                                 <p className="text-gray-900">{dispute.description}</p>
+                              </div>
+                            )}
+                            {dispute.details && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Additional Details</label>
+                                <p className="text-gray-900">{dispute.details}</p>
                               </div>
                             )}
                           </div>
@@ -7025,20 +7045,72 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                         Prayers & Reliefs
                       </h3>
                     </div>
-                    <div className="p-6">
-                      <div className="space-y-3">
-                        {prayers.prayers.map((prayer: any, index: number) => (
-                          <div key={index} className="bg-gray-50 p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">Prayer {index + 1}</label>
-                            <p className="text-gray-900">
-                              {typeof prayer === 'string' ? prayer : 
-                               typeof prayer === 'object' && prayer !== null ? 
-                                 prayer.title || prayer.description || 'Prayer content' : 
-                                 'Prayer content'}
-                            </p>
+                    <div className="p-6 space-y-4">
+                      {prayers.prayers.map((prayer: any, index: number) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Prayer {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Title</label>
+                              <p className="text-gray-900">{prayer.title || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Relief Type</label>
+                              <p className="text-gray-900 capitalize">{prayer.reliefType || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Prayer Type</label>
+                              <p className="text-gray-900 capitalize">{prayer.prayerType || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">Category</label>
+                              <p className="text-gray-900 capitalize">{prayer.category || 'Not specified'}</p>
+                            </div>
+                            {prayer.amount && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Amount</label>
+                                <p className="text-gray-900">₹{Number(prayer.amount).toLocaleString()}</p>
+                              </div>
+                            )}
+                            {prayer.currency && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">Currency</label>
+                                <p className="text-gray-900">{prayer.currency}</p>
+                              </div>
+                            )}
+                            {prayer.description && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Description</label>
+                                <p className="text-gray-900">{prayer.description}</p>
+                              </div>
+                            )}
+                            {prayer.legalBasis && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Legal Basis</label>
+                                <p className="text-gray-900">{prayer.legalBasis}</p>
+                              </div>
+                            )}
+                            {prayer.factualBasis && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Factual Basis</label>
+                                <p className="text-gray-900">{prayer.factualBasis}</p>
+                              </div>
+                            )}
+                            {prayer.precedents && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Precedents</label>
+                                <p className="text-gray-900">{prayer.precedents}</p>
+                              </div>
+                            )}
+                            {prayer.additionalDetails && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">Additional Details</label>
+                                <p className="text-gray-900">{prayer.additionalDetails}</p>
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -7291,13 +7363,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                     >
                       {isSavingDraft ? "Saving..." : "Save as Draft"}
                     </Button>
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting || isSavingDraft}
-                      className="sm:w-auto bg-blue-600 hover:bg-blue-700"
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit Application"}
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -7373,7 +7438,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
     setPendingSubmissionData(null);
   };
 
-  const handleDuplicateDialogProceed = async () => {
+  const handleDuplicateDialogContinue = async () => {
     setShowDuplicateDialog(false);
     
     if (!pendingSubmissionData) {
@@ -7458,6 +7523,25 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       // Clean up pending data
       setPendingSubmissionData(null);
       setDuplicateCheckResult(null);
+    }
+  };
+
+  const handleDuplicateDialogEditExisting = () => {
+    setShowDuplicateDialog(false);
+    setDuplicateCheckResult(null);
+    
+    if (duplicateCheckResult && duplicateCheckResult.matchingCases.length > 0) {
+      const existingCase = duplicateCheckResult.matchingCases[0];
+      
+      // Navigate to the existing case for editing
+      if (existingCase && existingCase.id) {
+        // Navigate to the case edit page
+        router.push(`/dashboard/cases/${existingCase.id}/edit`);
+      } else {
+        toast.error('Could not find the existing case to edit');
+      }
+    } else {
+      toast.error('No existing case found to edit');
     }
   };
   
@@ -8022,14 +8106,15 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
         </div>
       )}
 
-      {showDuplicateDialog && duplicateCheckResult && (
-        <DuplicateCheckDialog
-          isOpen={showDuplicateDialog}
-          onClose={handleDuplicateDialogClose}
-          onProceed={handleDuplicateDialogProceed}
-          duplicateResult={duplicateCheckResult}
-        />
-      )}
+              {showDuplicateDialog && duplicateCheckResult && (
+          <DuplicateCheckDialog
+            isOpen={showDuplicateDialog}
+            onClose={handleDuplicateDialogClose}
+            onContinue={handleDuplicateDialogContinue}
+            onEditExisting={handleDuplicateDialogEditExisting}
+            duplicateResult={duplicateCheckResult}
+          />
+        )}
 
       {/* Draft List Modal */}
       {showDraftList && (

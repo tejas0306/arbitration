@@ -2199,13 +2199,33 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       return;
     }
 
-    const otp = generateOTP();
-    setSentEmailOTP(otp);
-    setShowEmailOTP(true);
-    
-    // In a real application, you would send this OTP via email
-    // For demo purposes, we'll show it in a toast
-    toast.success(`Email OTP sent to ${email}. Demo OTP: ${otp}`);
+    try {
+      // Send OTP via email
+      const response = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: email,
+          type: 'otp'
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.otp) {
+        setSentEmailOTP(result.otp);
+        setShowEmailOTP(true);
+        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+      } else {
+        toast.error('Failed to send email OTP. Please try again.');
+        console.error('Email error:', result.error);
+      }
+    } catch (error) {
+      console.error('Email verification error:', error);
+      toast.error('Failed to send email OTP. Please try again.');
+    }
   };
 
   const sendPhoneVerification = async () => {
@@ -2290,26 +2310,43 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
     }
     
     try {
-      // Generate OTP for demo
-      const otp = generateOTP();
+      // Send OTP via email
+      const response = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: email,
+          type: 'otp'
+        }),
+      });
+
+      const result = await response.json();
       
-      toast.success(`Demo OTP sent to ${email}: ${otp}`);
-      
-      // Update arrays to show modal for this specific claimant
-      const newSentOTPs = [...sentAdditionalEmailOTP];
-      const newShowModals = [...showAdditionalEmailOTP];
-      
-      // Ensure arrays are large enough
-      while (newSentOTPs.length <= index) newSentOTPs.push("");
-      while (newShowModals.length <= index) newShowModals.push(false);
-      
-      newSentOTPs[index] = otp;
-      newShowModals[index] = true;
-      
-      setSentAdditionalEmailOTP(newSentOTPs);
-      setShowAdditionalEmailOTP(newShowModals);
+      if (result.success && result.otp) {
+        // Update arrays to show modal for this specific claimant
+        const newSentOTPs = [...sentAdditionalEmailOTP];
+        const newShowModals = [...showAdditionalEmailOTP];
+        
+        // Ensure arrays are large enough
+        while (newSentOTPs.length <= index) newSentOTPs.push("");
+        while (newShowModals.length <= index) newShowModals.push(false);
+        
+        newSentOTPs[index] = result.otp;
+        newShowModals[index] = true;
+        
+        setSentAdditionalEmailOTP(newSentOTPs);
+        setShowAdditionalEmailOTP(newShowModals);
+        
+        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+      } else {
+        toast.error('Failed to send email OTP. Please try again.');
+        console.error('Email error:', result.error);
+      }
     } catch (error) {
-      toast.error('Failed to send verification email');
+      console.error('Email verification error:', error);
+      toast.error('Failed to send email OTP. Please try again.');
     }
   };
 
@@ -2478,21 +2515,43 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
     }
     
     try {
-      // Generate OTP for demo
-      const otp = generateOTP();
-      
-      toast.success(`Demo OTP sent to ${email}: ${otp}`);
-      
-      // Mark as verified for demo
-      setManagerEmailVerified(prev => {
-        const newVerified = [...prev];
-        newVerified[index] = true;
-        return newVerified;
+      // Send OTP via email
+      const response = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: email,
+          type: 'otp'
+        }),
       });
+
+      const result = await response.json();
       
-      toast.success(`Email verified successfully for Manager ${index + 1}`);
+      if (result.success && result.otp) {
+        // Store OTP for verification
+        setManagerEmailOTPs(prev => {
+          const newOTPs = [...prev];
+          newOTPs[index] = result.otp;
+          return newOTPs;
+        });
+        
+        // Show OTP modal
+        setShowManagerEmailModal(prev => {
+          const newModals = [...prev];
+          newModals[index] = true;
+          return newModals;
+        });
+        
+        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+      } else {
+        toast.error('Failed to send email OTP. Please try again.');
+        console.error('Email error:', result.error);
+      }
     } catch (error) {
-      toast.error('Failed to send verification email');
+      console.error('Email verification error:', error);
+      toast.error('Failed to send email OTP. Please try again.');
     }
   };
 
@@ -2537,26 +2596,43 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
     }
     
     try {
-      // Generate OTP for demo
-      const otp = generateOTP();
-      
-      // Store OTP for verification
-      setRespondentEmailOTPs(prev => {
-        const newOTPs = [...prev];
-        newOTPs[index] = otp;
-        return newOTPs;
+      // Send OTP via email
+      const response = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: email,
+          type: 'otp'
+        }),
       });
+
+      const result = await response.json();
       
-      // Show OTP modal
-      setShowRespondentEmailModal(prev => {
-        const newModals = [...prev];
-        newModals[index] = true;
-        return newModals;
-      });
-      
-      toast.success(`Demo OTP sent to ${email}: ${otp}`);
+      if (result.success && result.otp) {
+        // Store OTP for verification
+        setRespondentEmailOTPs(prev => {
+          const newOTPs = [...prev];
+          newOTPs[index] = result.otp;
+          return newOTPs;
+        });
+        
+        // Show OTP modal
+        setShowRespondentEmailModal(prev => {
+          const newModals = [...prev];
+          newModals[index] = true;
+          return newModals;
+        });
+        
+        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+      } else {
+        toast.error('Failed to send email OTP. Please try again.');
+        console.error('Email error:', result.error);
+      }
     } catch (error) {
-      toast.error('Failed to send verification email');
+      console.error('Email verification error:', error);
+      toast.error('Failed to send email OTP. Please try again.');
     }
   };
 
@@ -3069,6 +3145,101 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
           }
         }
         return true;
+      case 7: // Documents
+        // Validate that at least one document is uploaded
+        const scannedDocuments = watch('documents.scannedDocuments') || [];
+        const affidavits = watch('documents.affidavits') || [];
+        const electronicEvidence = watch('documents.electronicEvidence') || [];
+        
+        const totalDocuments = scannedDocuments.length + affidavits.length + electronicEvidence.length;
+        
+        if (totalDocuments === 0) {
+          toast.error('Please upload at least one document before proceeding');
+          return false;
+        }
+        
+        // Validate that each document has required fields
+        for (let i = 0; i < scannedDocuments.length; i++) {
+          const doc = scannedDocuments[i];
+          if (!doc.documentType?.trim()) {
+            toast.error(`Scanned Document ${i + 1}: Document Type is required`);
+            return false;
+          }
+          if (!doc.file) {
+            toast.error(`Scanned Document ${i + 1}: Document File is required`);
+            return false;
+          }
+          if (!doc.date?.trim()) {
+            toast.error(`Scanned Document ${i + 1}: Document Date is required`);
+            return false;
+          }
+          if (!doc.linkedIssue?.trim()) {
+            toast.error(`Scanned Document ${i + 1}: Linked Issue is required`);
+            return false;
+          }
+          if (!doc.description?.trim()) {
+            toast.error(`Scanned Document ${i + 1}: Description is required`);
+            return false;
+          }
+        }
+        
+        for (let i = 0; i < affidavits.length; i++) {
+          const doc = affidavits[i];
+          if (!doc.documentType?.trim()) {
+            toast.error(`Affidavit ${i + 1}: Document Type is required`);
+            return false;
+          }
+          if (!doc.file) {
+            toast.error(`Affidavit ${i + 1}: Document File is required`);
+            return false;
+          }
+          if (!doc.date?.trim()) {
+            toast.error(`Affidavit ${i + 1}: Document Date is required`);
+            return false;
+          }
+          if (!doc.linkedIssue?.trim()) {
+            toast.error(`Affidavit ${i + 1}: Linked Issue is required`);
+            return false;
+          }
+          if (!doc.description?.trim()) {
+            toast.error(`Affidavit ${i + 1}: Description is required`);
+            return false;
+          }
+        }
+        
+        for (let i = 0; i < electronicEvidence.length; i++) {
+          const doc = electronicEvidence[i];
+          if (!doc.documentType?.trim()) {
+            toast.error(`Electronic Evidence ${i + 1}: Document Type is required`);
+            return false;
+          }
+          if (!doc.file) {
+            toast.error(`Electronic Evidence ${i + 1}: Document File is required`);
+            return false;
+          }
+          if (!doc.date?.trim()) {
+            toast.error(`Electronic Evidence ${i + 1}: Document Date is required`);
+            return false;
+          }
+          if (!doc.linkedIssue?.trim()) {
+            toast.error(`Electronic Evidence ${i + 1}: Linked Issue is required`);
+            return false;
+          }
+          if (!doc.description?.trim()) {
+            toast.error(`Electronic Evidence ${i + 1}: Description is required`);
+            return false;
+          }
+        }
+        
+        return true;
+      case 8: // Payment
+        // Validate payment fields
+        fieldsToValidate = [
+          'payment.paymentHead',
+          'payment.paymentAmount', 
+          'payment.paymentDetails'
+        ];
+        break;
       case 6: // Prayers & Reliefs (Rendering)
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
@@ -3221,10 +3392,22 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
     if (Array.isArray(file)) {
       // Handle multiple files - store first file for now since Record expects single file
       const firstFile = file.length > 0 ? file[0] : null;
-      setFiles(prev => ({
+      setFiles(prev => {
+        const newFiles = {
         ...prev,
         [fieldName]: firstFile
-      }));
+        };
+        // Store files in localStorage for persistence
+        localStorage.setItem('arbitrationFormFiles', JSON.stringify(
+          Object.fromEntries(
+            Object.entries(newFiles).map(([key, value]) => [
+              key, 
+              value ? { name: value.name, size: value.size, type: value.type } : null
+            ])
+          )
+        ));
+        return newFiles;
+      });
       
       // Trigger OCR processing for document uploads
       if (firstFile && fieldName.includes('.')) {
@@ -3232,10 +3415,22 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       }
     } else {
       // Handle single file
-      setFiles(prev => ({
+      setFiles(prev => {
+        const newFiles = {
         ...prev,
         [fieldName]: file
-      }));
+        };
+        // Store files in localStorage for persistence
+        localStorage.setItem('arbitrationFormFiles', JSON.stringify(
+          Object.fromEntries(
+            Object.entries(newFiles).map(([key, value]) => [
+              key, 
+              value ? { name: value.name, size: value.size, type: value.type } : null
+            ])
+          )
+        ));
+        return newFiles;
+      });
       
       // Trigger OCR processing for document uploads
       if (file && fieldName.includes('.')) {
@@ -3359,6 +3554,23 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
   // CRITICAL FIX: Effect to restore files when navigating between steps
   useEffect(() => {
     const restoreFiles = () => {
+      // Try to restore files from localStorage first
+      try {
+        const storedFiles = localStorage.getItem('arbitrationFormFiles');
+        if (storedFiles) {
+          const parsedFiles = JSON.parse(storedFiles);
+          // Note: We can't restore the actual File objects from localStorage
+          // but we can show the file names to indicate they were uploaded
+          setFiles(prev => ({
+            ...prev,
+            ...parsedFiles
+          }));
+        }
+      } catch (error) {
+        console.log('No stored files found or error loading files');
+      }
+      
+      // Also try global files as fallback
       const globalFiles = (window as any).currentFiles;
       if (globalFiles && typeof globalFiles === 'object') {
         setFiles(prev => ({
@@ -3558,6 +3770,34 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
             // Dismiss the loading toast
             toast.dismiss();
             
+            // Send confirmation emails to all parties
+            try {
+              const formData = getValues();
+              const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
+              const caseLink = `${window.location.origin}/dashboard/cases/${caseId}`;
+              
+              const emailResponse = await fetch('/api/email/test', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  to: formData.claimant?.email || 'test@example.com',
+                  type: 'case-submission-all-parties',
+                  caseLink: caseLink
+                }),
+              });
+
+              const result = await emailResponse.json();
+              if (result.success) {
+                console.log('✅ Confirmation emails sent to all parties successfully');
+              } else {
+                console.error('❌ Failed to send confirmation emails:', result.error);
+              }
+            } catch (error) {
+              console.error('Email confirmation error:', error);
+            }
+
             // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
             console.log('🔧 About to call showSubmissionSuccess with caseId:', caseId);
@@ -3603,6 +3843,41 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
               console.log('🔧 About to call showSubmissionSuccess with caseId (draft submit):', caseId);
               showSubmissionSuccess(caseId);
               
+              // Send confirmation emails to all parties
+              try {
+                console.log('🔧 Starting email sending process (draft submit)...');
+                const formData = watch();
+                console.log('🔧 Form data for email (draft submit):', formData.claimant?.email);
+                const caseLink = `${window.location.origin}/dashboard/cases/${caseId}`;
+                console.log('🔧 Case link (draft submit):', caseLink);
+                
+                const emailResponse = await fetch('/api/email/test', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    type: 'case-submission-all-parties',
+                    caseLink: caseLink,
+                    caseData: formData,
+                    caseNumber: caseId
+                  }),
+                });
+
+                const result = await emailResponse.json();
+                console.log('🔧 Email API response (draft submit):', result);
+                if (result.success) {
+                  console.log('✅ Confirmation emails sent to all parties successfully');
+                  toast.success('Confirmation emails sent to all parties');
+                } else {
+                  console.error('❌ Failed to send confirmation emails:', result.error);
+                  toast.error('Failed to send confirmation emails');
+                }
+              } catch (error) {
+                console.error('Email confirmation error:', error);
+                toast.error('Email confirmation failed');
+              }
+              
               // Generate and download PDF
               try {
                 const currentFormData = watch();
@@ -3646,6 +3921,41 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
           const caseId = response.caseId || response.caseNumber || response.id;
           console.log('🔧 About to call showSubmissionSuccess with caseId (new case):', caseId);
           showSubmissionSuccess(caseId);
+          
+                      // Send confirmation emails to all parties
+            try {
+              console.log('🔧 Starting email sending process...');
+              const formData = watch();
+              console.log('🔧 Form data for email:', formData.claimant?.email);
+              const caseLink = `${window.location.origin}/dashboard/cases/${caseId}`;
+              console.log('🔧 Case link:', caseLink);
+              
+              const emailResponse = await fetch('/api/email/test', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  type: 'case-submission-all-parties',
+                  caseLink: caseLink,
+                  caseData: formData,
+                  caseNumber: caseId
+                }),
+              });
+
+              const result = await emailResponse.json();
+              console.log('🔧 Email API response:', result);
+              if (result.success) {
+                console.log('✅ Confirmation emails sent to all parties successfully');
+                toast.success('Confirmation emails sent to all parties');
+              } else {
+                console.error('❌ Failed to send confirmation emails:', result.error);
+                toast.error('Failed to send confirmation emails');
+              }
+            } catch (error) {
+              console.error('Email confirmation error:', error);
+              toast.error('Email confirmation failed');
+            }
           
           // Generate and download PDF
           try {
@@ -4358,6 +4668,52 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       documents
     } = formData;
     
+      // Debug: Log Nature of Dispute data
+  console.log('🔧 Nature of Dispute data:', natureOfDispute);
+  console.log('🔧 Nature of Dispute fields:', natureOfDisputeFields);
+  if (natureOfDispute && natureOfDispute.length > 0) {
+    console.log('🔧 First dispute entry:', natureOfDispute[0]);
+  }
+  if (natureOfDisputeFields && natureOfDisputeFields.length > 0) {
+    console.log('🔧 First dispute field:', natureOfDisputeFields[0]);
+  }
+  
+  // Auto-add default Nature of Dispute entry if none exists
+  React.useEffect(() => {
+    if (natureOfDisputeFields.length === 0) {
+      appendNatureOfDispute({
+        category: "",
+        subCategory: "",
+        natureOfDispute: "",
+        dateWhenRightToClaimArose: "",
+        standardisedPrayerClauses: "",
+      });
+    }
+  }, [natureOfDisputeFields.length, appendNatureOfDispute]);
+  
+  // Auto-add default Dispute Description entry if none exists
+  React.useEffect(() => {
+    if (disputeDescriptionFields.length === 0) {
+      appendDisputeDescription({
+        claimType: "",
+        claimReason: "",
+        lawReliedUpon: "",
+        relevantClauseNumber: "",
+        clauseSupportingClaim: "",
+        clause: "",
+        documentSupportingClaim: "",
+        reliefSought: "",
+      });
+    }
+  }, [disputeDescriptionFields.length, appendDisputeDescription]);
+  
+  // Auto-add default Argument entry if none exists
+  React.useEffect(() => {
+    if (argumentFields.length === 0) {
+      appendArgument("");
+    }
+  }, [argumentFields.length, appendArgument]);
+    
     const argumentsPerIssue = argumentsData?.argumentsPerIssue || [];
     
     switch (activeStep) {
@@ -4672,7 +5028,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
               <p className="text-sm text-gray-600 mb-3">
                 Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <FileField
                     label="1.12 Certificate of Incorporation (COI)"
@@ -4693,7 +5049,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                   />
                   <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <FileField
                     label="1.14 GST Registration Certificate"
                     name="claimant.gstCert"
@@ -5094,7 +5450,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 {/* Document Upload Section */}
                 <div className="mt-6 border-t border-gray-200 pt-6">
                   <h5 className="text-md font-medium mb-4">Document Upload</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FileField 
                       label="2.12 Certificate of Incorporation (COI)" 
                       name={`additionalClaimants.${index}.coi`} 
@@ -5107,14 +5463,12 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                       onChange={(file) => handleFileChange(`additionalClaimants.${index}.panCard`, file)} 
                       existingFile={files[`additionalClaimants.${index}.panCard`]} 
                     />
-                    <div className="col-span-2">
                       <FileField 
                         label="2.14 GST Registration Certificate" 
                         name={`additionalClaimants.${index}.gstCert`} 
                         onChange={(file) => handleFileChange(`additionalClaimants.${index}.gstCert`, file)} 
                         existingFile={files[`additionalClaimants.${index}.gstCert`]} 
                       />
-                    </div>
                   </div>
                 </div>
   
@@ -5360,7 +5714,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
         <p className="text-sm text-gray-600 mb-3">
           Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <FileField
               label="Certificate of Incorporation (COI)"
@@ -5381,7 +5735,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
             />
             <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
           </div>
-          <div className="col-span-2">
+          <div>
             <FileField
               label="GST Registration Certificate"
               name={`managerDetails.${index}.gstCert`}
@@ -5805,7 +6159,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                     <p className="text-xs text-gray-600 mb-3">
                       Upload documents for identification and verification. Documents will be auto-populated using OCR technology.
                     </p>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <FileField
                           label="3.12 Certificate of Incorporation (COI)"
@@ -5826,7 +6180,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                         />
                         <p className="text-xs text-gray-500 mt-1">Auto-populates PAN field via OCR</p>
                       </div>
-                      <div className="col-span-2">
+                      <div>
                         <FileField
                           label="3.14 GST Registration Certificate"
                           name={`respondents.${index}.gstCert`}
@@ -6369,6 +6723,340 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
           </div>
         )
   
+      case 4: // Nature of Dispute
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[4] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Nature of Dispute</h3>
+            <div className="space-y-4">
+              {natureOfDisputeFields.map((field, index) => (
+                <div key={field.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium text-gray-900">Dispute {index + 1}</h4>
+                    {natureOfDisputeFields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeNatureOfDispute(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.category`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Category"
+                          name={`natureOfDispute.${index}.category`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "contract_dispute", label: "Contract Dispute" },
+                            { value: "payment_dispute", label: "Payment Dispute" },
+                            { value: "delivery_dispute", label: "Delivery Dispute" },
+                            { value: "quality_dispute", label: "Quality Dispute" },
+                            { value: "service_dispute", label: "Service Dispute" },
+                            { value: "other", label: "Other" }
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.subCategory`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Sub Category"
+                          name={`natureOfDispute.${index}.subCategory`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "breach_of_contract", label: "Breach of Contract" },
+                            { value: "non_payment", label: "Non-payment" },
+                            { value: "late_delivery", label: "Late Delivery" },
+                            { value: "defective_goods", label: "Defective Goods" },
+                            { value: "poor_service", label: "Poor Service" },
+                            { value: "other", label: "Other" }
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.natureOfDispute`}
+                      render={({ field, fieldState }) => (
+                        <TextAreaField
+                          label="Nature of Dispute"
+                          name={`natureOfDispute.${index}.natureOfDispute`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          rows={3}
+                          placeholder="Describe the nature of the dispute"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`natureOfDispute.${index}.dateWhenRightToClaimArose`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Date When Right to Claim Arose"
+                          name={`natureOfDispute.${index}.dateWhenRightToClaimArose`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="date"
+                          required
+                          max={new Date().toISOString().split('T')[0]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <div className="md:col-span-2">
+                      <Controller
+                        control={control}
+                        name={`natureOfDispute.${index}.standardisedPrayerClauses`}
+                        render={({ field, fieldState }) => (
+                          <TextAreaField
+                            label="Standardised Prayer Clauses"
+                            name={`natureOfDispute.${index}.standardisedPrayerClauses`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            required
+                            rows={4}
+                            placeholder="Enter standardised prayer clauses"
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  onClick={addNatureOfDispute}
+                  variant="outline"
+                  className="w-full max-w-xs"
+                >
+                  Add Another Dispute
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+        
+      case 5: // Dispute Descriptions
+        return (
+          <div className="space-y-4" ref={(el) => { stepRefs.current[5] = el; }}>
+            <h3 className="font-medium text-lg mb-4">Dispute Descriptions</h3>
+            <div className="space-y-4">
+              {disputeDescriptionFields.map((field, index) => (
+                <div key={field.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium text-gray-900">Dispute Description {index + 1}</h4>
+                    {disputeDescriptionFields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeDisputeDescription(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.claimType`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Claim Type"
+                          name={`disputeDescriptions.${index}.claimType`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "monetary", label: "Monetary Claim" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "injunction", label: "Injunction" },
+                            { value: "declaratory", label: "Declaratory Relief" },
+                            { value: "other", label: "Other" }
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.claimReason`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Claim Reason"
+                          name={`disputeDescriptions.${index}.claimReason`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "breach_of_contract", label: "Breach of Contract" },
+                            { value: "non_payment", label: "Non-payment" },
+                            { value: "defective_goods", label: "Defective Goods" },
+                            { value: "late_delivery", label: "Late Delivery" },
+                            { value: "poor_service", label: "Poor Service" },
+                            { value: "other", label: "Other" }
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <div className="md:col-span-2">
+                      <Controller
+                        control={control}
+                        name={`disputeDescriptions.${index}.lawReliedUpon`}
+                        render={({ field, fieldState }) => (
+                          <TextAreaField
+                            label="Law Relied Upon"
+                            name={`disputeDescriptions.${index}.lawReliedUpon`}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            required
+                            rows={3}
+                            placeholder="Describe the law relied upon"
+                            error={fieldState.error?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Relevant Clause Number"
+                          name={`disputeDescriptions.${index}.relevantClauseNumber`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="Enter relevant clause number"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Clause Supporting Claim"
+                          name={`disputeDescriptions.${index}.clauseSupportingClaim`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="Enter clause supporting claim"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.clause`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Clause"
+                          name={`disputeDescriptions.${index}.clause`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="Enter clause"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Document Supporting Claim"
+                          name={`disputeDescriptions.${index}.documentSupportingClaim`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          required
+                          placeholder="Enter document supporting claim"
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name={`disputeDescriptions.${index}.reliefSought`}
+                      render={({ field, fieldState }) => (
+                        <FormField
+                          label="Relief Sought"
+                          name={`disputeDescriptions.${index}.reliefSought`}
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          type="select"
+                          required
+                          options={[
+                            { value: "monetary_compensation", label: "Monetary Compensation" },
+                            { value: "specific_performance", label: "Specific Performance" },
+                            { value: "injunction", label: "Injunction" },
+                            { value: "declaratory_relief", label: "Declaratory Relief" },
+                            { value: "other", label: "Other" }
+                          ]}
+                          error={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  onClick={addDisputeDescription}
+                  variant="outline"
+                  className="w-full max-w-xs"
+                >
+                  Add Another Dispute Description
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+        
       case 6: // Prayers & Reliefs
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
@@ -6507,32 +7195,41 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
               <div className="space-y-8">
                 {/* Step 1: Claimant Details */}
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg">
+                  <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                     <h3 className="text-lg font-semibold flex items-center">
                       <span className="bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</span>
                       Claimant Details
                     </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveStep(0)}
+                      className="bg-white text-blue-600 hover:bg-blue-50 border-white"
+                    >
+                      Edit
+                    </Button>
                   </div>
                   <div className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-gray-50 p-3 rounded">
-                        <label className="text-sm font-medium text-gray-600">Type</label>
-                        <p className="text-gray-900 capitalize">{claimant?.type || 'Not specified'}</p>
+                          <label className="text-sm font-medium text-gray-600">1.1 Type</label>
+                          <p className="text-gray-900 capitalize">{claimant?.type || 'Not filled'}</p>
                       </div>
                       <div className="bg-gray-50 p-3 rounded">
-                        <label className="text-sm font-medium text-gray-600">Name</label>
-                        <p className="text-gray-900">{claimant?.name || 'Not specified'}</p>
+                          <label className="text-sm font-medium text-gray-600">1.2 Name</label>
+                          <p className="text-gray-900">{claimant?.name || 'Not filled'}</p>
                       </div>
                       <div className="bg-gray-50 p-3 rounded">
-                        <label className="text-sm font-medium text-gray-600">Email</label>
-                        <p className="text-gray-900">{claimant?.email || 'Not specified'}</p>
+                          <label className="text-sm font-medium text-gray-600">1.3 Email</label>
+                          <p className="text-gray-900">{claimant?.email || 'Not filled'}</p>
                       </div>
                       <div className="bg-gray-50 p-3 rounded">
-                        <label className="text-sm font-medium text-gray-600">Phone</label>
-                        <p className="text-gray-900">{claimant?.phoneCountryCode} {claimant?.phone || 'Not specified'}</p>
+                          <label className="text-sm font-medium text-gray-600">1.4 Phone</label>
+                          <p className="text-gray-900">{claimant?.phoneCountryCode} {claimant?.phone || 'Not filled'}</p>
                       </div>
                       <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                        <label className="text-sm font-medium text-gray-600">Address</label>
+                          <label className="text-sm font-medium text-gray-600">1.5 Address</label>
                         <p className="text-gray-900">
                           {claimant?.address1 && (
                             <>
@@ -6544,83 +7241,80 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                               {claimant.country && `, ${claimant.country}`}
                               {claimant.pincode && ` - ${claimant.pincode}`}
                             </>
-                          ) || 'Not specified'}
+                            ) || 'Not filled'}
                         </p>
                       </div>
-                      {claimant?.gst && (
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">GST Number</label>
-                          <p className="text-gray-900">{claimant.gst}</p>
+                          <label className="text-sm font-medium text-gray-600">1.6 GST Number</label>
+                          <p className="text-gray-900">{claimant?.gst || 'Not filled'}</p>
                         </div>
-                      )}
-                      {claimant?.pan && (
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">PAN Number</label>
-                          <p className="text-gray-900">{claimant.pan}</p>
+                          <label className="text-sm font-medium text-gray-600">1.7 PAN Number</label>
+                          <p className="text-gray-900">{claimant?.pan || 'Not filled'}</p>
                         </div>
-                      )}
-                      {claimant?.cin && (
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">CIN Number</label>
-                          <p className="text-gray-900">{claimant.cin}</p>
+                          <label className="text-sm font-medium text-gray-600">1.8 CIN Number</label>
+                          <p className="text-gray-900">{claimant?.cin || 'Not filled'}</p>
                         </div>
-                      )}
-                      {/* Show uploaded documents */}
-                      {files['claimant.coi'] && (
+                        {/* Show uploaded documents */}
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
-                          <p className="text-gray-900">{files['claimant.coi']?.name || 'Document uploaded'}</p>
-                        </div>
-                      )}
-                      {files['claimant.panCard'] && (
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">PAN Card</label>
-                          <p className="text-gray-900">{files['claimant.panCard']?.name || 'Document uploaded'}</p>
-                        </div>
-                      )}
-                      {files['claimant.gstCert'] && (
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">GST Certificate</label>
-                          <p className="text-gray-900">{files['claimant.gstCert']?.name || 'Document uploaded'}</p>
-                        </div>
-                      )}
+                          <label className="text-sm font-medium text-gray-600">1.9 Certificate of Incorporation</label>
+                          <p className="text-gray-900">{files['claimant.coi']?.name || 'Not uploaded'}</p>
                     </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">1.10 PAN Card</label>
+                          <p className="text-gray-900">{files['claimant.panCard']?.name || 'Not uploaded'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">1.11 GST Certificate</label>
+                          <p className="text-gray-900">{files['claimant.gstCert']?.name || 'Not uploaded'}</p>
+                        </div>
+                      </div>
                   </div>
                 </div>
 
                 {/* Step 2: Additional Claimants */}
                 {additionalClaimants && additionalClaimants.length > 0 && additionalClaimants.some((ac: any) => ac?.name) && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+                    <div className="bg-green-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
                         <span className="bg-white text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
                         Additional Claimants
                       </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveStep(1)}
+                        className="bg-white text-green-600 hover:bg-green-50 border-white"
+                      >
+                        Edit
+                      </Button>
                     </div>
                     <div className="p-6 space-y-4">
-                      {additionalClaimants.map((ac: any, index: number) => (
-                        ac?.name && (
+                      {additionalClaimants && additionalClaimants.length > 0 ? (
+                        additionalClaimants.map((ac: any, index: number) => (
                           <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                             <h4 className="font-semibold text-gray-900 mb-3">Additional Claimant {index + 1}</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Type</label>
-                                <p className="text-gray-900 capitalize">{ac.type || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">2.1 Type</label>
+                                <p className="text-gray-900 capitalize">{ac.type || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Name</label>
-                                <p className="text-gray-900">{ac.name}</p>
+                                <label className="text-sm font-medium text-gray-600">2.2 Name</label>
+                                <p className="text-gray-900">{ac.name || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Email</label>
-                                <p className="text-gray-900">{ac.email || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">2.3 Email</label>
+                                <p className="text-gray-900">{ac.email || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Phone</label>
-                                <p className="text-gray-900">{ac.phoneCountryCode} {ac.phone || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">2.4 Phone</label>
+                                <p className="text-gray-900">{ac.phoneCountryCode} {ac.phone || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded md:col-span-2">
-                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <label className="text-sm font-medium text-gray-600">2.5 Address</label>
                                 <p className="text-gray-900">
                                   {ac.address1 && (
                                     <>
@@ -6632,91 +7326,137 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                                       {ac.country && `, ${ac.country}`}
                                       {ac.pincode && ` - ${ac.pincode}`}
                                     </>
-                                  ) || 'Not specified'}
+                                  ) || 'Not filled'}
                                 </p>
                               </div>
-                              {ac?.gst && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
-                                  <p className="text-gray-900">{ac.gst}</p>
-                                </div>
-                              )}
-                              {ac?.pan && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
-                                  <p className="text-gray-900">{ac.pan}</p>
-                                </div>
-                              )}
-                              {ac?.cin && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
-                                  <p className="text-gray-900">{ac.cin}</p>
-                                </div>
-                              )}
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.6 GST Number</label>
+                                <p className="text-gray-900">{ac.gst || 'Not filled'}</p>
+                            </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.7 PAN Number</label>
+                                <p className="text-gray-900">{ac.pan || 'Not filled'}</p>
+                          </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.8 CIN Number</label>
+                                <p className="text-gray-900">{ac.cin || 'Not filled'}</p>
+                              </div>
                               {/* Show uploaded documents */}
-                              {files[`additionalClaimants.${index}.coi`] && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
-                                  <p className="text-gray-900">{files[`additionalClaimants.${index}.coi`]?.name || 'Document uploaded'}</p>
-                                </div>
-                              )}
-                              {files[`additionalClaimants.${index}.panCard`] && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">PAN Card</label>
-                                  <p className="text-gray-900">{files[`additionalClaimants.${index}.panCard`]?.name || 'Document uploaded'}</p>
-                                </div>
-                              )}
-                              {files[`additionalClaimants.${index}.gstCert`] && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">GST Certificate</label>
-                                  <p className="text-gray-900">{files[`additionalClaimants.${index}.gstCert`]?.name || 'Document uploaded'}</p>
-                                </div>
-                              )}
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.9 Certificate of Incorporation</label>
+                                <p className="text-gray-900">{files[`additionalClaimants.${index}.coi`]?.name || 'Not uploaded'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.10 PAN Card</label>
+                                <p className="text-gray-900">{files[`additionalClaimants.${index}.panCard`]?.name || 'Not uploaded'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">2.11 GST Certificate</label>
+                                <p className="text-gray-900">{files[`additionalClaimants.${index}.gstCert`]?.name || 'Not uploaded'}</p>
+                              </div>
                             </div>
                           </div>
-                        )
-                      ))}
+                        ))
+                      ) : (
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">No Additional Claimants Added</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.1 Type</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.2 Name</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.3 Email</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.4 Phone</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">2.5 Address</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.6 GST Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.7 PAN Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.8 CIN Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.9 Certificate of Incorporation</label>
+                              <p className="text-gray-900">Not uploaded</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.10 PAN Card</label>
+                              <p className="text-gray-900">Not uploaded</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.11 GST Certificate</label>
+                              <p className="text-gray-900">Not uploaded</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Step 2: Manager Details */}
-                {managerDetails && managerDetails.length > 0 && managerDetails.some((md: any) => md?.name) && (
+                {/* Step 3: Manager Details */}
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg">
+                  <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
-                        <span className="bg-white text-orange-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
+                      <span className="bg-white text-orange-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
                         Manager Details
                       </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveStep(2)}
+                      className="bg-white text-orange-600 hover:bg-orange-50 border-white"
+                    >
+                      Edit
+                    </Button>
                     </div>
                     <div className="p-6 space-y-4">
-                      {managerDetails.map((manager: any, index: number) => (
-                        manager?.name && (
+                      {managerDetails && managerDetails.length > 0 ? (
+                        managerDetails.map((manager: any, index: number) => (
                           <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                             <h4 className="font-semibold text-gray-900 mb-3">Manager {index + 1}</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Name</label>
-                                <p className="text-gray-900">{manager.name}</p>
+                                <label className="text-sm font-medium text-gray-600">3.1 Name</label>
+                                <p className="text-gray-900">{manager.name || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Designation</label>
-                                <p className="text-gray-900">{manager.designation || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">3.2 Designation</label>
+                                <p className="text-gray-900">{manager.designation || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Email</label>
-                                <p className="text-gray-900">{manager.email || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">3.3 Email</label>
+                                <p className="text-gray-900">{manager.email || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Phone</label>
-                                <p className="text-gray-900">{manager.phoneCountryCode} {manager.phone || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">3.4 Phone</label>
+                                <p className="text-gray-900">{manager.phoneCountryCode} {manager.phone || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Manager ID</label>
-                                <p className="text-gray-900">{manager.managerId || 'Not specified'}</p>
+                                <label className="text-sm font-medium text-gray-600">3.5 Manager ID</label>
+                                <p className="text-gray-900">{manager.managerId || 'Not filled'}</p>
                               </div>
                               <div className="bg-white p-3 rounded md:col-span-2">
-                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <label className="text-sm font-medium text-gray-600">3.6 Address</label>
                                 <p className="text-gray-900">
                                   {manager.address1 && (
                                     <>
@@ -6728,62 +7468,112 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                                       {manager.country && `, ${manager.country}`}
                                       {manager.pincode && ` - ${manager.pincode}`}
                                     </>
-                                  ) || 'Not specified'}
+                                  ) || 'Not filled'}
                                 </p>
                               </div>
-                              {manager?.gst && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
-                                  <p className="text-gray-900">{manager.gst}</p>
-                                </div>
-                              )}
-                              {manager?.pan && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
-                                  <p className="text-gray-900">{manager.pan}</p>
-                                </div>
-                              )}
-                              {manager?.cin && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
-                                  <p className="text-gray-900">{manager.cin}</p>
-                                </div>
-                              )}
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.7 GST Number</label>
+                                <p className="text-gray-900">{manager.gst || 'Not filled'}</p>
+                            </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.8 PAN Number</label>
+                                <p className="text-gray-900">{manager.pan || 'Not filled'}</p>
+                          </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.9 CIN Number</label>
+                                <p className="text-gray-900">{manager.cin || 'Not filled'}</p>
+                              </div>
                               {/* Show uploaded documents */}
-                              {files[`managerDetails.${index}.coi`] && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
-                                  <p className="text-gray-900">{files[`managerDetails.${index}.coi`]?.name || 'Document uploaded'}</p>
-                                </div>
-                              )}
-                              {files[`managerDetails.${index}.panCard`] && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">PAN Card</label>
-                                  <p className="text-gray-900">{files[`managerDetails.${index}.panCard`]?.name || 'Document uploaded'}</p>
-                                </div>
-                              )}
-                              {files[`managerDetails.${index}.gstCert`] && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">GST Certificate</label>
-                                  <p className="text-gray-900">{files[`managerDetails.${index}.gstCert`]?.name || 'Document uploaded'}</p>
-                                </div>
-                              )}
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.10 Certificate of Incorporation</label>
+                                <p className="text-gray-900">{files[`managerDetails.${index}.coi`]?.name || 'Not uploaded'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.11 PAN Card</label>
+                                <p className="text-gray-900">{files[`managerDetails.${index}.panCard`]?.name || 'Not uploaded'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">3.12 GST Certificate</label>
+                                <p className="text-gray-900">{files[`managerDetails.${index}.gstCert`]?.name || 'Not uploaded'}</p>
+                              </div>
                             </div>
                           </div>
-                        )
-                      ))}
+                        ))
+                      ) : (
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">No Managers Added</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.1 Name</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.2 Designation</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.3 Email</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.4 Phone</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.5 Manager ID</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">3.6 Address</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.7 GST Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.8 PAN Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.9 CIN Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.10 Certificate of Incorporation</label>
+                              <p className="text-gray-900">Not uploaded</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.11 PAN Card</label>
+                              <p className="text-gray-900">Not uploaded</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">3.12 GST Certificate</label>
+                              <p className="text-gray-900">Not uploaded</p>
+                            </div>
                     </div>
                   </div>
                 )}
+                    </div>
+                  </div>
 
-                {/* Step 3: Respondents */}
+                {/* Step 4: Respondents */}
                 {respondents && respondents.length > 0 && respondents.some((r: any) => r?.name) && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg">
+                    <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
                         <span className="bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
                         Respondents
                       </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveStep(3)}
+                        className="bg-white text-red-600 hover:bg-red-50 border-white"
+                      >
+                        Edit
+                      </Button>
                     </div>
                     <div className="p-6 space-y-4">
                       {respondents.map((respondent: any, index: number) => (
@@ -6792,23 +7582,23 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                             <h4 className="font-semibold text-gray-900 mb-3">Respondent {index + 1}</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Type</label>
+                                <label className="text-sm font-medium text-gray-600">4.1 Type</label>
                                 <p className="text-gray-900 capitalize">{respondent.type || 'Not specified'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Name</label>
+                                <label className="text-sm font-medium text-gray-600">4.2 Name</label>
                                 <p className="text-gray-900">{respondent.name}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Email</label>
+                                <label className="text-sm font-medium text-gray-600">4.3 Email</label>
                                 <p className="text-gray-900">{respondent.email || 'Not specified'}</p>
                               </div>
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Phone</label>
+                                <label className="text-sm font-medium text-gray-600">4.4 Phone</label>
                                 <p className="text-gray-900">{respondent.phoneCountryCode} {respondent.phone || 'Not specified'}</p>
                               </div>
                               <div className="bg-white p-3 rounded md:col-span-2">
-                                <label className="text-sm font-medium text-gray-600">Address</label>
+                                <label className="text-sm font-medium text-gray-600">4.5 Address</label>
                                 <p className="text-gray-900">
                                   {respondent.address1 && (
                                     <>
@@ -6825,38 +7615,38 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                               </div>
                               {respondent?.gst && (
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">GST Number</label>
+                                  <label className="text-sm font-medium text-gray-600">4.6 GST Number</label>
                                   <p className="text-gray-900">{respondent.gst}</p>
                                 </div>
                               )}
                               {respondent?.pan && (
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">PAN Number</label>
+                                  <label className="text-sm font-medium text-gray-600">4.7 PAN Number</label>
                                   <p className="text-gray-900">{respondent.pan}</p>
                                 </div>
                               )}
                               {respondent?.cin && (
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">CIN Number</label>
+                                  <label className="text-sm font-medium text-gray-600">4.8 CIN Number</label>
                                   <p className="text-gray-900">{respondent.cin}</p>
                                 </div>
                               )}
                               {/* Show uploaded documents */}
                               {files[`respondents.${index}.coi`] && (
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Certificate of Incorporation</label>
+                                  <label className="text-sm font-medium text-gray-600">4.9 Certificate of Incorporation</label>
                                   <p className="text-gray-900">{files[`respondents.${index}.coi`]?.name || 'Document uploaded'}</p>
                                 </div>
                               )}
                               {files[`respondents.${index}.panCard`] && (
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">PAN Card</label>
+                                  <label className="text-sm font-medium text-gray-600">4.10 PAN Card</label>
                                   <p className="text-gray-900">{files[`respondents.${index}.panCard`]?.name || 'Document uploaded'}</p>
                                 </div>
                               )}
                               {files[`respondents.${index}.gstCert`] && (
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">GST Certificate</label>
+                                  <label className="text-sm font-medium text-gray-600">4.11 GST Certificate</label>
                                   <p className="text-gray-900">{files[`respondents.${index}.gstCert`]?.name || 'Document uploaded'}</p>
                                 </div>
                               )}
@@ -6871,71 +7661,312 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 {/* Step 4: Arbitration Agreement */}
                 {arbitrationAgreement && Object.values(arbitrationAgreement).some(val => val) && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-indigo-600 text-white px-6 py-4 rounded-t-lg">
+                    <div className="bg-indigo-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
                         <span className="bg-white text-indigo-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">4</span>
                         Arbitration Agreement
                       </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveStep(4)}
+                        className="bg-white text-indigo-600 hover:bg-indigo-50 border-white"
+                      >
+                        Edit
+                      </Button>
                     </div>
                     <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {arbitrationAgreement.agreementDate && (
                           <div className="bg-gray-50 p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">Agreement Date</label>
-                            <p className="text-gray-900">{arbitrationAgreement.agreementDate}</p>
+                          <label className="text-sm font-medium text-gray-600">4.1 Agreement Date</label>
+                          <p className="text-gray-900">{arbitrationAgreement.agreementDate || 'Not filled'}</p>
                           </div>
-                        )}
-                        {arbitrationAgreement.placeOfSigning && (
                           <div className="bg-gray-50 p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">Place of Signing</label>
-                            <p className="text-gray-900">{arbitrationAgreement.placeOfSigning}</p>
+                          <label className="text-sm font-medium text-gray-600">4.2 Place of Signing</label>
+                          <p className="text-gray-900">{arbitrationAgreement.placeOfSigning || 'Not filled'}</p>
                           </div>
-                        )}
-                        {arbitrationAgreement.numberOfArbitrators && (
                           <div className="bg-gray-50 p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">Number of Arbitrators</label>
-                            <p className="text-gray-900">{arbitrationAgreement.numberOfArbitrators}</p>
+                          <label className="text-sm font-medium text-gray-600">4.3 Number of Arbitrators</label>
+                          <p className="text-gray-900">{arbitrationAgreement.numberOfArbitrators || 'Not filled'}</p>
                           </div>
-                        )}
-                        {arbitrationAgreement.arbitrationText && (
                           <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                            <label className="text-sm font-medium text-gray-600">Arbitration Clause</label>
+                          <label className="text-sm font-medium text-gray-600">4.4 Arbitration Clause</label>
                             <div className="mt-2 p-3 bg-white rounded border text-sm max-h-32 overflow-y-auto">
-                              {arbitrationAgreement.arbitrationText}
+                            {arbitrationAgreement.arbitrationText || 'Not filled'}
                             </div>
                           </div>
-                        )}
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Step 5: Nature of Dispute */}
-                {natureOfDispute && natureOfDispute.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg">
+                  <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
                         <span className="bg-white text-yellow-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">5</span>
                         Nature of Dispute
                       </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveStep(4)}
+                      className="bg-white text-yellow-600 hover:bg-yellow-50 border-white"
+                    >
+                      Edit
+                    </Button>
                     </div>
                     <div className="p-6 space-y-4">
-                      {natureOfDispute.map((dispute: any, index: number) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-900 mb-3">Dispute {index + 1}</h4>
+                      {natureOfDisputeFields && natureOfDisputeFields.length > 0 ? (
+                        natureOfDisputeFields.map((field: any, index: number) => {
+                          const dispute = watch(`natureOfDispute.${index}`);
+                          return (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Dispute {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">5.1 Category</label>
+                                <p className="text-gray-900 capitalize">{dispute.category || 'Not filled'}</p>
+                          </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">5.2 Sub Category</label>
+                                <p className="text-gray-900 capitalize">{dispute.subCategory || 'Not filled'}</p>
+                          </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">5.3 Nature of Dispute</label>
+                                <p className="text-gray-900">{dispute.natureOfDispute || 'Not filled'}</p>
+                          </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">5.4 Date When Right to Claim Arose</label>
+                                <p className="text-gray-900">{dispute.dateWhenRightToClaimArose || 'Not filled'}</p>
+                            </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">5.5 Standardised Prayer Clauses</label>
+                                <p className="text-gray-900">{dispute.standardisedPrayerClauses || 'Not filled'}</p>
+                          </div>
+                            </div>
+                          </div>
+                        );
+                        })
+                      ) : (
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">No Disputes Added</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">Title</label>
-                              <p className="text-gray-900">{dispute.title || 'Not specified'}</p>
+                              <label className="text-sm font-medium text-gray-600">5.1 Category</label>
+                              <p className="text-gray-900">Not filled</p>
                             </div>
                             <div className="bg-white p-3 rounded">
-                              <label className="text-sm font-medium text-gray-600">Category</label>
-                              <p className="text-gray-900 capitalize">{dispute.category || 'Not specified'}</p>
+                              <label className="text-sm font-medium text-gray-600">5.2 Sub Category</label>
+                              <p className="text-gray-900">Not filled</p>
                             </div>
-                            {dispute.description && (
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">5.3 Nature of Dispute</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">5.4 Date When Right to Claim Arose</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">5.5 Standardised Prayer Clauses</label>
+                              <p className="text-gray-900">Not filled</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                    </div>
+                  </div>
+
+                {/* Step 6: Dispute Descriptions */}
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg">
+                    <h3 className="text-lg font-semibold flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="bg-white text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">6</span>
+                        Dispute Descriptions
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(5)}
+                        className="bg-white text-teal-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {disputeDescriptions && disputeDescriptions.length > 0 ? (
+                        disputeDescriptions.map((dispute: any, index: number) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Dispute Description {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.1 Description</label>
+                                <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.description || 'Not filled'}
+                                </div>
+                              </div>
+                                <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.2 Law Relied Upon</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.lawReliedUpon || 'Not filled'}
+                                  </div>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.3 Relevant Clause Number</label>
+                                <p className="text-gray-900">{dispute.relevantClauseNumber || 'Not filled'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.4 Clause Supporting Claim</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.clauseSupportingClaim || 'Not filled'}
+                                  </div>
+                                </div>
+                                <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">6.5 Clause</label>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                  {dispute.clause || 'Not filled'}
+                                  </div>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.6 Document Supporting Claim</label>
+                                <p className="text-gray-900">{dispute.documentSupportingClaim || 'Not filled'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.7 Relief Sought</label>
+                                <p className="text-gray-900 capitalize">{dispute.reliefSought ? dispute.reliefSought.replace(/_/g, ' ') : 'Not filled'}</p>
+                                </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">No Dispute Descriptions Added</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">6.1 Description</label>
+                              <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                Not filled
+                              </div>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">6.2 Law Relied Upon</label>
+                              <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                Not filled
+                              </div>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">6.3 Relevant Clause Number</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">6.4 Clause Supporting Claim</label>
+                              <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                Not filled
+                              </div>
+                            </div>
+                            <div className="bg-white p-3 rounded md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">6.5 Clause</label>
+                              <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
+                                Not filled
+                              </div>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">6.6 Document Supporting Claim</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">6.7 Relief Sought</label>
+                              <p className="text-gray-900">Not filled</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                {/* Step 7: Prayers & Reliefs */}
+                {prayers && prayers.prayers && prayers.prayers.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
+                      <h3 className="text-lg font-semibold flex items-center justify-between">
+                        <div className="flex items-center">
+                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">7</span>
+                        Prayers & Reliefs
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep(6)}
+                          className="bg-white text-purple-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                          Edit
+                        </button>
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        {prayers.prayers.map((prayer: any, index: number) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Prayer {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.1 Title</label>
+                              <p className="text-gray-900">{prayer.title || 'Not specified'}</p>
+                          </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.2 Relief Type</label>
+                              <p className="text-gray-900 capitalize">{prayer.reliefType || 'Not specified'}</p>
+                      </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.3 Prayer Type</label>
+                              <p className="text-gray-900 capitalize">{prayer.prayerType || 'Not specified'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.4 Category</label>
+                              <p className="text-gray-900 capitalize">{prayer.category || 'Not specified'}</p>
+                            </div>
+                            {prayer.amount && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">7.5 Amount</label>
+                                <p className="text-gray-900">₹{Number(prayer.amount).toLocaleString()}</p>
+                              </div>
+                            )}
+                            {prayer.currency && (
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">7.6 Currency</label>
+                                <p className="text-gray-900">{prayer.currency}</p>
+                              </div>
+                            )}
+                            {prayer.description && (
                               <div className="bg-white p-3 rounded md:col-span-2">
-                                <label className="text-sm font-medium text-gray-600">Description</label>
-                                <p className="text-gray-900">{dispute.description}</p>
+                                <label className="text-sm font-medium text-gray-600">7.7 Description</label>
+                                <p className="text-gray-900">{prayer.description}</p>
+                              </div>
+                            )}
+                            {prayer.legalBasis && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">7.8 Legal Basis</label>
+                                <p className="text-gray-900">{prayer.legalBasis}</p>
+                              </div>
+                            )}
+                            {prayer.factualBasis && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">7.9 Factual Basis</label>
+                                <p className="text-gray-900">{prayer.factualBasis}</p>
+                              </div>
+                            )}
+                            {prayer.precedents && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">7.10 Precedents</label>
+                                <p className="text-gray-900">{prayer.precedents}</p>
+                              </div>
+                            )}
+                            {prayer.additionalDetails && (
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">7.11 Additional Details</label>
+                                <p className="text-gray-900">{prayer.additionalDetails}</p>
                               </div>
                             )}
                           </div>
@@ -6945,244 +7976,155 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                   </div>
                 )}
 
-                {/* Step 6: Dispute Descriptions */}
-                {disputeDescriptions && disputeDescriptions.length > 0 && disputeDescriptions.some((dd: any) => dd?.description) && (
-                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg">
-                      <h3 className="text-lg font-semibold flex items-center">
-                        <span className="bg-white text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">6</span>
-                        Dispute Descriptions
-                      </h3>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      {disputeDescriptions.map((dispute: any, index: number) => (
-                        dispute?.description && (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                            <h4 className="font-semibold text-gray-900 mb-3">Dispute Description {index + 1}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Description</label>
-                                <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
-                                  {dispute.description}
-                                </div>
-                              </div>
-                              {dispute.lawReliedUpon && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Law Relied Upon</label>
-                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
-                                    {dispute.lawReliedUpon}
-                                  </div>
-                                </div>
-                              )}
-                              {dispute.relevantClauseNumber && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Relevant Clause Number</label>
-                                  <p className="text-gray-900">{dispute.relevantClauseNumber}</p>
-                                </div>
-                              )}
-                              {dispute.clauseSupportingClaim && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Clause Supporting Claim</label>
-                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
-                                    {dispute.clauseSupportingClaim}
-                                  </div>
-                                </div>
-                              )}
-                              {dispute.clause && (
-                                <div className="bg-white p-3 rounded md:col-span-2">
-                                  <label className="text-sm font-medium text-gray-600">Clause</label>
-                                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm max-h-32 overflow-y-auto">
-                                    {dispute.clause}
-                                  </div>
-                                </div>
-                              )}
-                              {dispute.documentSupportingClaim && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Document Supporting Claim</label>
-                                  <p className="text-gray-900">{dispute.documentSupportingClaim}</p>
-                                </div>
-                              )}
-                              {dispute.reliefSought && (
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">Relief Sought</label>
-                                  <p className="text-gray-900 capitalize">{dispute.reliefSought.replace(/_/g, ' ')}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 7: Prayers & Reliefs */}
-                {prayers && prayers.prayers && prayers.prayers.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
-                      <h3 className="text-lg font-semibold flex items-center">
-                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">7</span>
-                        Prayers & Reliefs
-                      </h3>
-                    </div>
-                    <div className="p-6">
-                      <div className="space-y-3">
-                        {prayers.prayers.map((prayer: any, index: number) => (
-                          <div key={index} className="bg-gray-50 p-3 rounded">
-                            <label className="text-sm font-medium text-gray-600">Prayer {index + 1}</label>
-                            <p className="text-gray-900">
-                              {typeof prayer === 'string' ? prayer : 
-                               typeof prayer === 'object' && prayer !== null ? 
-                                 prayer.title || prayer.description || 'Prayer content' : 
-                                 'Prayer content'}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Step 8: Documents */}
                 {documents && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-gray-600 text-white px-6 py-4 rounded-t-lg">
-                      <h3 className="text-lg font-semibold flex items-center">
+                      <h3 className="text-lg font-semibold flex items-center justify-between">
+                        <div className="flex items-center">
                         <span className="bg-white text-gray-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">8</span>
                         Documents
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep(7)}
+                          className="bg-white text-gray-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                          Edit
+                        </button>
                       </h3>
                     </div>
                     <div className="p-6 space-y-4">
-                      {/* Scanned Documents */}
-                      {documents.scannedDocuments && documents.scannedDocuments.length > 0 && (
-                        <div>
+                        {/* Scanned Documents */}
+                        {documents.scannedDocuments && documents.scannedDocuments.length > 0 && (
+                          <div>
                           <h4 className="font-medium text-gray-900 mb-3">Scanned Documents</h4>
                           <div className="space-y-3">
-                            {documents.scannedDocuments.map((doc: any, index: number) => (
+                              {documents.scannedDocuments.map((doc: any, index: number) => (
                               <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                 <h5 className="font-semibold text-gray-900 mb-3">Document {index + 1}</h5>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Document Type</label>
+                                    <label className="text-sm font-medium text-gray-600">8.1 Document Type</label>
                                     <p className="text-gray-900">{doc.documentType || 'Not specified'}</p>
                                   </div>
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Date</label>
+                                    <label className="text-sm font-medium text-gray-600">8.2 Date</label>
                                     <p className="text-gray-900">{doc.date || 'Not specified'}</p>
                                   </div>
                                   {doc.description && (
                                     <div className="bg-white p-3 rounded md:col-span-2">
-                                      <label className="text-sm font-medium text-gray-600">Description</label>
+                                      <label className="text-sm font-medium text-gray-600">8.3 Description</label>
                                       <p className="text-gray-900">{doc.description}</p>
                                     </div>
                                   )}
                                   {doc.linkedIssue && (
                                     <div className="bg-white p-3 rounded">
-                                      <label className="text-sm font-medium text-gray-600">Linked Issue</label>
+                                      <label className="text-sm font-medium text-gray-600">8.4 Linked Issue</label>
                                       <p className="text-gray-900">{doc.linkedIssue}</p>
                                     </div>
                                   )}
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Admission Status</label>
+                                    <label className="text-sm font-medium text-gray-600">8.5 Admission Status</label>
                                     <p className="text-gray-900 capitalize">{doc.admissionStatus || 'pending'}</p>
                                   </div>
                                   {doc.file && (
                                     <div className="bg-white p-3 rounded">
-                                      <label className="text-sm font-medium text-gray-600">File</label>
+                                      <label className="text-sm font-medium text-gray-600">8.6 File</label>
                                       <p className="text-gray-900">{doc.file.name || 'File uploaded'}</p>
                                     </div>
                                   )}
                                 </div>
-                              </div>
-                            ))}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Affidavits */}
-                      {documents.affidavits && documents.affidavits.length > 0 && (
-                        <div>
+                        {/* Affidavits */}
+                        {documents.affidavits && documents.affidavits.length > 0 && (
+                          <div>
                           <h4 className="font-medium text-gray-900 mb-3">Affidavits</h4>
                           <div className="space-y-3">
-                            {documents.affidavits.map((affidavit: any, index: number) => (
+                              {documents.affidavits.map((affidavit: any, index: number) => (
                               <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                 <h5 className="font-semibold text-gray-900 mb-3">Affidavit {index + 1}</h5>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Affidavit Type</label>
+                                    <label className="text-sm font-medium text-gray-600">8.7 Affidavit Type</label>
                                     <p className="text-gray-900">{affidavit.affidavitType || 'Not specified'}</p>
                                   </div>
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Date</label>
+                                    <label className="text-sm font-medium text-gray-600">8.8 Date</label>
                                     <p className="text-gray-900">{affidavit.date || 'Not specified'}</p>
                                   </div>
                                   {affidavit.description && (
                                     <div className="bg-white p-3 rounded md:col-span-2">
-                                      <label className="text-sm font-medium text-gray-600">Description</label>
+                                      <label className="text-sm font-medium text-gray-600">8.9 Description</label>
                                       <p className="text-gray-900">{affidavit.description}</p>
                                     </div>
                                   )}
                                   {affidavit.file && (
                                     <div className="bg-white p-3 rounded">
-                                      <label className="text-sm font-medium text-gray-600">File</label>
+                                      <label className="text-sm font-medium text-gray-600">8.10 File</label>
                                       <p className="text-gray-900">{affidavit.file.name || 'File uploaded'}</p>
                                     </div>
                                   )}
                                 </div>
-                              </div>
-                            ))}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Electronic Evidence */}
-                      {documents.electronicEvidence && documents.electronicEvidence.length > 0 && (
-                        <div>
+                        {/* Electronic Evidence */}
+                        {documents.electronicEvidence && documents.electronicEvidence.length > 0 && (
+                          <div>
                           <h4 className="font-medium text-gray-900 mb-3">Electronic Evidence</h4>
-                          <div className="space-y-3">
-                            {documents.electronicEvidence.map((evidence: any, index: number) => (
+                            <div className="space-y-3">
+                              {documents.electronicEvidence.map((evidence: any, index: number) => (
                               <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                 <h5 className="font-semibold text-gray-900 mb-3">Evidence {index + 1}</h5>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Evidence Type</label>
+                                    <label className="text-sm font-medium text-gray-600">8.11 Evidence Type</label>
                                     <p className="text-gray-900">{evidence.evidenceType || 'Not specified'}</p>
                                   </div>
                                   <div className="bg-white p-3 rounded">
-                                    <label className="text-sm font-medium text-gray-600">Date</label>
+                                    <label className="text-sm font-medium text-gray-600">8.12 Date</label>
                                     <p className="text-gray-900">{evidence.date || 'Not specified'}</p>
                                   </div>
                                   {evidence.description && (
                                     <div className="bg-white p-3 rounded md:col-span-2">
-                                      <label className="text-sm font-medium text-gray-600">Description</label>
+                                      <label className="text-sm font-medium text-gray-600">8.13 Description</label>
                                       <p className="text-gray-900">{evidence.description}</p>
                                     </div>
                                   )}
-                                  {evidence.certificateFile && (
+                                    {evidence.certificateFile && (
                                     <div className="bg-white p-3 rounded">
-                                      <label className="text-sm font-medium text-gray-600">Certificate</label>
-                                      <p className="text-gray-900">{evidence.certificateFile.name || 'Certificate uploaded'}</p>
-                                    </div>
-                                  )}
-                                  {evidence.supportingFiles && evidence.supportingFiles.length > 0 && (
+                                      <label className="text-sm font-medium text-gray-600">8.14 Certificate</label>
+                                        <p className="text-gray-900">{evidence.certificateFile.name || 'Certificate uploaded'}</p>
+                                      </div>
+                                    )}
+                                    {evidence.supportingFiles && evidence.supportingFiles.length > 0 && (
                                     <div className="bg-white p-3 rounded">
-                                      <label className="text-sm font-medium text-gray-600">Supporting Files</label>
-                                      <p className="text-gray-900">{evidence.supportingFiles.length} file(s) uploaded</p>
-                                    </div>
-                                  )}
+                                      <label className="text-sm font-medium text-gray-600">8.15 Supporting Files</label>
+                                        <p className="text-gray-900">{evidence.supportingFiles.length} file(s) uploaded</p>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       {/* Supporting Documents */}
                       {documents.supportingDocuments && documents.supportingDocuments.length > 0 && (
                         <div>
                           <h4 className="font-medium text-gray-900 mb-2">Supporting Documents</h4>
                           <p className="text-gray-600">{documents.supportingDocuments.length} file(s) uploaded</p>
-                        </div>
+                      </div>
                       )}
 
                       {/* Evidence Files */}
@@ -7200,24 +8142,33 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 {payment && Object.values(payment).some(val => val) && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg">
-                      <h3 className="text-lg font-semibold flex items-center">
+                      <h3 className="text-lg font-semibold flex items-center justify-between">
+                        <div className="flex items-center">
                         <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">9</span>
                         Payment Details
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep(8)}
+                          className="bg-white text-purple-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                          Edit
+                        </button>
                       </h3>
                     </div>
                     <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">Payment Head</label>
+                          <label className="text-sm font-medium text-gray-600">9.1 Payment Head</label>
                           <p className="text-gray-900">{payment.paymentHead || 'Not specified'}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">Amount (INR)</label>
+                          <label className="text-sm font-medium text-gray-600">9.2 Amount (INR)</label>
                           <p className="text-gray-900">{payment.paymentAmount ? `₹${Number(payment.paymentAmount).toLocaleString()}` : 'Not specified'}</p>
                         </div>
                         {payment.paymentDetails && (
                           <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                            <label className="text-sm font-medium text-gray-600">Payment Details</label>
+                            <label className="text-sm font-medium text-gray-600">9.3 Payment Details</label>
                             <p className="text-gray-900">{payment.paymentDetails}</p>
                           </div>
                         )}
@@ -7230,43 +8181,52 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 {argumentsData && argumentsData.argumentsPerPrayer && argumentsData.argumentsPerPrayer.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg">
-                      <h3 className="text-lg font-semibold flex items-center">
+                      <h3 className="text-lg font-semibold flex items-center justify-between">
+                        <div className="flex items-center">
                         <span className="bg-white text-pink-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">10</span>
                         Arguments
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep(9)}
+                          className="bg-white text-pink-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                          Edit
+                        </button>
                       </h3>
                     </div>
                     <div className="p-6 space-y-4">
-                      {argumentsData.argumentsPerPrayer.map((argument: any, index: number) => (
+                        {argumentsData.argumentsPerPrayer.map((argument: any, index: number) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                           <h4 className="font-semibold text-gray-900 mb-3">Argument {index + 1}</h4>
                           <div className="space-y-3">
                             {argument.prayerTitle && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Related Prayer</label>
+                                <label className="text-sm font-medium text-gray-600">10.1 Related Prayer</label>
                                 <p className="text-gray-900">{argument.prayerTitle}</p>
-                              </div>
+                            </div>
                             )}
                             {argument.argument && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Argument</label>
+                                <label className="text-sm font-medium text-gray-600">10.2 Argument</label>
                                 <p className="text-gray-900">{argument.argument}</p>
-                              </div>
+                          </div>
                             )}
                             {argument.legalBasis && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Legal Basis</label>
+                                <label className="text-sm font-medium text-gray-600">10.3 Legal Basis</label>
                                 <p className="text-gray-900">{argument.legalBasis}</p>
-                              </div>
+                      </div>
                             )}
                             {argument.factualBasis && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Factual Basis</label>
+                                <label className="text-sm font-medium text-gray-600">10.4 Factual Basis</label>
                                 <p className="text-gray-900">{argument.factualBasis}</p>
                               </div>
                             )}
                             {argument.precedents && (
                               <div className="bg-white p-3 rounded">
-                                <label className="text-sm font-medium text-gray-600">Precedents</label>
+                                <label className="text-sm font-medium text-gray-600">10.5 Precedents</label>
                                 <p className="text-gray-900">{argument.precedents}</p>
                               </div>
                             )}
@@ -7290,13 +8250,6 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                       className="sm:w-auto"
                     >
                       {isSavingDraft ? "Saving..." : "Save as Draft"}
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting || isSavingDraft}
-                      className="sm:w-auto bg-blue-600 hover:bg-blue-700"
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit Application"}
                     </Button>
                   </div>
                 </div>
@@ -7373,7 +8326,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
     setPendingSubmissionData(null);
   };
 
-  const handleDuplicateDialogProceed = async () => {
+  const handleDuplicateDialogContinue = async () => {
     setShowDuplicateDialog(false);
     
     if (!pendingSubmissionData) {
@@ -7458,6 +8411,25 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       // Clean up pending data
       setPendingSubmissionData(null);
       setDuplicateCheckResult(null);
+    }
+  };
+
+  const handleDuplicateDialogEditExisting = () => {
+    setShowDuplicateDialog(false);
+    setDuplicateCheckResult(null);
+    
+    if (duplicateCheckResult && duplicateCheckResult.matchingCases.length > 0) {
+      const existingCase = duplicateCheckResult.matchingCases[0];
+      
+      // Navigate to the existing case for editing
+      if (existingCase && existingCase.id) {
+        // Navigate to the case edit page
+        router.push(`/dashboard/cases/${existingCase.id}/edit`);
+      } else {
+        toast.error('Could not find the existing case to edit');
+      }
+    } else {
+      toast.error('No existing case found to edit');
     }
   };
   
@@ -8026,7 +8998,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
         <DuplicateCheckDialog
           isOpen={showDuplicateDialog}
           onClose={handleDuplicateDialogClose}
-          onProceed={handleDuplicateDialogProceed}
+            onContinue={handleDuplicateDialogContinue}
+            onEditExisting={handleDuplicateDialogEditExisting}
           duplicateResult={duplicateCheckResult}
         />
       )}

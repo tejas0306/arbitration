@@ -9,6 +9,7 @@ import {
   HttpStatus,
   HttpCode,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { RespondentService } from './respondent.service';
 import { CreateRespondentRegistrationDto } from './dto/create-respondent-registration.dto';
@@ -18,6 +19,65 @@ import { UpdateCaseResponseDto } from './dto/update-case-response.dto';
 @Controller('respondent')
 export class RespondentController {
   constructor(private readonly respondentService: RespondentService) {}
+
+  // Verify respondent access token
+  @Post('auth/verify-token')
+  @HttpCode(HttpStatus.OK)
+  async verifyToken(@Body() body: { token: string; caseId: string }) {
+    if (!body.token || !body.caseId) {
+      throw new BadRequestException('Token and case ID are required');
+    }
+    
+    return this.respondentService.verifyToken(body.token, body.caseId);
+  }
+
+  // Respondent login
+  @Post('auth/login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() body: { email: string; password: string; caseId?: string; token?: string }) {
+    if (!body.email || !body.password) {
+      throw new BadRequestException('Email and password are required');
+    }
+    
+    return this.respondentService.login(body.email, body.password, body.caseId, body.token);
+  }
+
+  // Respondent registration
+  @Post('auth/register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() body: {
+    email: string;
+    password: string;
+    confirmPassword: string;
+    fullName: string;
+    phone?: string;
+    address?: string;
+    caseId?: string;
+    token?: string;
+  }) {
+    if (!body.email || !body.password || !body.confirmPassword || !body.fullName) {
+      throw new BadRequestException('Email, password, confirm password, and full name are required');
+    }
+
+    if (body.password !== body.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+    
+    return this.respondentService.register(body);
+  }
+
+  // Get respondent session
+  @Get('auth/session')
+  @HttpCode(HttpStatus.OK)
+  async getSession(@Headers() headers) {
+    const authorization = headers['authorization'];
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid session token');
+    }
+    
+    const token = authorization.replace('Bearer ', '');
+    return this.respondentService.getSession(token);
+  }
 
   // Public endpoint for respondent registration
   @Post('register')
@@ -42,27 +102,37 @@ export class RespondentController {
   // Get all cases for the respondent
   @Get('cases')
   async getRespondentCases(@Headers() headers) {
-    const userId = headers['user-id'];
-    const userRole = headers['user-role'];
+    const authorization = headers['authorization'];
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid session token');
+    }
     
-    if (!userId || userRole !== 'RESPONDENT') {
+    const token = authorization.replace('Bearer ', '');
+    const session = await this.respondentService.getSession(token);
+    
+    if (!session.success || session.user.role !== 'respondent') {
       throw new UnauthorizedException('Invalid user or role');
     }
     
-    return this.respondentService.getRespondentCases(userId);
+    return this.respondentService.getRespondentCases(session.user.id);
   }
 
   // Get a specific case for the respondent
   @Get('cases/:id')
   async getRespondentCase(@Headers() headers, @Param('id') caseId: string) {
-    const userId = headers['user-id'];
-    const userRole = headers['user-role'];
+    const authorization = headers['authorization'];
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid session token');
+    }
     
-    if (!userId || userRole !== 'RESPONDENT') {
+    const token = authorization.replace('Bearer ', '');
+    const session = await this.respondentService.getSession(token);
+    
+    if (!session.success || session.user.role !== 'respondent') {
       throw new UnauthorizedException('Invalid user or role');
     }
     
-    return this.respondentService.getRespondentCase(userId, caseId);
+    return this.respondentService.getRespondentCase(session.user.id, caseId);
   }
 
   // Submit a response to a case
@@ -73,14 +143,19 @@ export class RespondentController {
     @Param('id') caseId: string,
     @Body() createCaseResponseDto: CreateCaseResponseDto,
   ) {
-    const userId = headers['user-id'];
-    const userRole = headers['user-role'];
+    const authorization = headers['authorization'];
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid session token');
+    }
     
-    if (!userId || userRole !== 'RESPONDENT') {
+    const token = authorization.replace('Bearer ', '');
+    const session = await this.respondentService.getSession(token);
+    
+    if (!session.success || session.user.role !== 'respondent') {
       throw new UnauthorizedException('Invalid user or role');
     }
     
-    return this.respondentService.submitCaseResponse(userId, caseId, createCaseResponseDto);
+    return this.respondentService.submitCaseResponse(session.user.id, caseId, createCaseResponseDto);
   }
 
   // Update a case response (if not yet submitted)

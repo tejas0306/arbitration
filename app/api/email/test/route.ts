@@ -3,10 +3,10 @@ import EmailService from '@/lib/email-service';
 
 export async function POST(request: NextRequest) {
   try {
-    const { to, type = 'test', caseLink, caseData, caseNumber } = await request.json();
+    const { to, type = 'test', caseLink, caseData, caseNumber, email, otp, recipientType } = await request.json();
 
     // Only require 'to' for non-case-submission-all-parties types
-    if (type !== 'case-submission-all-parties' && !to) {
+    if (type !== 'case-submission-all-parties' && type !== 'otp-verification' && !to) {
       return NextResponse.json(
         { success: false, error: 'Email address is required' },
         { status: 400 }
@@ -19,9 +19,28 @@ export async function POST(request: NextRequest) {
     switch (type) {
       case 'otp':
         // Test OTP email
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        success = await EmailService.sendOTPEmail(to, otp, 'email');
+        const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        success = await EmailService.sendOTPEmail(to, generatedOtp, 'email');
         message = success ? 'OTP email sent successfully' : 'Failed to send OTP email';
+        return NextResponse.json({
+          success,
+          message,
+          otp: success ? generatedOtp : null, // Return the OTP to frontend
+          timestamp: new Date().toISOString()
+        });
+        break;
+
+      case 'otp-verification':
+        // OTP verification for respondent registration
+        if (!email || !otp) {
+          return NextResponse.json(
+            { success: false, error: 'Email and OTP are required' },
+            { status: 400 }
+          );
+        }
+        console.log(`🔧 OTP verification - Sending to: ${email}`);
+        success = await EmailService.sendOTPEmail(email, otp, 'email');
+        message = success ? 'OTP verification email sent successfully' : 'Failed to send OTP verification email';
         return NextResponse.json({
           success,
           message,

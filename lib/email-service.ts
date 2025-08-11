@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
 
 // Email configuration
 const emailConfig = {
@@ -32,6 +33,9 @@ export class EmailService {
    */
   static async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      console.log(`🔧 Email service - Sending email to: ${options.to}`);
+      console.log(`🔧 Email service - Subject: ${options.subject}`);
+      
       const mailOptions = {
         from: process.env.SMTP_FROM || 'bdo.daily.update@gmail.com',
         to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
@@ -40,6 +44,12 @@ export class EmailService {
         text: options.text,
         attachments: options.attachments,
       };
+
+      console.log(`🔧 Email service - Mail options:`, {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject
+      });
 
       const info = await transporter.sendMail(mailOptions);
       console.log('Email sent successfully:', info.messageId);
@@ -54,6 +64,10 @@ export class EmailService {
    * Send OTP email
    */
   static async sendOTPEmail(to: string, otp: string, type: 'email' | 'phone' = 'email'): Promise<boolean> {
+    console.log(`🔧 Sending OTP email to: ${to}`);
+    console.log(`🔧 OTP: ${otp}`);
+    console.log(`🔧 Type: ${type}`);
+    
     const subject = `Arbitration Portal - ${type === 'email' ? 'Email' : 'Phone'} Verification OTP`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -75,6 +89,12 @@ export class EmailService {
       </div>
     `;
 
+    console.log(`🔧 Email config:`, {
+      user: process.env.SMTP_USER || 'bdo.daily.update@gmail.com',
+      from: process.env.SMTP_FROM || 'bdo.daily.update@gmail.com',
+      to: to
+    });
+
     return this.sendEmail({
       to,
       subject,
@@ -91,6 +111,21 @@ export class EmailService {
       
       // Generate case link if not provided
       const finalCaseLink = caseLink || `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/cases/${caseNumber}`;
+      
+      // Generate respondent access token if this is for a respondent
+      let respondentAccessLink = '';
+      if (recipientType === 'respondent') {
+        const token = jwt.sign(
+          {
+            email: to,
+            caseId: caseNumber,
+            type: 'respondent-access'
+          },
+          process.env.JWT_SECRET || 'your-secret-key',
+          { expiresIn: '24h' }
+        );
+        respondentAccessLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/respondent/auth?caseId=${caseNumber}&token=${token}`;
+      }
       
       // Different templates for different recipient types
       let html = '';
@@ -210,12 +245,12 @@ export class EmailService {
                   You are named as a respondent in this arbitration case. Please review the case details and prepare your response.
                 </p>
                 <div style="text-align: center;">
-                  <a href="${finalCaseLink}" style="display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
-                    📋 View Case Details
+                  <a href="${respondentAccessLink}" style="display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+                    🔐 Access Case & Respond
                   </a>
                 </div>
                 <p style="color: #991b1b; margin: 15px 0 0 0; font-size: 12px; text-align: center;">
-                  Or copy this link: <a href="${finalCaseLink}" style="color: #dc2626;">${finalCaseLink}</a>
+                  Or copy this link: <a href="${respondentAccessLink}" style="color: #dc2626;">${respondentAccessLink}</a>
                 </p>
               </div>
 

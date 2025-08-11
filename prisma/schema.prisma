@@ -98,116 +98,97 @@ model User {
   location          String?  // Location/Address
   hourlyRate        Float?   // Fee per case/session
   availabilityInfo  String?  // General availability info
-  status            String?  // active, inactive, pending
   
-  // Document uploads for arbitrators
-  documentUrls      Json?    // URLs of uploaded proofs, CVs, certificates
+  // Status fields
+  status            ArbitratorStatus @default(PENDING)
+  isActive          Boolean @default(true)
   
-  // Calendar/Availability
-  blockoutDates     Json?    // Dates when arbitrator is not available
-  hearingPreference String?  // In-person or Virtual preference
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
-  // Disclosure form fields
-  conflictOfInterest Json?   // Conflict declarations for cases
+  // Relations
+  arbitrations        Arbitration[]
+  arbitratorProposals ArbitratorProposal[]
+  caseAssignments     CaseAssignment[]
+  respondentCases     RespondentCase[]
+  notificationsSent   CaseNotification[] @relation("NotificationSender")
+  notificationsReceived CaseNotification[] @relation("NotificationRecipient")
+  caseResponses       CaseResponse[]
+  respondentResponses RespondentResponse[] @relation("RespondentResponses")
   
-  // Auto-tracked fields
-  rating            Float?   // Average rating from feedback
-  scoreMetrics      Json?    // System-calculated arbitrator score metrics
-  
-  // Common fields
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  // Add relation to arbitrations
-  arbitrations Arbitration[]
-  
-  // Add relation to feedback
-  receivedFeedback ArbitratorFeedback[]
-  
-  // Add relation to arbitrator proposals
-  proposedAsArbitrator ArbitratorProposal[] @relation("ProposedArbitrator")
-  arbitratorProposals ArbitratorProposal[] @relation("Proposer")
-  
-  // Add relation to case assignments
-  caseAssignments CaseAssignment[]
-  
-  // New respondent-specific relations
-  respondentCases RespondentCase[]
-  sentNotifications CaseNotification[] @relation("NotificationSender")
-  receivedNotifications CaseNotification[] @relation("NotificationRecipient")
-  caseResponses CaseResponse[]
+  // Feedback and ratings
+  arbitratorFeedback ArbitratorFeedback[]
 }
 
 model ArbitratorFeedback {
-  id            String   @id @default(uuid())
-  arbitratorId  String
-  arbitrator    User     @relation(fields: [arbitratorId], references: [id])
-  caseId        String?
-  rating        Float    // 1-5 rating
-  feedback      String?  // Textual feedback
-  submittedBy   String?  // User ID of who submitted feedback
-  submitterRole String?  // CLAIMANT or RESPONDENT
-  createdAt     DateTime @default(now())
+  id String @id @default(uuid())
+  
+  // Relations
+  arbitratorId String
+  arbitrator User @relation(fields: [arbitratorId], references: [id])
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  
+  // Feedback details
+  rating Int // 1-5 scale
+  comment String?
+  category String // e.g., "Professionalism", "Communication", "Decision Quality"
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Arbitration {
-  id                  String   @id @default(uuid())
-  caseNumber          String   @unique
-  type                String
-  name                String
-  pincode            String
-  address1           String
-  address2           String?
-  city               String
-  district           String
-  state              String
-  country            String
-  email              String
-  phoneCountryCode   String
-  phone              String
-  gst                String?
-  pan                String?
-  cin                String?
-  additionalClaimants Json[]
-  respondents        Json[]
-  arbitrationAgreement Json
-  disputeDetails     Json
-  documents         Json?
-  managerDetails    Json?
-  prayers          Json?
-  payment          Json?
-  arguments        Json?
-  formData         Json?    // Store the complete form structure for drafts
-  status            String   @default("pending")
-  // New fields for editable petitions
-  isDraft           Boolean  @default(true)
-  version           Int      @default(1)
-  lastEditedAt      DateTime @default(now())
-  // Add relation to user
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
-  // Add relation to assigned arbitrator
-  arbitratorId      String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id String @id @default(uuid())
   
-  // Fields for arbitrator selection process
-  arbitratorSelectionStatus String? @default("not_started") // not_started, in_progress, completed
-  currentProposerRole String? // Tracks whose turn it is to propose next (CLAIMANT/RESPONDENT)
+  // Basic case information
+  caseNumber String? @unique
+  name String
+  type String
+  status String @default("DRAFT")
+  priority String @default("NORMAL")
   
-  // Add relation to arbitrator proposals
+  // Case details
+  disputeDetails Json?
+  arbitrationAgreement Json?
+  documents Json?
+  
+  // Parties involved
+  claimant Json?
+  additionalClaimants Json?
+  managerDetails Json?
+  respondents Json?
+  
+  // Dispute information
+  natureOfDispute Json?
+  disputeDescriptions Json?
+  prayers Json?
+  arguments Json?
+  
+  // Financial information
+  payment Json?
+  
+  // Evidence and documents
+  documentsEvidence Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  userId String
+  user User @relation(fields: [userId], references: [id])
   arbitratorProposals ArbitratorProposal[]
-  
-  // Add relation to case assignments
   caseAssignments CaseAssignment[]
-  
-  // New respondent-specific relations
   respondentCases RespondentCase[]
-  caseNotifications CaseNotification[]
+  notifications CaseNotification[]
   caseResponses CaseResponse[]
+  respondentResponses RespondentResponse[]
+  arbitratorFeedback ArbitratorFeedback[]
 }
 
-// New model for tracking arbitrator proposals
 model ArbitratorProposal {
   id String @id @default(uuid())
   
@@ -215,35 +196,23 @@ model ArbitratorProposal {
   caseId String
   case Arbitration @relation(fields: [caseId], references: [id])
   arbitratorId String
-  arbitrator User @relation("ProposedArbitrator", fields: [arbitratorId], references: [id])
+  arbitrator User @relation(fields: [arbitratorId], references: [id])
   
-  // Who proposed this arbitrator
-  proposedById String
-  proposedBy User @relation("Proposer", fields: [proposedById], references: [id])
-  proposerRole ProposedBy
-  
-  // Status of this proposal
+  // Proposal details
   status ArbitratorProposalStatus @default(PENDING)
-  sequence Int // To track the order of proposals
+  proposedBy ProposedBy
+  proposedAt DateTime @default(now())
   
   // Response details
   respondedAt DateTime?
+  response String? // ACCEPTED, REJECTED, etc.
   responseNotes String?
-  
-  // Arbitrator acceptance details (if proposal is accepted by both parties)
-  arbitratorAccepted Boolean? // null=not decided, true=accepted, false=rejected
-  arbitratorResponseAt DateTime?
-  arbitratorNotes String?
-  
-  // Disclosure document (when arbitrator accepts)
-  disclosureDocuments Json?
   
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// Model for tracking case assignments to arbitrators
 model CaseAssignment {
   id String @id @default(uuid())
   
@@ -254,18 +223,18 @@ model CaseAssignment {
   arbitrator User @relation(fields: [arbitratorId], references: [id])
   
   // Assignment details
-  status String // PENDING, ACCEPTED, REJECTED
-  respondedAt DateTime?
-  notes String?
+  assignedAt DateTime @default(now())
+  assignedBy String // User ID who made the assignment
+  
+  // Status
+  isActive Boolean @default(true)
+  deactivatedAt DateTime?
   
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// New models for respondent functionality
-
-// Model for tracking respondent-case relationships
 model RespondentCase {
   id String @id @default(uuid())
   
@@ -405,6 +374,28 @@ model RespondentRegistration {
   verificationToken String?
   
   // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for respondent responses to arbitration cases (new structure)
+model RespondentResponse {
+  id String @id @default(uuid())
+  
+  // Relations
+  arbitrationId String
+  arbitration Arbitration @relation(fields: [arbitrationId], references: [id])
+  submittedBy String
+  user User @relation("RespondentResponses", fields: [submittedBy], references: [id])
+  
+  // Response data
+  responseData Json // Complete response data including field-by-field responses
+  
+  // Status
+  status ResponseStatus @default(SUBMITTED)
+  
+  // Timestamps
+  submittedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

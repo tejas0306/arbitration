@@ -738,8 +738,11 @@ export class ArbitrationService {
         throw new Error('This case has already been submitted');
       }
       
-      // Generate a proper case number
-      const caseNumber = await generateCaseId();
+      // Only generate a new case number if one doesn't already exist
+      let caseNumber = existingDraft.caseNumber;
+      if (!caseNumber) {
+        caseNumber = await generateCaseId();
+      }
       
       return await this.prisma.arbitration.update({
         where: { id },

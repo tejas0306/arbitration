@@ -2325,19 +2325,19 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       const result = await response.json();
       
       if (result.success && result.otp) {
-        // Update arrays to show modal for this specific claimant
-        const newSentOTPs = [...sentAdditionalEmailOTP];
-        const newShowModals = [...showAdditionalEmailOTP];
-        
-        // Ensure arrays are large enough
-        while (newSentOTPs.length <= index) newSentOTPs.push("");
-        while (newShowModals.length <= index) newShowModals.push(false);
-        
+      // Update arrays to show modal for this specific claimant
+      const newSentOTPs = [...sentAdditionalEmailOTP];
+      const newShowModals = [...showAdditionalEmailOTP];
+      
+      // Ensure arrays are large enough
+      while (newSentOTPs.length <= index) newSentOTPs.push("");
+      while (newShowModals.length <= index) newShowModals.push(false);
+      
         newSentOTPs[index] = result.otp;
-        newShowModals[index] = true;
-        
-        setSentAdditionalEmailOTP(newSentOTPs);
-        setShowAdditionalEmailOTP(newShowModals);
+      newShowModals[index] = true;
+      
+      setSentAdditionalEmailOTP(newSentOTPs);
+      setShowAdditionalEmailOTP(newShowModals);
         
         toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
       } else {
@@ -2611,20 +2611,20 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       const result = await response.json();
       
       if (result.success && result.otp) {
-        // Store OTP for verification
-        setRespondentEmailOTPs(prev => {
-          const newOTPs = [...prev];
+      // Store OTP for verification
+      setRespondentEmailOTPs(prev => {
+        const newOTPs = [...prev];
           newOTPs[index] = result.otp;
-          return newOTPs;
-        });
-        
-        // Show OTP modal
-        setShowRespondentEmailModal(prev => {
-          const newModals = [...prev];
-          newModals[index] = true;
-          return newModals;
-        });
-        
+        return newOTPs;
+      });
+      
+      // Show OTP modal
+      setShowRespondentEmailModal(prev => {
+        const newModals = [...prev];
+        newModals[index] = true;
+        return newModals;
+      });
+      
         toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
       } else {
         toast.error('Failed to send email OTP. Please try again.');
@@ -3797,7 +3797,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
             } catch (error) {
               console.error('Email confirmation error:', error);
             }
-
+            
             // Show success modal
             const caseId = response.caseId || response.caseNumber || response.id || currentDraftId;
             console.log('🔧 About to call showSubmissionSuccess with caseId:', caseId);
@@ -7056,7 +7056,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
             </div>
           </div>
         )
-        
+  
       case 6: // Prayers & Reliefs
         return (
           <div className="space-y-4" ref={(el) => { stepRefs.current[6] = el; }}>
@@ -7882,9 +7882,9 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                               <label className="text-sm font-medium text-gray-600">6.7 Relief Sought</label>
                               <p className="text-gray-900">Not filled</p>
                             </div>
-                          </div>
-                        </div>
-                      )}
+                    </div>
+                  </div>
+                )}
                     </div>
                   </div>
 

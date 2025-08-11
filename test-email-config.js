@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// Email configuration (same as in email-service.ts)
+// Email configuration
 const emailConfig = {
   service: 'gmail',
   auth: {
@@ -16,6 +16,7 @@ async function testEmail() {
   try {
     console.log('🔧 Testing email configuration...');
     console.log('🔧 SMTP User:', emailConfig.auth.user);
+    console.log('🔧 SMTP Pass:', emailConfig.auth.pass ? '***' : 'NOT SET');
     
     // Test connection
     await transporter.verify();
@@ -24,7 +25,7 @@ async function testEmail() {
     // Send test email
     const mailOptions = {
       from: 'bdo.daily.update@gmail.com',
-      to: 'test@example.com',
+      to: 'test@example.com', // Change this to your email
       subject: 'Test Email from Arbitration Portal',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

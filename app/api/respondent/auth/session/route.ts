@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     // Proxy to backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
-    const response = await fetch(`${backendUrl}/api/respondent/auth/session`, {
+    const response = await fetch(`${backendUrl}/respondent/auth/session`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -31,9 +31,8 @@ export class RespondentService {
         email: data.email,
         name: data.name,
         role: 'RESPONDENT',
-        mobile: data.phone || null,
-        password: hashedPassword,
-        temporaryPassword: temporaryPassword, // Store temporary password for email notification
+        phone: data.phone || null,
+        password: hashedPassword
       }
     });
 
@@ -68,7 +67,7 @@ export class RespondentService {
         id: user.id,
         name: user.name,
         email: user.email,
-        phone: user.mobile
+        phone: user.phone
       },
       cases: [
         {
@@ -443,7 +442,7 @@ export class RespondentService {
         email: data.email,
         password: hashedPassword,
         name: data.fullName,
-        mobile: data.phone,
+        phone: data.phone,
         role: 'RESPONDENT'
       }
     });

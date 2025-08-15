@@ -75,7 +75,7 @@ export class RespondentNotificationService {
             respondentType: 'Individual', // Default, can be updated
             respondentName: respondentUser.name,
             respondentEmail: respondentUser.email,
-            respondentPhone: respondentUser.mobile,
+            respondentPhone: respondentUser.phone,
             responseDeadline: this.calculateResponseDeadline(),
           }
         });

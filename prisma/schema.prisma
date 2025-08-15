@@ -117,6 +117,13 @@ model User {
   caseResponses       CaseResponse[]
   respondentResponses RespondentResponse[] @relation("RespondentResponses")
   
+  // General notification relations
+  generalNotificationsSent Notification[] @relation("NotificationSender")
+  generalNotificationsReceived Notification[] @relation("NotificationRecipient")
+  
+  // Hearing relations
+  hearingsAsArbitrator Hearing[] @relation("HearingArbitrator")
+  
   // Feedback and ratings
   arbitratorFeedback ArbitratorFeedback[]
 }
@@ -187,6 +194,10 @@ model Arbitration {
   caseResponses CaseResponse[]
   respondentResponses RespondentResponse[]
   arbitratorFeedback ArbitratorFeedback[]
+  
+  // New relations
+  generalNotifications Notification[]
+  hearings Hearing[]
 }
 
 model ArbitratorProposal {
@@ -396,6 +407,69 @@ model RespondentResponse {
   
   // Timestamps
   submittedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for general notifications
+model Notification {
+  id String @id @default(uuid())
+  
+  // Basic notification details
+  title String
+  message String
+  type String
+  
+  // Relations
+  senderId String
+  sender User @relation("NotificationSender", fields: [senderId], references: [id])
+  recipientId String
+  recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  caseId String?
+  case Arbitration? @relation(fields: [caseId], references: [id])
+  
+  // Status tracking
+  isRead Boolean @default(false)
+  readAt DateTime?
+  
+  // Additional data
+  metadata Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model for hearing scheduling
+model Hearing {
+  id String @id @default(uuid())
+  
+  // Relations
+  caseId String
+  case Arbitration @relation(fields: [caseId], references: [id])
+  arbitratorId String
+  arbitrator User @relation("HearingArbitrator", fields: [arbitratorId], references: [id])
+  
+  // Hearing details
+  type String @default("VIRTUAL") // VIRTUAL, IN_PERSON, HYBRID
+  scheduledDate DateTime
+  duration Int? // Duration in minutes
+  location String? // Physical location or meeting link
+  description String?
+  
+  // Status
+  status String @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, POSTPONED
+  
+  // Meeting details
+  meetingLink String?
+  meetingPassword String?
+  dialInNumber String?
+  
+  // Notes and outcomes
+  notes String?
+  outcome String?
+  
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

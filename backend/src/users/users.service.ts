@@ -22,7 +22,7 @@ export class UsersService {
         password: createUserDto.password,
         role: createUserDto.role,
         organization: createUserDto.organization,
-        mobile: createUserDto.mobile,
+        phone: createUserDto.mobile,
         status: createUserDto.status,
         paymentId: createUserDto.paymentId
       }
@@ -75,7 +75,7 @@ export class UsersService {
         password: updateUserDto.password,
         role: updateUserDto.role,
         organization: updateUserDto.organization,
-        mobile: updateUserDto.mobile,
+        phone: updateUserDto.mobile,
         status: updateUserDto.status,
         paymentId: updateUserDto.paymentId
       }
@@ -170,7 +170,7 @@ export class UsersService {
     user.name = prismaUser.name;
     user.email = prismaUser.email;
     user.password = prismaUser.password;
-    user.mobile = prismaUser.mobile || '';
+    user.mobile = prismaUser.phone || '';
     user.organization = prismaUser.organization;
     user.role = prismaUser.role as UserRole;
     user.status = (prismaUser.status as UserStatus) || UserStatus.PENDING_PAYMENT;

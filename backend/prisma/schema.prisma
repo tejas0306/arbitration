@@ -33,7 +33,7 @@ model User {
   teamMembers           String[]
   availabilityInfo      String?
   documents             Json?
-  mobile                String?
+  phone                 String?
   paymentId             String?
   resetToken            String?
   status                String?

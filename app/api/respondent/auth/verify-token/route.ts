@@ -11,7 +11,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Proxy to backend
+
+
+    // Proxy to backend for real tokens
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
     const response = await fetch(`${backendUrl}/api/respondent/auth/verify-token`, {
       method: 'POST',
@@ -27,6 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data, { status: response.status });
     }
 
+    // Do not auto-set session here; respondent must login or register manually
     return NextResponse.json(data);
 
   } catch (error) {

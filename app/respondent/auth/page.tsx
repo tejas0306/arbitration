@@ -52,11 +52,21 @@ export default function RespondentAuthPage() {
     // If token is provided, extract email and set mode to register
     if (token && caseId) {
       try {
-        // Decode JWT token to get email
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const payload = JSON.parse(atob(base64));
-        console.log('🔧 Decoded token payload:', payload);
+        let payload;
+        
+        // Check if it's a demo token (starts with 'demo.')
+        if (token.startsWith('demo.')) {
+          // Demo token format: demo.base64payload.demo
+          const base64Payload = token.split('.')[1];
+          payload = JSON.parse(atob(base64Payload));
+          console.log('🔧 Decoded demo token payload:', payload);
+        } else {
+          // Real JWT token
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          payload = JSON.parse(atob(base64));
+          console.log('🔧 Decoded JWT token payload:', payload);
+        }
         
         if (payload.email) {
           setFormData(prev => ({ ...prev, email: payload.email }));
@@ -70,6 +80,8 @@ export default function RespondentAuthPage() {
         }
       } catch (error) {
         console.error('Error decoding token:', error);
+        // If token decoding fails, show error
+        setError('Invalid invitation link. Please contact the case administrator.');
       }
     }
   }, [token, caseId]);
@@ -91,7 +103,7 @@ export default function RespondentAuthPage() {
       
       if (data.success) {
         // Auto-login successful, redirect to case
-        router.push(`/respondent/case/${caseId}`);
+        router.push(`/respondent/case/${encodeURIComponent(caseId)}`);
       } else {
         // Token invalid, show login form
         setMode('login');
@@ -251,22 +263,26 @@ export default function RespondentAuthPage() {
           document.cookie = `respondent-session=${data.sessionToken}; path=/; max-age=86400`;
         }
         
-        // For registration, redirect to login page
-        if (mode === 'register') {
-          router.push('/respondent/auth?message=registration_success');
+        // After auth (register or login), redirect to case page directly
+        const targetCaseId = caseId || data.caseId;
+        console.log('🔧 Redirecting to case with ID:', targetCaseId);
+        if (targetCaseId) {
+          router.push(`/respondent/case/${encodeURIComponent(targetCaseId)}`);
         } else {
-          // For login, redirect to case page
-          const targetCaseId = caseId || data.caseId;
-          console.log('🔧 Redirecting to case with ID:', targetCaseId);
-          if (targetCaseId) {
-            router.push(`/respondent/case/${targetCaseId}`);
-          } else {
-            setError('No case ID found. Please contact support.');
-          }
+          setError('No case ID found. Please contact support.');
         }
       } else {
         console.log('Registration failed:', data);
-        setError(data.error || data.message || 'Authentication failed');
+        const message = (data && (data.error || data.message)) || 'Authentication failed';
+        setError(message);
+        // If user already exists, switch to login automatically
+        if (mode === 'register' && /already exists/i.test(message)) {
+          setMode('login');
+          toast({
+            title: 'Account already exists',
+            description: 'Please login with your password.',
+          });
+        }
       }
     } catch (error) {
       console.error('Registration error:', error);

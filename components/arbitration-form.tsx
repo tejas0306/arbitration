@@ -2199,6 +2199,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       return;
     }
 
+
+
     try {
       // Send OTP via email
       const response = await fetch('/api/email/test', {
@@ -2240,6 +2242,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid 10-digit phone number');
       return;
     }
+
+
 
     const otp = generateOTP();
     setSentPhoneOTP(otp);
@@ -2308,6 +2312,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid email address');
       return;
     }
+
+
     
     try {
       // Send OTP via email
@@ -2357,6 +2363,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid 10-digit phone number');
       return;
     }
+
+
     
     try {
       // Generate OTP for demo
@@ -2487,6 +2495,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid 10-digit phone number');
       return;
     }
+
+
     
     try {
       // Generate OTP for demo
@@ -2513,6 +2523,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid email address');
       return;
     }
+
+
     
     try {
       // Send OTP via email
@@ -2563,6 +2575,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid 10-digit phone number');
       return;
     }
+
+
     
     try {
       // Generate OTP for demo
@@ -2594,6 +2608,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       toast.error('Please enter a valid email address');
       return;
     }
+
+
     
     try {
       // Send OTP via email
@@ -3848,8 +3864,18 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 console.log('🔧 Starting email sending process (draft submit)...');
                 const formData = watch();
                 console.log('🔧 Form data for email (draft submit):', formData.claimant?.email);
+                console.log('🔧 Backend response for email (draft submit):', response);
                 const caseLink = `${window.location.origin}/dashboard/cases/${caseId}`;
                 console.log('🔧 Case link (draft submit):', caseLink);
+                
+                // Use backend response data (includes database ID) combined with form data
+                const caseDataForEmail = {
+                  ...formData,
+                  id: response.id, // CRITICAL: Include database ID from backend
+                  caseNumber: response.caseNumber,
+                  createdAt: response.createdAt,
+                  updatedAt: response.updatedAt
+                };
                 
                 const emailResponse = await fetch('/api/email/test', {
                   method: 'POST',
@@ -3859,8 +3885,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                   body: JSON.stringify({
                     type: 'case-submission-all-parties',
                     caseLink: caseLink,
-                    caseData: formData,
-                    caseNumber: caseId
+                    caseData: caseDataForEmail,
+                    caseNumber: response.caseNumber || caseId
                   }),
                 });
 
@@ -3868,7 +3894,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 console.log('🔧 Email API response (draft submit):', result);
                 if (result.success) {
                   console.log('✅ Confirmation emails sent to all parties successfully');
-                  toast.success('Confirmation emails sent to all parties');
+                  
+                                  toast.success('Confirmation emails sent to all parties');
                 } else {
                   console.error('❌ Failed to send confirmation emails:', result.error);
                   toast.error('Failed to send confirmation emails');
@@ -3927,8 +3954,18 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
               console.log('🔧 Starting email sending process...');
               const formData = watch();
               console.log('🔧 Form data for email:', formData.claimant?.email);
+              console.log('🔧 Backend response for email:', response);
               const caseLink = `${window.location.origin}/dashboard/cases/${caseId}`;
               console.log('🔧 Case link:', caseLink);
+              
+              // Use backend response data (includes database ID) combined with form data
+              const caseDataForEmail = {
+                ...formData,
+                id: response.id, // CRITICAL: Include database ID from backend
+                caseNumber: response.caseNumber,
+                createdAt: response.createdAt,
+                updatedAt: response.updatedAt
+              };
               
               const emailResponse = await fetch('/api/email/test', {
                 method: 'POST',
@@ -3938,8 +3975,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
                 body: JSON.stringify({
                   type: 'case-submission-all-parties',
                   caseLink: caseLink,
-                  caseData: formData,
-                  caseNumber: caseId
+                  caseData: caseDataForEmail,
+                  caseNumber: response.caseNumber || caseId
                 }),
               });
 
@@ -3947,6 +3984,7 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
               console.log('🔧 Email API response:', result);
               if (result.success) {
                 console.log('✅ Confirmation emails sent to all parties successfully');
+                
                 toast.success('Confirmation emails sent to all parties');
               } else {
                 console.error('❌ Failed to send confirmation emails:', result.error);

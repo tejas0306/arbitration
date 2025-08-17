@@ -33,8 +33,8 @@ export class EmailService {
    */
   static async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      console.log(`🔧 Email service - Sending email to: ${options.to}`);
-      console.log(`🔧 Email service - Subject: ${options.subject}`);
+      console.log(`📧 Email service - Sending email to: ${options.to}`);
+      console.log(`📧 Email service - Subject: ${options.subject}`);
       
       const mailOptions = {
         from: process.env.SMTP_FROM || 'bdo.daily.update@gmail.com',
@@ -45,14 +45,14 @@ export class EmailService {
         attachments: options.attachments,
       };
 
-      console.log(`🔧 Email service - Mail options:`, {
+      console.log(`📧 Email service - Mail options:`, {
         from: mailOptions.from,
         to: mailOptions.to,
         subject: mailOptions.subject
       });
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
+      console.log('✅ Email sent successfully:', info.messageId);
       return true;
     } catch (error) {
       console.error('Error sending email:', error);
@@ -64,9 +64,9 @@ export class EmailService {
    * Send OTP email
    */
   static async sendOTPEmail(to: string, otp: string, type: 'email' | 'phone' = 'email'): Promise<boolean> {
-    console.log(`🔧 Sending OTP email to: ${to}`);
-    console.log(`🔧 OTP: ${otp}`);
-    console.log(`🔧 Type: ${type}`);
+    console.log(`📧 Sending OTP email to: ${to}`);
+    console.log(`📧 OTP: ${otp}`);
+    console.log(`📧 Type: ${type}`);
     
     const subject = `Arbitration Portal - ${type === 'email' ? 'Email' : 'Phone'} Verification OTP`;
     const html = `
@@ -89,7 +89,7 @@ export class EmailService {
       </div>
     `;
 
-    console.log(`🔧 Email config:`, {
+    console.log(`📧 Email config:`, {
       user: process.env.SMTP_USER || 'bdo.daily.update@gmail.com',
       from: process.env.SMTP_FROM || 'bdo.daily.update@gmail.com',
       to: to
@@ -115,16 +115,27 @@ export class EmailService {
       // Generate respondent access token if this is for a respondent
       let respondentAccessLink = '';
       if (recipientType === 'respondent') {
+        // ALWAYS use DB id when available; only fallback to caseNumber as last resort
+        let caseIdForLink = caseNumber; // Default fallback
+        if (caseData && caseData.id) {
+          caseIdForLink = caseData.id; // Prefer database ID
+          console.log(`🔧 Using database ID for respondent link: ${caseIdForLink}`);
+        } else {
+          console.log(`🔧 Warning: No database ID available, using caseNumber: ${caseIdForLink}`);
+        }
+        
         const token = jwt.sign(
           {
             email: to,
-            caseId: caseNumber,
+            caseId: caseIdForLink,
             type: 'respondent-access'
           },
           process.env.JWT_SECRET || 'your-secret-key',
           { expiresIn: '24h' }
         );
-        respondentAccessLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/respondent/auth?caseId=${caseNumber}&token=${token}`;
+        const encodedCaseId = encodeURIComponent(caseIdForLink);
+        respondentAccessLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/respondent/auth?caseId=${encodedCaseId}&token=${token}`;
+        console.log(`🔧 Generated respondent access link: ${respondentAccessLink}`);
       }
       
       // Different templates for different recipient types

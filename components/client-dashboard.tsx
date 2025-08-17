@@ -45,21 +45,50 @@ export default function ClientDashboard() {
         setDrafts([])
       }
       
-      // Fetch cases
+      // Fetch cases (both claimant and respondent cases)
       try {
-        // Use a more generic approach since getMyCases might not exist
-        const response = await fetch('/api/arbitration/my-cases', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
-        })
+        let allCases: any[] = [];
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch cases')
+        // Fetch claimant cases
+        try {
+          const claimantResponse = await fetch('/api/arbitration/my-cases', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          });
+          
+          if (claimantResponse.ok) {
+            const claimantData = await claimantResponse.json();
+            allCases = [...allCases, ...(claimantData.cases || []).map((c: any) => ({ ...c, userRole: 'claimant' }))];
+          }
+        } catch (err) {
+          console.log('No claimant cases or error fetching:', err);
         }
         
-        const data = await response.json()
-        setCases(data.cases || [])
+        // Fetch respondent cases
+        try {
+          console.log('🔧 Fetching respondent cases...');
+          const respondentResponse = await fetch('/api/respondent/cases', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          });
+          
+          console.log('🔧 Respondent response status:', respondentResponse.status);
+          
+          if (respondentResponse.ok) {
+            const respondentData = await respondentResponse.json();
+            console.log('🔧 Respondent data:', respondentData);
+            allCases = [...allCases, ...(respondentData || []).map((c: any) => ({ ...c, userRole: 'respondent' }))];
+          } else {
+            const errorData = await respondentResponse.json().catch(() => ({}));
+            console.log('🔧 Respondent API error:', errorData);
+          }
+        } catch (err) {
+          console.log('No respondent cases or error fetching:', err);
+        }
+        
+        setCases(allCases);
       } catch (casesErr) {
         toast.error('Unable to load your cases')
         setCases([])

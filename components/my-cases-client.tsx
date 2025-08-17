@@ -13,21 +13,64 @@ export default function MyCasesClient() {
   const [cases, setCases] = useState<any[]>([])
   const [drafts, setDrafts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [userData, setUserData] = useState<any>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true)
         
-        // Fetch active cases and drafts separately
-        const [allCases, draftsList] = await Promise.all([
-          arbitrationApi.getAll(),
-          arbitrationApi.getDrafts()
-        ]).catch(error => {
-          // Return default values if fetch fails
-          return [[], []];
-        });
+        // Fetch user data first
+        try {
+          const user = await api.auth.getCurrentUser();
+          setUserData(user);
+          console.log('🔧 User data:', user);
+        } catch (err) {
+          console.log('🔧 Failed to get user data:', err);
+        }
         
+        // Fetch active cases, drafts, and respondent cases separately
+        let allCases: any[] = [];
+        let draftsList: any[] = [];
+        
+        try {
+          // Fetch claimant cases
+          const claimantCases = await arbitrationApi.getAll();
+          allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
+          console.log('🔧 Claimant cases fetched:', claimantCases.length);
+        } catch (err) {
+          console.log('🔧 No claimant cases or error:', err);
+        }
+        
+        try {
+          // Fetch respondent cases
+          const response = await fetch('/api/respondent/cases', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          });
+          
+          if (response.ok) {
+            const respondentCases = await response.json();
+            allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
+            console.log('🔧 Respondent cases fetched:', respondentCases.length);
+          } else {
+            console.log('🔧 Respondent API error:', response.status);
+          }
+        } catch (err) {
+          console.log('🔧 No respondent cases or error:', err);
+        }
+        
+        try {
+          // Fetch drafts
+          draftsList = await arbitrationApi.getDrafts();
+          console.log('🔧 Drafts fetched:', draftsList.length);
+        } catch (err) {
+          console.log('🔧 No drafts or error:', err);
+          draftsList = [];
+        }
+        
+        console.log('🔧 Total cases:', allCases.length);
         
         // Filter out drafts from regular cases
         const submittedCases = allCases.filter((c: any) => c.status !== 'DRAFT');
@@ -44,8 +87,16 @@ export default function MyCasesClient() {
     fetchData()
   }, [])
 
-  const handleViewCase = (id: string) => {
-    router.push(`/dashboard/case/${id}`)
+  const handleViewCase = (caseItem: any) => {
+    console.log('🔧 Viewing case:', caseItem);
+    
+    // If this is a respondent case, go to respondent form
+    if (caseItem.userRole === 'respondent') {
+      router.push(`/respondent/case/${caseItem.id}`)
+    } else {
+      // Otherwise go to regular case view
+      router.push(`/dashboard/case/${caseItem.id}`)
+    }
   }
 
   const handleContinueDraft = (id: string) => {
@@ -71,9 +122,11 @@ export default function MyCasesClient() {
             <Card>
               <CardContent className="p-8 text-center">
                 <p className="text-muted-foreground mb-4">You don't have any active cases yet.</p>
-                <Button onClick={() => router.push('/dashboard/petition')}>
-                  File a New Case
-                </Button>
+                {userData?.role === 'CLAIMANT' && (
+                  <Button onClick={() => router.push('/dashboard/petition')}>
+                    File a New Case
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -83,8 +136,15 @@ export default function MyCasesClient() {
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-medium">{arbitrationCase.name}</h3>
-                        <div className="flex gap-6 text-sm text-muted-foreground mt-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium">{arbitrationCase.name}</h3>
+                          {arbitrationCase.userRole === 'respondent' && (
+                            <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
+                              Respondent
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-6 text-sm text-muted-foreground">
                           <div>Case #{arbitrationCase.caseNumber}</div>
                           <div>Status: <span className="capitalize">{arbitrationCase.status.toLowerCase()}</span></div>
                           <div>Filed: {new Date(arbitrationCase.createdAt).toLocaleDateString()}</div>
@@ -92,9 +152,9 @@ export default function MyCasesClient() {
                       </div>
                       <Button 
                         variant="outline" 
-                        onClick={() => handleViewCase(arbitrationCase.id)}
+                        onClick={() => handleViewCase(arbitrationCase)}
                       >
-                        View Details
+                        {arbitrationCase.userRole === 'respondent' ? 'Respond to Case' : 'View Details'}
                       </Button>
                     </div>
                   </CardContent>
@@ -113,9 +173,11 @@ export default function MyCasesClient() {
             <Card>
               <CardContent className="p-8 text-center">
                 <p className="text-muted-foreground mb-4">You don't have any draft cases.</p>
-                <Button onClick={() => router.push('/dashboard/petition')}>
-                  Start a New Case
-                </Button>
+                {userData?.role === 'CLAIMANT' && (
+                  <Button onClick={() => router.push('/dashboard/petition')}>
+                    Start a New Case
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (

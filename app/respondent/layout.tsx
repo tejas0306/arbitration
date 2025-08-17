@@ -1,9 +1,20 @@
-// This layout is no longer needed since we're using ProtectedRoute directly in the page component
-// The ProtectedRoute component handles header/footer rendering
+"use client"
+
+import Header from '@/components/header'
+import Footer from '@/components/footer'
+
 export default function RespondentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  );
 } 

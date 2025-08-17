@@ -105,12 +105,18 @@ export class RespondentService {
 
   // Get cases for a respondent
   async getRespondentCases(userId: string) {
+    console.log('🔧 getRespondentCases called with userId:', userId);
+    
+    // Find the actual authenticated user
     const user = await this.prisma.user.findUnique({
       where: { id: userId }
     });
+    
+    console.log('🔧 Found user:', user ? { id: user.id, email: user.email, role: user.role } : 'Not found');
 
     if (!user || user.role !== 'RESPONDENT') {
-      throw new ForbiddenException('Access denied');
+      console.log('🔧 User not found or not a respondent, returning empty array');
+      return [];
     }
 
     // Find all cases where this user is listed as a respondent
@@ -125,7 +131,29 @@ export class RespondentService {
         status: true,
         createdAt: true,
         updatedAt: true,
-        respondents: true
+        respondents: true,
+        // Include ALL form data for respondent view
+        type: true,
+        name: true,
+        email: true,
+        phone: true,
+        phoneCountryCode: true,
+        address1: true,
+        address2: true,
+        city: true,
+        district: true,
+        state: true,
+        country: true,
+        pincode: true,
+        gst: true,
+        pan: true,
+        cin: true,
+        additionalClaimants: true,
+        managerDetails: true,
+        arbitrationAgreement: true,
+        disputeDetails: true,
+        documents: true,
+        formData: true // This contains the complete structured form data
       }
     });
 
@@ -135,39 +163,129 @@ export class RespondentService {
       return respondents.some((resp: any) => resp.email === user.email);
     });
 
-    return userCases;
+    // Format cases for frontend with all necessary data
+    const formattedCases = userCases.map(caseItem => {
+      const formData = caseItem.formData as any || {};
+      
+      return {
+        id: caseItem.id,
+        caseNumber: caseItem.caseNumber,
+        status: caseItem.status,
+        createdAt: caseItem.createdAt,
+        updatedAt: caseItem.updatedAt,
+        name: caseItem.name,
+        userRole: 'respondent',
+        currentRespondentEmail: user.email,
+        
+        // Claimant data (Step 1)
+        claimant: {
+          type: caseItem.type,
+          name: caseItem.name,
+          email: caseItem.email,
+          phone: caseItem.phone,
+          phoneCountryCode: caseItem.phoneCountryCode,
+          address1: caseItem.address1,
+          address2: caseItem.address2,
+          city: caseItem.city,
+          district: caseItem.district,
+          state: caseItem.state,
+          country: caseItem.country,
+          pincode: caseItem.pincode,
+          gst: caseItem.gst,
+          pan: caseItem.pan,
+          cin: caseItem.cin,
+          coi: null, // Files need to be handled separately
+          panCard: null,
+          gstCert: null
+        },
+        
+        // Additional claimants (Step 3)
+        additionalClaimants: caseItem.additionalClaimants || [],
+        
+        // Manager details (Step 4)
+        managerDetails: caseItem.managerDetails,
+        
+        // Respondents (Step 5)
+        respondents: caseItem.respondents || [],
+        
+        // Arbitration Agreement (Step 7)
+        arbitrationAgreement: caseItem.arbitrationAgreement || {},
+        
+        // Form data from formData field if it exists
+        natureOfDispute: formData.natureOfDispute || {},
+        disputeDetails: formData.disputeDetails || caseItem.disputeDetails || {},
+        disputeDescriptions: formData.disputeDescriptions || [],
+        evidence: formData.documents || caseItem.documents || {},
+        prayers: formData.prayers || {},
+        arguments: formData.arguments || {},
+        payment: formData.payment || {},
+        summary: formData.review || {}
+      };
+    });
+
+    return formattedCases;
   }
 
   // Get a specific case for a respondent
   async getRespondentCase(userId: string, caseId: string) {
+    console.log('[RespondentService] getRespondentCase called with', { userId, caseId });
     const user = await this.prisma.user.findUnique({
       where: { id: userId }
     });
 
-    if (!user || user.role !== 'RESPONDENT') {
-      throw new ForbiddenException('Access denied');
+    if (!user) {
+      console.log('[RespondentService] ERROR: User not found', { userId });
+      throw new ForbiddenException('User not found');
+    }
+    
+    // Enforce RESPONDENT role requirement
+    if (user.role !== 'RESPONDENT') {
+      console.log('[RespondentService] ERROR: Access denied, wrong role', { userId, role: user.role });
+      throw new ForbiddenException('Access denied - respondent role required');
+    }
+    
+    console.log('[RespondentService] User role verified:', { id: user.id, email: user.email, role: user.role });
+
+    // Accept both DB id (UUID) and caseNumber
+    let caseData = await this.prisma.arbitration.findUnique({ where: { id: caseId } });
+    if (!caseData) {
+      console.log('[RespondentService] Case not found for id/caseNumber. Trying suffix match.', { caseId });
+      caseData = await this.prisma.arbitration.findFirst({ where: { caseNumber: caseId } });
+    }
+    // Fallback: try matching by trailing numeric sequence (e.g., 0000107)
+    if (!caseData && caseId) {
+      const parts = caseId.split('/');
+      const suffix = parts[parts.length - 1];
+      if (suffix) {
+        caseData = await this.prisma.arbitration.findFirst({
+          where: { caseNumber: { endsWith: suffix } },
+        });
+      }
     }
 
-    // Find the case by caseNumber
-    const caseData = await this.prisma.arbitration.findFirst({
-      where: { 
-        caseNumber: caseId 
-      }
-    });
-
     if (!caseData) {
+      console.log('[RespondentService] Case still not found after all strategies.', { caseId });
       throw new NotFoundException('Case not found');
     }
 
     // Check if the user is listed as a respondent in this case
+    console.log('[RespondentService] Checking respondent authorization...');
     const respondents = caseData.respondents as any[] || [];
+    console.log('[RespondentService] Case respondents:', respondents.map(r => ({ email: r?.email, name: r?.name })));
+    console.log('[RespondentService] Current user email:', user.email);
+    
     const isRespondent = respondents.some(
       (resp: any) => resp.email === user.email
     );
+    
+    console.log('[RespondentService] Is user authorized respondent?', isRespondent);
 
     if (!isRespondent) {
+      console.log('[RespondentService] User not listed as respondent', { userEmail: user.email, respondentsCount: respondents.length });
       throw new ForbiddenException('You do not have access to this case');
     }
+    
+    console.log('[RespondentService] Authorization successful!');
 
     // Type the formData as any to avoid TypeScript errors with JSON fields
     const formData = caseData.formData as any || {};
@@ -273,47 +391,32 @@ export class RespondentService {
   // Verify respondent access token
   async verifyToken(token: string, caseId: string) {
     try {
-      const secret = process.env.JWT_SECRET || 'your-secret-key';
-      const decoded = jwt.verify(token, secret) as any;
+      const jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
+      const decoded = jwt.verify(token, jwtSecret) as any;
       
       // Check if the token is for the correct case
       if (decoded.caseId !== caseId) {
         throw new UnauthorizedException('Invalid token for this case');
       }
 
-      // Check if the case exists
-      const caseData = await this.prisma.arbitration.findUnique({
-        where: { id: caseId }
+      // Check if the case exists (caseId here refers to caseNumber, not DB UUID)
+      const caseData = await this.prisma.arbitration.findFirst({
+        where: { caseNumber: caseId }
       });
 
       if (!caseData) {
-        // For now, allow token verification even if case doesn't exist
-        // This allows for testing and development
-        console.log(`Case ${caseId} not found, but allowing token verification for development`);
-        return {
-          success: true,
-          caseId,
-          email: decoded.email,
-          message: 'Token verified successfully (case not found in database)'
-        };
+        throw new NotFoundException(`Case ${caseId} not found`);
       }
 
       // Check if the respondent email matches
       const respondentEmail = decoded.email;
-      const respondents = caseData.respondents as any[] || [];
+      const respondents = (caseData?.respondents as any[]) || [];
       const isRespondent = respondents.some(
         (resp: any) => resp.email === respondentEmail
       );
 
-      if (!isRespondent) {
+      if (caseData && !isRespondent) {
         console.log(`User ${respondentEmail} not found in respondents list for case ${caseId}`);
-        // For development, allow access even if not in respondents list
-        return {
-          success: true,
-          caseId,
-          email: respondentEmail,
-          message: 'Token verified successfully (user not in respondents list)'
-        };
       }
 
       // Check if token is expired (24 hours)
@@ -322,11 +425,32 @@ export class RespondentService {
         throw new UnauthorizedException('Access link has expired');
       }
 
+      // Ensure a respondent user exists for this email
+      let user = await this.prisma.user.findUnique({ where: { email: respondentEmail } });
+      if (!user) {
+        const tempPassword = this.generateTemporaryPassword();
+        const hashed = await bcrypt.hash(tempPassword, 12);
+        user = await this.prisma.user.create({
+          data: {
+            email: respondentEmail,
+            password: hashed,
+            name: respondentEmail.split('@')[0],
+            role: 'RESPONDENT',
+          },
+        });
+      } else if (user.role !== 'RESPONDENT') {
+        // Ensure role is respondent for access
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'RESPONDENT' },
+        });
+      }
+
       return {
         success: true,
         caseId,
         email: respondentEmail,
-        message: 'Token verified successfully'
+        message: 'Token verified successfully. Please login or register to proceed.',
       };
 
     } catch (error) {
@@ -424,12 +548,70 @@ export class RespondentService {
     caseId?: string;
     token?: string;
   }) {
+    console.log('🔧 REGISTER: Received data:', JSON.stringify(data, null, 2));
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: data.email }
     });
 
     if (existingUser) {
+      // If an invitation token is provided, allow attaching respondent role and resetting password
+      // to convert this into a seamless onboarding instead of an error.
+      if (data.token) {
+        try {
+          
+          // For production, validate the actual JWT token
+          const secret = process.env.JWT_SECRET || 'your-secret-key';
+          const decoded = jwt.verify(data.token, secret) as any;
+
+          if (decoded && decoded.email === existingUser.email) {
+            // Update password and role for the existing user
+            const hashedPasswordForExisting = await bcrypt.hash(data.password, 12);
+
+            await this.prisma.user.update({
+              where: { id: existingUser.id },
+              data: {
+                password: hashedPasswordForExisting,
+                // Ensure respondent role; if your schema uses enum/string, this will set it
+                role: 'RESPONDENT',
+                phone: data.phone ?? existingUser.phone ?? undefined,
+                name: data.fullName ?? existingUser.name ?? undefined,
+              },
+            });
+
+            // Generate session token
+            const sessionTokenForExisting = jwt.sign(
+              {
+                userId: existingUser.id,
+                email: existingUser.email,
+                role: 'respondent',
+                caseId: data.caseId || null,
+              },
+              secret,
+              { expiresIn: '24h' },
+            );
+
+            return {
+              success: true,
+              message: 'Registration successful',
+              user: {
+                id: existingUser.id,
+                email: existingUser.email,
+                name: data.fullName || existingUser.name,
+                role: 'respondent',
+              },
+              caseId: data.caseId || null,
+              sessionToken: sessionTokenForExisting,
+            };
+          }
+        } catch (error) {
+          console.log('🔧 Backend: Token verification failed:', error.message);
+          // If token is invalid, fall through to the default error below
+        }
+      }
+
+
+      
       throw new BadRequestException('User with this email already exists');
     }
 

@@ -90,19 +90,21 @@ export default function DashboardPage() {
 
         {/* Quick Actions Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Link href="/arbitration/new">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-blue-200 hover:border-blue-300">
-              <CardContent className="flex items-center space-x-4 p-6">
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <PlusCircle className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">New Petition</h3>
-                  <p className="text-sm text-gray-600">File a new case</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          {(userData?.role === 'CLAIMANT' || userData?.role === 'ADMIN') && (
+            <Link href="/arbitration/new">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-blue-200 hover:border-blue-300">
+                <CardContent className="flex items-center space-x-4 p-6">
+                  <div className="bg-blue-100 p-3 rounded-full">
+                    <PlusCircle className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">New Petition</h3>
+                    <p className="text-sm text-gray-600">File a new case</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
 
           <Link href="/dashboard/my-cases">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-green-200 hover:border-green-300">

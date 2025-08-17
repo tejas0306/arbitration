@@ -10,11 +10,15 @@ import {
   HttpCode,
   UnauthorizedException,
   BadRequestException,
+  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
 import { RespondentService } from './respondent.service';
 import { CreateRespondentRegistrationDto } from './dto/create-respondent-registration.dto';
 import { CreateCaseResponseDto } from './dto/create-case-response.dto';
 import { UpdateCaseResponseDto } from './dto/update-case-response.dto';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('respondent')
 export class RespondentController {
@@ -101,20 +105,15 @@ export class RespondentController {
 
   // Get all cases for the respondent
   @Get('cases')
-  async getRespondentCases(@Headers() headers) {
-    const authorization = headers['authorization'];
-    if (!authorization || !authorization.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid session token');
+  @UseGuards(JwtAuthGuard)
+  async getRespondentCases(@Request() req) {
+    console.log('🔧 Respondent cases called with user:', req.user);
+    
+    if (!req.user || !req.user.id) {
+      throw new UnauthorizedException('User not found in request');
     }
     
-    const token = authorization.replace('Bearer ', '');
-    const session = await this.respondentService.getSession(token);
-    
-    if (!session.success || session.user.role !== 'respondent') {
-      throw new UnauthorizedException('Invalid user or role');
-    }
-    
-    return this.respondentService.getRespondentCases(session.user.id);
+    return this.respondentService.getRespondentCases(req.user.id);
   }
 
   // Get a specific case for the respondent
@@ -132,6 +131,26 @@ export class RespondentController {
       throw new UnauthorizedException('Invalid user or role');
     }
     
+    return this.respondentService.getRespondentCase(session.user.id, caseId);
+  }
+
+  // Alternative endpoint that accepts caseId with slashes via query param
+  @Get('case')
+  async getRespondentCaseByQuery(@Headers() headers, @Query('id') caseId: string) {
+    console.log('[RespondentController] GET /respondent/case?id=', caseId);
+    const authorization = headers['authorization'];
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid session token');
+    }
+
+    const token = authorization.replace('Bearer ', '');
+    const session = await this.respondentService.getSession(token);
+
+    if (!session.success || session.user.role !== 'respondent') {
+      throw new UnauthorizedException('Invalid user or role');
+    }
+
+    console.log('[RespondentController] Authenticated respondent:', session.user);
     return this.respondentService.getRespondentCase(session.user.id, caseId);
   }
 
@@ -155,6 +174,29 @@ export class RespondentController {
       throw new UnauthorizedException('Invalid user or role');
     }
     
+    return this.respondentService.submitCaseResponse(session.user.id, caseId, createCaseResponseDto);
+  }
+
+  // Alternative respond endpoint using query param for caseId
+  @Post('case/respond')
+  @HttpCode(HttpStatus.CREATED)
+  async submitCaseResponseByQuery(
+    @Headers() headers,
+    @Query('id') caseId: string,
+    @Body() createCaseResponseDto: CreateCaseResponseDto,
+  ) {
+    const authorization = headers['authorization'];
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid session token');
+    }
+
+    const token = authorization.replace('Bearer ', '');
+    const session = await this.respondentService.getSession(token);
+
+    if (!session.success || session.user.role !== 'respondent') {
+      throw new UnauthorizedException('Invalid user or role');
+    }
+
     return this.respondentService.submitCaseResponse(session.user.id, caseId, createCaseResponseDto);
   }
 

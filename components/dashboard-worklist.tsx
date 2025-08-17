@@ -38,15 +38,38 @@ export default function DashboardWorklist({
       setLoading(true)
       setError(null)
       
-      const casesData = await api.arbitration.getAll()
-      console.log('Cases data:', {
-        count: casesData.length,
-        firstCaseUserId: casesData[0]?.userId,
-        allUserIds: [...new Set(casesData.map((c: any) => c.userId))]
-      })
+      let allCases: any[] = [];
+      
+      // Fetch claimant cases
+      try {
+        const claimantCases = await api.arbitration.getAll()
+        console.log('Claimant cases:', claimantCases.length)
+        allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
+      } catch (err) {
+        console.log('No claimant cases:', err);
+      }
+      
+      // Fetch respondent cases
+      try {
+        const response = await fetch('/api/respondent/cases', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const respondentCases = await response.json();
+          console.log('Respondent cases:', respondentCases.length)
+          allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
+        }
+      } catch (err) {
+        console.log('No respondent cases:', err);
+      }
+      
+      console.log('Total cases:', allCases.length)
       
       // Transform data to match our required format if needed
-      const formattedCases: ArbitrationCase[] = casesData.map((caseData: any) => {
+      const formattedCases: ArbitrationCase[] = allCases.map((caseData: any) => {
         // Extract claimant name
         const claimantName = caseData.name || 
                            caseData.claimant?.name || 

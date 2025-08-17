@@ -382,7 +382,7 @@ model CaseResponse {
   id                    String         @id @default(uuid())
   caseId                String
   respondentId          String
-  responseOverview      String
+  responseOverview      String?
   admitsClaimInFull     Boolean        @default(false)
   admitsClaimInPart     Boolean        @default(false)
   deniesClaimInFull     Boolean        @default(false)
@@ -395,6 +395,8 @@ model CaseResponse {
   lawsReliedUpon        Json[]
   additionalNotes       String?
   requestedReliefs      Json[]
+  responseData          Json?
+  round                 Int            @default(1)
   status                ResponseStatus @default(PENDING)
   submittedAt           DateTime?
   reviewedAt            DateTime?

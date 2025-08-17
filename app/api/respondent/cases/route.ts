@@ -1,5 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export async function POST(request: NextRequest) {
+  try {
+    console.log('🔧 Frontend API POST /respondent/cases called for response submission')
+    
+    const body = await request.json()
+    const { caseId, responseData, round } = body
+    
+    console.log('🔧 Case ID:', caseId)
+    console.log('🔧 Response data:', responseData)
+    console.log('🔧 Round:', round)
+
+    if (!caseId) {
+      console.log('🔧 ERROR: No case ID provided')
+      return NextResponse.json({ error: 'Case ID is required' }, { status: 400 })
+    }
+
+    // Get auth token from cookie (respondent session)
+    let authToken = request.cookies.get('respondent-session')?.value
+    console.log('🔧 Cookie auth token:', authToken ? 'Present' : 'Missing')
+    
+    // If no cookie, try Authorization header as fallback
+    if (!authToken) {
+      authToken = request.headers.get('authorization')
+      if (authToken && authToken.startsWith('Bearer ')) {
+        authToken = authToken.substring(7) // Remove 'Bearer ' prefix
+      }
+      console.log('🔧 Header auth token:', authToken ? 'Present' : 'Missing')
+    }
+    
+    if (!authToken) {
+      console.log('🔧 ERROR: No authorization token found in cookies or headers')
+      return NextResponse.json({ error: 'Authorization token required' }, { status: 401 })
+    }
+
+    // Proxy to backend for submitting response
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
+    const backendEndpoint = `${backendUrl}/api/respondent/cases/${encodeURIComponent(caseId)}/respond`
+    console.log('🔧 Backend endpoint:', backendEndpoint)
+    
+    const response = await fetch(backendEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ responseData, round })
+    })
+    
+    console.log('🔧 Backend response status:', response.status)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+      console.error('🔧 Backend response error:', response.status, errorData)
+      return NextResponse.json(errorData, { status: response.status })
+    }
+    
+    const data = await response.json()
+    console.log('🔧 Response submitted successfully:', data)
+    return NextResponse.json(data)
+    
+  } catch (error: any) {
+    console.error('Error in respondent cases POST route:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('🔧 Respondent cases API called');
@@ -29,15 +98,11 @@ export async function GET(request: NextRequest) {
 
         if (backendResponse.ok) {
           const realData = await backendResponse.json();
-          console.log('🔧 Got real data from backend:', realData);
           return NextResponse.json(realData);
         } else {
           const errorText = await backendResponse.text();
-          console.log('🔧 Backend error:', backendResponse.status, errorText);
-          console.log('🔧 Falling back to hardcoded data');
         }
       } catch (backendError) {
-        console.log('🔧 Backend connection failed:', backendError);
         console.log('🔧 Using hardcoded data as fallback');
       }
     } else {
@@ -45,7 +110,6 @@ export async function GET(request: NextRequest) {
         }
 
         // USE EXACT SAME APPROACH AS /api/arbitration/cases/[id] 
-        console.log('🔧 CALLING REAL BACKEND API - SAME AS EDIT PETITION');
         
         // Call the actual backend API that works for edit petition
         try {
@@ -59,16 +123,7 @@ export async function GET(request: NextRequest) {
           
           if (realCaseResponse.ok) {
             const realCaseData = await realCaseResponse.json();
-            console.log('🔧 GOT REAL CASE DATA FROM BACKEND');
-            console.log('🔧 Manager Details:', realCaseData.managerDetails);
-            console.log('🔧 Form Data keys:', realCaseData.formData ? Object.keys(realCaseData.formData) : 'No formData');
-            console.log('🔧 Form Data natureOfDispute:', realCaseData.formData?.natureOfDispute);
-            console.log('🔧 Form Data disputeDescriptions:', realCaseData.formData?.disputeDescriptions);
-            console.log('🔧 Form Data prayers:', realCaseData.formData?.prayers);
-            console.log('🔧 Form Data arguments:', realCaseData.formData?.arguments);
-            console.log('🔧 Documents keys:', realCaseData.documents ? Object.keys(realCaseData.documents) : 'No documents');
-            console.log('🔧 Top level disputeDetails:', realCaseData.disputeDetails);
-            
+         
             // Transform it to respondent format with the correct structure
             const transformedCase = {
               id: realCaseData.id,
@@ -134,7 +189,6 @@ export async function GET(request: NextRequest) {
               }
             };
             
-            console.log('🔧 TRANSFORMED REAL CASE DATA FOR RESPONDENT');
             return NextResponse.json([transformedCase]);
           } else {
             console.log('🔧 Backend case API failed:', realCaseResponse.status);
@@ -144,7 +198,6 @@ export async function GET(request: NextRequest) {
         }
         
         // Fallback - return empty if real backend fails
-        console.log('🔧 FALLING BACK TO EMPTY - NO DUMMY DATA');
         return NextResponse.json([]);
         
         // REMOVED: Old hardcoded fallback data

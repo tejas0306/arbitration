@@ -1,8 +1,9 @@
-import { IsString, IsBoolean, IsOptional, IsArray } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsArray, IsObject, IsNumber } from 'class-validator';
 
 export class CreateCaseResponseDto {
+  @IsOptional()
   @IsString()
-  responseOverview: string;
+  responseOverview?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -51,4 +52,13 @@ export class CreateCaseResponseDto {
   @IsOptional()
   @IsArray()
   requestedReliefs?: any[];
+
+  // Additional fields for respondent form data
+  @IsOptional()
+  @IsObject()
+  responseData?: any;
+
+  @IsOptional()
+  @IsNumber()
+  round?: number;
 } 

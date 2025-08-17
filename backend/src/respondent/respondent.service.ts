@@ -317,16 +317,139 @@ export class RespondentService {
 
   // Submit a response to a case
   async submitCaseResponse(userId: string, caseId: string, data: CreateCaseResponseDto) {
+    console.log('🔧 submitCaseResponse called with userId:', userId, 'caseId:', caseId);
+    
     const user = await this.prisma.user.findUnique({
       where: { id: userId }
     });
 
+    console.log('🔧 User found:', user ? { id: user.id, email: user.email, role: user.role } : 'Not found');
+
     if (!user || user.role !== 'RESPONDENT') {
+      console.log('🔧 Access denied - user not found or not RESPONDENT role');
       throw new ForbiddenException('Access denied');
     }
 
-    // TODO: Implement case response submission when database schema is fixed
-    throw new BadRequestException('Case response submission not yet implemented');
+    // Find the case
+    const arbitrationCase = await this.prisma.arbitration.findUnique({
+      where: { id: caseId },
+      include: {
+        respondentCases: true
+      }
+    });
+
+    console.log('🔧 Case found:', arbitrationCase ? { id: arbitrationCase.id, caseNumber: arbitrationCase.caseNumber } : 'Not found');
+    console.log('🔧 Respondent cases:', arbitrationCase?.respondentCases);
+
+    if (!arbitrationCase) {
+      console.log('🔧 Case not found');
+      throw new NotFoundException('Case not found');
+    }
+
+    // Check if the user is a respondent for this case
+    const isRespondent = arbitrationCase.respondentCases.some(
+      (respCase) => respCase.respondentId === userId
+    );
+
+    console.log('🔧 Is user a respondent for this case?', isRespondent);
+
+    if (!isRespondent) {
+      console.log('🔧 FORBIDDEN: User is not authorized to respond to this case');
+      console.log('🔧 Available respondent cases:', arbitrationCase.respondentCases.map(rc => ({ id: rc.id, respondentId: rc.respondentId })));
+      throw new ForbiddenException('You are not authorized to respond to this case');
+    }
+
+    // Create or update the case response
+    const existingResponse = await this.prisma.caseResponse.findFirst({
+      where: {
+        caseId: caseId,
+        respondentId: userId
+      }
+    });
+
+    let caseResponse;
+    
+    if (existingResponse) {
+      // Update existing response
+      caseResponse = await this.prisma.caseResponse.update({
+        where: { id: existingResponse.id },
+        data: {
+          responseData: data.responseData || {},
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+          round: data.round || 1,
+          responseOverview: data.responseOverview || 'Respondent response submitted',
+          legalArguments: data.legalArguments || '',
+          additionalNotes: data.additionalNotes || '',
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new response
+      caseResponse = await this.prisma.caseResponse.create({
+        data: {
+          caseId: caseId,
+          respondentId: userId,
+          responseData: data.responseData || {},
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+          round: data.round || 1,
+          responseOverview: data.responseOverview || 'Respondent response submitted',
+          legalArguments: data.legalArguments || '',
+          additionalNotes: data.additionalNotes || '',
+          disputePointResponses: [],
+          counterClaims: [],
+          documents: [],
+          evidence: [],
+          witnessStatements: [],
+          lawsReliedUpon: [],
+          requestedReliefs: [],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    // Update the respondent case status
+    await this.prisma.respondentCase.updateMany({
+      where: {
+        caseId: caseId,
+        respondentId: userId
+      },
+      data: {
+        responseStatus: 'SUBMITTED',
+        respondedAt: new Date(),
+        currentPhase: 'RESPONSE_SUBMITTED',
+        updatedAt: new Date()
+      }
+    });
+
+    // Update the main arbitration case status if all respondents have responded
+    const allRespondentCases = await this.prisma.respondentCase.findMany({
+      where: { caseId: caseId }
+    });
+
+    const allResponded = allRespondentCases.every(
+      (respCase) => respCase.responseStatus === 'SUBMITTED'
+    );
+
+    if (allResponded) {
+      await this.prisma.arbitration.update({
+        where: { id: caseId },
+        data: {
+          status: 'RESPONSE_SUBMITTED',
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Response submitted successfully',
+      responseId: caseResponse.id,
+      caseId: caseId,
+      status: 'SUBMITTED'
+    };
   }
 
   // Update a case response

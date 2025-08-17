@@ -1068,223 +1068,599 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
 
       case 10: // Step 11: Review & Submit
         return (
-          <div className="space-y-6">
-            <Alert>
-              <Eye className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Step 11: Review & Submit</strong><br/>
-                Review all information from all steps before submitting your response.
-              </AlertDescription>
-            </Alert>
+          <div className="w-full">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Review Your Response</h2>
+                <p className="text-gray-600">Please review all details before submitting your arbitration response</p>
+              </div>
 
-            {/* Step 1: Claimant Details */}
-            <Card>
-              <CardContent className="space-y-4 pt-6">
-                <h3 className="font-medium text-lg mb-4 text-blue-800">Step 1: Claimant Details (Read-Only)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderReadOnlyField('Type', formData.claimant?.type)}
-                  {renderReadOnlyField('Name', formData.claimant?.name)}
-                  {renderReadOnlyField('Email', formData.claimant?.email)}
-                  {renderReadOnlyField('Phone', formData.claimant?.phone)}
-                  {renderReadOnlyField('Country Code', formData.claimant?.phoneCountryCode)}
-                  {renderReadOnlyField('Address Line 1', formData.claimant?.address1)}
-                  {renderReadOnlyField('Address Line 2', formData.claimant?.address2)}
-                  {renderReadOnlyField('City', formData.claimant?.city)}
-                  {renderReadOnlyField('District', formData.claimant?.district)}
-                  {renderReadOnlyField('State', formData.claimant?.state)}
-                  {renderReadOnlyField('Country', formData.claimant?.country)}
-                  {renderReadOnlyField('Pincode', formData.claimant?.pincode)}
-                  {renderReadOnlyField('GST Number', formData.claimant?.gst)}
-                  {renderReadOnlyField('PAN Number', formData.claimant?.pan)}
-                  {renderReadOnlyField('CIN Number', formData.claimant?.cin)}
+              <div className="space-y-8">
+                {/* Step 1: Claimant Details */}
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <span className="bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</span>
+                      Claimant Details (Read-Only)
+                    </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentStep(0)}
+                      className="bg-white text-blue-600 hover:bg-blue-50 border-white"
+                    >
+                      View
+                    </Button>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.1 Type</label>
+                        <p className="text-gray-900 capitalize">{formData.claimant?.type || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.2 Name</label>
+                        <p className="text-gray-900">{formData.claimant?.name || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.3 Email</label>
+                        <p className="text-gray-900">{formData.claimant?.email || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.4 Phone</label>
+                        <p className="text-gray-900">{formData.claimant?.phoneCountryCode} {formData.claimant?.phone || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                        <label className="text-sm font-medium text-gray-600">1.5 Address</label>
+                        <p className="text-gray-900">
+                          {formData.claimant?.address1 && (
+                            <>
+                              {formData.claimant.address1}
+                              {formData.claimant.address2 && `, ${formData.claimant.address2}`}
+                              {formData.claimant.city && `, ${formData.claimant.city}`}
+                              {formData.claimant.district && `, ${formData.claimant.district}`}
+                              {formData.claimant.state && `, ${formData.claimant.state}`}
+                              {formData.claimant.country && `, ${formData.claimant.country}`}
+                              {formData.claimant.pincode && ` - ${formData.claimant.pincode}`}
+                            </>
+                          ) || 'Not provided'}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.6 GST Number</label>
+                        <p className="text-gray-900">{formData.claimant?.gst || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.7 PAN Number</label>
+                        <p className="text-gray-900">{formData.claimant?.pan || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.8 CIN Number</label>
+                        <p className="text-gray-900">{formData.claimant?.cin || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.9 Certificate of Incorporation</label>
+                        <p className="text-gray-900">{formData.claimant?.coi ? 'Uploaded' : 'Not uploaded'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.10 PAN Card</label>
+                        <p className="text-gray-900">{formData.claimant?.panCard ? 'Uploaded' : 'Not uploaded'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <label className="text-sm font-medium text-gray-600">1.11 GST Certificate</label>
+                        <p className="text-gray-900">{formData.claimant?.gstCert ? 'Uploaded' : 'Not uploaded'}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Step 2: Additional Claimants */}
-            {formData.additionalClaimants && formData.additionalClaimants.length > 0 && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-blue-800">Step 2: Additional Claimants (Read-Only)</h3>
-                  {formData.additionalClaimants.map((claimant, index) => (
-                    <div key={index} className="border-l-4 border-l-blue-500 pl-4 mb-4">
-                      <h4 className="font-medium text-md mb-2">Additional Claimant {index + 1}</h4>
+                {/* Step 2: Additional Claimants */}
+                {formData.additionalClaimants && formData.additionalClaimants.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-green-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
+                        Additional Claimants (Read-Only)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(1)}
+                        className="bg-white text-green-600 hover:bg-green-50 border-white"
+                      >
+                        View
+                      </Button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {formData.additionalClaimants.map((claimant, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Additional Claimant {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.1 Type</label>
+                              <p className="text-gray-900 capitalize">{claimant.type || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.2 Name</label>
+                              <p className="text-gray-900">{claimant.name || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.3 Email</label>
+                              <p className="text-gray-900">{claimant.email || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">2.4 Phone</label>
+                              <p className="text-gray-900">{claimant.phoneCountryCode} {claimant.phone || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">2.5 Address</label>
+                              <p className="text-gray-900">
+                                {claimant.address1 && (
+                                  <>
+                                    {claimant.address1}
+                                    {claimant.address2 && `, ${claimant.address2}`}
+                                    {claimant.city && `, ${claimant.city}`}
+                                    {claimant.district && `, ${claimant.district}`}
+                                    {claimant.state && `, ${claimant.state}`}
+                                    {claimant.country && `, ${claimant.country}`}
+                                    {claimant.pincode && ` - ${claimant.pincode}`}
+                                  </>
+                                ) || 'Not provided'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Manager Details */}
+                {formData.managerDetails && Object.keys(formData.managerDetails).length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-orange-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
+                        Manager Details (Read-Only)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(1)}
+                        className="bg-white text-orange-600 hover:bg-orange-50 border-white"
+                      >
+                        View
+                      </Button>
+                    </div>
+                    <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderReadOnlyField('Name', claimant.name)}
-                        {renderReadOnlyField('Email', claimant.email)}
-                        {renderReadOnlyField('Phone', claimant.phone)}
-                        {renderReadOnlyField('City', claimant.city)}
-                        {renderReadOnlyField('State', claimant.state)}
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">3.1 Name</label>
+                          <p className="text-gray-900">{formData.managerDetails.name || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">3.2 Designation</label>
+                          <p className="text-gray-900">{formData.managerDetails.designation || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">3.3 Email</label>
+                          <p className="text-gray-900">{formData.managerDetails.email || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">3.4 Phone</label>
+                          <p className="text-gray-900">{formData.managerDetails.phoneCountryCode} {formData.managerDetails.phone || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">3.5 Authority</label>
+                          <p className="text-gray-900">{formData.managerDetails.authority || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                          <label className="text-sm font-medium text-gray-600">3.6 Address</label>
+                          <p className="text-gray-900">{formData.managerDetails.address || 'Not provided'}</p>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 2: Manager Details */}
-            {formData.managerDetails && Object.keys(formData.managerDetails).length > 0 && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-blue-800">Step 2: Manager Details (Read-Only)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {renderReadOnlyField('Name', formData.managerDetails.name)}
-                    {renderReadOnlyField('Email', formData.managerDetails.email)}
-                    {renderReadOnlyField('Phone', formData.managerDetails.phone)}
-                    {renderReadOnlyField('Designation', formData.managerDetails.designation)}
-                    {renderReadOnlyField('Authority', formData.managerDetails.authority)}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {/* Step 3: Respondent Details */}
-            {formData.respondents && formData.respondents.length > 0 && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 3: Respondent Details (EDITABLE)</h3>
-                  {formData.respondents.map((respondent, index) => (
-                    <div key={index} className="border-l-4 border-l-green-500 pl-4 mb-4">
-                      <h4 className="font-medium text-md mb-2">Respondent {index + 1}</h4>
+                {/* Step 4: Respondent Details */}
+                {formData.respondents && formData.respondents.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-purple-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">4</span>
+                        Respondent Details (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(2)}
+                        className="bg-white text-purple-600 hover:bg-purple-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {formData.respondents.map((respondent, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Respondent {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.1 Type</label>
+                              <p className="text-gray-900 capitalize">{respondent.type || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.2 Name</label>
+                              <p className="text-gray-900">{respondent.name || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.3 Email</label>
+                              <p className="text-gray-900">{respondent.email || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.4 Phone</label>
+                              <p className="text-gray-900">{respondent.phoneCountryCode} {respondent.phone || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">4.5 Address</label>
+                              <p className="text-gray-900">
+                                {respondent.address1 && (
+                                  <>
+                                    {respondent.address1}
+                                    {respondent.address2 && `, ${respondent.address2}`}
+                                    {respondent.city && `, ${respondent.city}`}
+                                    {respondent.district && `, ${respondent.district}`}
+                                    {respondent.state && `, ${respondent.state}`}
+                                    {respondent.country && `, ${respondent.country}`}
+                                    {respondent.pincode && ` - ${respondent.pincode}`}
+                                  </>
+                                ) || 'Not provided'}
+                              </p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.6 GST Number</label>
+                              <p className="text-gray-900">{respondent.gst || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.7 PAN Number</label>
+                              <p className="text-gray-900">{respondent.pan || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">4.8 CIN Number</label>
+                              <p className="text-gray-900">{respondent.cin || 'Not provided'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: Arbitration Agreement */}
+                {formData.arbitrationAgreement && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-indigo-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-indigo-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">5</span>
+                        Arbitration Agreement (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(3)}
+                        className="bg-white text-indigo-600 hover:bg-indigo-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderReadOnlyField('Type', respondent.type)}
-                        {renderReadOnlyField('Name', respondent.name)}
-                        {renderReadOnlyField('Email', respondent.email)}
-                        {renderReadOnlyField('Phone', respondent.phone)}
-                        {renderReadOnlyField('City', respondent.city)}
-                        {renderReadOnlyField('State', respondent.state)}
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">5.1 Agreement Date</label>
+                          <p className="text-gray-900">{formData.arbitrationAgreement.agreementDate || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">5.2 Place of Signing</label>
+                          <p className="text-gray-900">{formData.arbitrationAgreement.placeOfSigning || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">5.3 Number of Arbitrators</label>
+                          <p className="text-gray-900">{formData.arbitrationAgreement.numberOfArbitrators || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">5.4 Stamp Duty Percentage</label>
+                          <p className="text-gray-900">{formData.arbitrationAgreement.stampDutyPercentage || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                          <label className="text-sm font-medium text-gray-600">5.5 Arbitration Text</label>
+                          <p className="text-gray-900">{formData.arbitrationAgreement.arbitrationText || 'Not provided'}</p>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 4: Arbitration Agreement */}
-            {formData.arbitrationAgreement && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 4: Arbitration Agreement (EDITABLE)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {renderReadOnlyField('Agreement Date', formData.arbitrationAgreement.agreementDate)}
-                    {renderReadOnlyField('Place of Signing', formData.arbitrationAgreement.placeOfSigning)}
-                    {renderReadOnlyField('Arbitration Text', formData.arbitrationAgreement.arbitrationText)}
-                    {renderReadOnlyField('Number of Arbitrators', formData.arbitrationAgreement.numberOfArbitrators)}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {/* Step 5: Nature of Dispute */}
-            {formData.natureOfDispute && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 5: Nature of Dispute (EDITABLE)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {renderReadOnlyField('Category', formData.natureOfDispute.category)}
-                    {renderReadOnlyField('Sub Category', formData.natureOfDispute.subCategory)}
-                    {renderReadOnlyField('Nature of Dispute', formData.natureOfDispute.natureOfDispute)}
-                    {renderReadOnlyField('Date When Right to Claim Arose', formData.natureOfDispute.dateWhenRightToClaimArose)}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 6: Dispute Descriptions */}
-            {formData.disputeDescriptions && formData.disputeDescriptions.length > 0 && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 6: Dispute Descriptions (EDITABLE)</h3>
-                  {formData.disputeDescriptions.map((dispute, index) => (
-                    <div key={index} className="border-l-4 border-l-green-500 pl-4 mb-4">
-                      <h4 className="font-medium text-md mb-2">Dispute {index + 1}</h4>
+                {/* Step 6: Nature of Dispute */}
+                {formData.natureOfDispute && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">6</span>
+                        Nature of Dispute (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(4)}
+                        className="bg-white text-red-600 hover:bg-red-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderReadOnlyField('Clause', dispute.clause)}
-                        {renderReadOnlyField('Claim Type', dispute.claimType)}
-                        {renderReadOnlyField('Claim Reason', dispute.claimReason)}
-                        {renderReadOnlyField('Relief Sought', dispute.reliefSought)}
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">6.1 Category</label>
+                          <p className="text-gray-900 capitalize">{formData.natureOfDispute.category || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">6.2 Sub Category</label>
+                          <p className="text-gray-900">{formData.natureOfDispute.subCategory || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">6.3 Nature of Dispute</label>
+                          <p className="text-gray-900">{formData.natureOfDispute.natureOfDispute || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">6.4 Date When Right to Claim Arose</label>
+                          <p className="text-gray-900">{formData.natureOfDispute.dateWhenRightToClaimArose || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">6.5 Standardised Prayer Clauses</label>
+                          <p className="text-gray-900">{formData.natureOfDispute.standardisedPrayerClauses || 'Not provided'}</p>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 7: Prayers & Reliefs */}
-            {formData.prayers && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 7: Prayers & Reliefs (EDITABLE)</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    {renderReadOnlyField('Prayers and Reliefs', Array.isArray(formData.prayers) ? formData.prayers.join(', ') : formData.prayers)}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {/* Step 8: Documents */}
-            {formData.evidence?.scannedDocuments && formData.evidence.scannedDocuments.length > 0 && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 8: Documents (EDITABLE)</h3>
-                  {formData.evidence.scannedDocuments.map((doc, index) => (
-                    <div key={index} className="border-l-4 border-l-green-500 pl-4 mb-4">
-                      <h5 className="font-medium text-sm mb-2">Document {index + 1}</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderReadOnlyField('Description', doc.description)}
-                        {renderReadOnlyField('Linked Issue', doc.linkedIssue)}
-                        {renderReadOnlyField('Admission Status', doc.admissionStatus)}
+                {/* Step 7: Dispute Descriptions */}
+                {formData.disputeDescriptions && formData.disputeDescriptions.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-pink-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">7</span>
+                        Dispute Descriptions (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(5)}
+                        className="bg-white text-pink-600 hover:bg-pink-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {formData.disputeDescriptions.map((dispute, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-semibold text-gray-900 mb-3">Dispute {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.1 Clause</label>
+                              <p className="text-gray-900">{dispute.clause || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.2 Claim Type</label>
+                              <p className="text-gray-900">{dispute.claimType || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.3 Claim Reason</label>
+                              <p className="text-gray-900">{dispute.claimReason || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.4 Relief Sought</label>
+                              <p className="text-gray-900">{dispute.reliefSought || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.5 Law Relied Upon</label>
+                              <p className="text-gray-900">{dispute.lawReliedUpon || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.6 Relevant Clause Number</label>
+                              <p className="text-gray-900">{dispute.relevantClauseNumber || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.7 Clause Supporting Claim</label>
+                              <p className="text-gray-900">{dispute.clauseSupportingClaim || 'Not provided'}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded">
+                              <label className="text-sm font-medium text-gray-600">7.8 Document Supporting Claim</label>
+                              <p className="text-gray-900">{dispute.documentSupportingClaim || 'Not provided'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 8: Prayers & Reliefs */}
+                {formData.prayers && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">8</span>
+                        Prayers & Reliefs (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(6)}
+                        className="bg-white text-teal-600 hover:bg-teal-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">8.1 Prayers and Reliefs</label>
+                          <p className="text-gray-900">{Array.isArray(formData.prayers) ? formData.prayers.join(', ') : formData.prayers || 'Not provided'}</p>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 9: Payment */}
-            {formData.payment && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-blue-800">Step 9: Payment (Read-Only)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {renderReadOnlyField('Payment Head', formData.payment.paymentHead)}
-                    {renderReadOnlyField('Payment Amount', formData.payment.paymentAmount)}
-                    {renderReadOnlyField('Payment Details', formData.payment.paymentDetails)}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {/* Step 10: Arguments */}
-            {formData.arguments && (
-              <Card>
-                <CardContent className="space-y-4 pt-6">
-                  <h3 className="font-medium text-lg mb-4 text-green-800">Step 10: Legal Arguments (EDITABLE)</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    {renderReadOnlyField('Arguments Per Issue', formData.arguments.argumentsPerIssue ? `${formData.arguments.argumentsPerIssue.length} arguments provided` : 'No arguments provided')}
+                {/* Step 9: Documents */}
+                {formData.evidence && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-yellow-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">9</span>
+                        Documents & Evidence (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(7)}
+                        className="bg-white text-yellow-600 hover:bg-yellow-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6">
+                      {formData.evidence.scannedDocuments && formData.evidence.scannedDocuments.length > 0 ? (
+                        <div className="space-y-4">
+                          {formData.evidence.scannedDocuments.map((doc, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                              <h4 className="font-semibold text-gray-900 mb-3">Document {index + 1}</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">9.1 Description</label>
+                                  <p className="text-gray-900">{doc.description || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">9.2 Date</label>
+                                  <p className="text-gray-900">{doc.date || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">9.3 Linked Issue</label>
+                                  <p className="text-gray-900">{doc.linkedIssue || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">9.4 Admission Status</label>
+                                  <p className="text-gray-900">{doc.admissionStatus || 'Not provided'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded">
+                          <p className="text-gray-900">No documents uploaded</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {/* Final Summary */}
-            <Card>
-              <CardContent className="space-y-4 pt-6">
-                <h3 className="font-medium text-lg mb-4 text-red-800">Final Summary</h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-medium text-blue-800 mb-2">Read-Only Information</h4>
-                  <p className="text-blue-700 text-sm">
-                    Steps 1, 2, and 9 contain the claimant's original information and cannot be modified.
-                  </p>
-                </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-medium text-green-800 mb-2">Editable Information</h4>
-                  <p className="text-green-700 text-sm">
-                    You can modify information in Steps 3, 4, 5, 6, 7, 8, and 10 using the "Change" buttons in each respective step.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                {/* Step 10: Payment */}
+                {formData.payment && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-emerald-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-emerald-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">10</span>
+                        Payment Details (Read-Only)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(8)}
+                        className="bg-white text-emerald-600 hover:bg-emerald-50 border-white"
+                      >
+                        View
+                      </Button>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">10.1 Payment Head</label>
+                          <p className="text-gray-900">{formData.payment.paymentHead || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">10.2 Payment Amount</label>
+                          <p className="text-gray-900">{formData.payment.paymentAmount || 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                          <label className="text-sm font-medium text-gray-600">10.3 Payment Details</label>
+                          <p className="text-gray-900">{formData.payment.paymentDetails || 'Not provided'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 11: Legal Arguments */}
+                {formData.arguments && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="bg-violet-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <span className="bg-white text-violet-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">11</span>
+                        Legal Arguments (EDITABLE)
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentStep(9)}
+                        className="bg-white text-violet-600 hover:bg-violet-50 border-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="p-6">
+                      {formData.arguments.argumentsPerIssue && formData.arguments.argumentsPerIssue.length > 0 ? (
+                        <div className="space-y-4">
+                          {formData.arguments.argumentsPerIssue.map((argument, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                              <h4 className="font-semibold text-gray-900 mb-3">Argument {index + 1}</h4>
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">11.1 Issue</label>
+                                  <p className="text-gray-900">{argument.issue || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">11.2 Legal Argument</label>
+                                  <p className="text-gray-900">{argument.argument || 'Not provided'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded">
+                          <p className="text-gray-900">No legal arguments provided</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+
+              </div>
+            </div>
           </div>
         )
 
@@ -1296,27 +1672,36 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
-      // Submit respondent response
-      const response = await fetch(`/api/respondent/case/${caseId}/respond`, {
+      console.log('🔧 Submitting response for case:', caseId)
+      console.log('🔧 Form data:', formData)
+
+      // Submit respondent response (authentication via cookies)
+      const response = await fetch(`/api/respondent/cases`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Include cookies in the request
         body: JSON.stringify({
+          caseId: caseId,
           responseData: formData,
-          round: round
+          round: round || 1
         })
       })
+
+      const responseData = await response.json()
+      console.log('🔧 Submit response:', responseData)
 
       if (response.ok) {
         toast.success('Response submitted successfully!')
         router.push('/dashboard/my-cases')
       } else {
-        throw new Error('Failed to submit response')
+        console.error('Submit failed:', responseData)
+        throw new Error(responseData.error || 'Failed to submit response')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submit error:', error)
-      toast.error('Failed to submit response. Please try again.')
+      toast.error(`Failed to submit response: ${error?.message || 'Unknown error'}`)
     } finally {
       setSubmitting(false)
     }
@@ -1328,22 +1713,24 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
       const response = await fetch(`/api/respondent/case/${caseId}/draft`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Include cookies in the request
         body: JSON.stringify({
           responseData: formData,
-          round: round
+          round: round || 1
         })
       })
 
       if (response.ok) {
         toast.success('Draft saved successfully!')
       } else {
-        throw new Error('Failed to save draft')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save draft')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save draft error:', error)
-      toast.error('Failed to save draft. Please try again.')
+      toast.error(`Failed to save draft: ${error?.message || 'Unknown error'}`)
     } finally {
       setLoading(false)
     }

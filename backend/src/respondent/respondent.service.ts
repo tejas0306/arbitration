@@ -374,7 +374,9 @@ export class RespondentService {
       caseResponse = await this.prisma.caseResponse.update({
         where: { id: existingResponse.id },
         data: {
-          responseData: data.responseData || {},
+          // Store response data in JSON fields that exist in schema
+          disputePointResponses: data.responseData?.fieldResponses || [],
+          counterClaims: data.responseData?.newIssues || [],
           status: 'SUBMITTED',
           submittedAt: new Date(),
           round: data.round || 1,
@@ -390,15 +392,15 @@ export class RespondentService {
         data: {
           caseId: caseId,
           respondentId: userId,
-          responseData: data.responseData || {},
+          // Store response data in JSON fields that exist in schema
+          disputePointResponses: data.responseData?.fieldResponses || [],
+          counterClaims: data.responseData?.newIssues || [],
           status: 'SUBMITTED',
           submittedAt: new Date(),
           round: data.round || 1,
           responseOverview: data.responseOverview || 'Respondent response submitted',
           legalArguments: data.legalArguments || '',
           additionalNotes: data.additionalNotes || '',
-          disputePointResponses: [],
-          counterClaims: [],
           documents: [],
           evidence: [],
           witnessStatements: [],

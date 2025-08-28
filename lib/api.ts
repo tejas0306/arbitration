@@ -606,6 +606,68 @@ export const arbitrationApi = {
       throw new Error(error.response?.data?.message || 'Failed to check for duplicates');
     }
   },
+
+  // AI-powered contract analysis endpoints
+  uploadFileToAI: async (formData: FormData) => {
+    try {
+      console.log('🤖 Starting AI file upload to:', `/api/arbitration/uploadFileToAI`);
+      
+      // Create a clean formData for better handling
+      const cleanFormData = new FormData();
+      for (const [key, value] of formData.entries()) {
+        cleanFormData.append(key, value);
+      }
+
+      const response = await apiClient.post('/api/arbitration/uploadFileToAI', cleanFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 120000, // 2 minutes for file upload
+      });
+
+      console.log('✅ AI file upload response:', response.data);
+      return response.data.fileId;
+    } catch (error: any) {
+      console.error('❌ AI file upload error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to upload file to AI');
+    }
+  },
+
+  generateAIResponse: async (fileId: string) => {
+    try {
+      console.log('🧠 Starting AI analysis for fileId:', fileId);
+      
+      const cleanFormData = new FormData();
+      cleanFormData.append('fileId', fileId);
+
+      const response = await apiClient.post('/api/arbitration/generateAIResponse', cleanFormData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 180000, // 3 minutes for AI processing
+      });
+
+      console.log('🎯 AI analysis completed:', response.data);
+      return typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+    } catch (error: any) {
+      console.error('❌ AI analysis error:', error);
+      throw error;
+    }
+  },
+
+  readAIResponseFromFile: async (fileId: string) => {
+    try {
+      console.log('📄 Reading AI response from file for fileId:', fileId);
+      
+      const response = await apiClient.get(`/api/arbitration/readAIResponse/${fileId}`);
+      
+      console.log('📁 AI response loaded from file:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Failed to read AI response from file:', error);
+      throw new Error(error.response?.data?.message || 'Failed to read AI response');
+    }
+  },
 };
 
 // Authentication endpoints

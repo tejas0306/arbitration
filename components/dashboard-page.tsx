@@ -88,10 +88,23 @@ export default function DashboardPage() {
           title: 'Claimant Dashboard',
           subtitle: 'Manage your arbitration cases and submissions.',
           quickActions: [
+            { label: 'AI-Assisted Case', href: '/arbitration/ai-new', icon: '🤖' },
             { label: 'Submit New Case', href: '/arbitration/new', icon: '➕' },
             { label: 'View My Cases', href: '/arbitration/cases', icon: '📁' },
             { label: 'Payment History', href: '/payments', icon: '💳' },
             { label: 'Get Support', href: '/support', icon: '🆘' }
+          ]
+        };
+      case 'ADMIN':
+        return {
+          title: 'Admin Dashboard',
+          subtitle: 'Manage the entire arbitration system and user accounts.',
+          quickActions: [
+            { label: 'AI-Assisted Case', href: '/arbitration/ai-new', icon: '🤖' },
+            { label: 'Manual Case', href: '/arbitration/new', icon: '➕' },
+            { label: 'User Management', href: '/admin/users', icon: '👥' },
+            { label: 'System Overview', href: '/admin/overview', icon: '📊' },
+            { label: 'Audit Logs', href: '/admin/audit-logs', icon: '📝' }
           ]
         };
       case 'RESPONDENT':

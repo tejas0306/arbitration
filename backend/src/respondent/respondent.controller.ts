@@ -47,6 +47,31 @@ export class RespondentController {
   }
 
   // Respondent registration
+  @Get('cases')
+  @UseGuards(JwtAuthGuard)
+  async getRespondentCases(@Request() req) {
+    try {
+      console.log('🚨🚨🚨 BACKEND RESPONDENT CASES ENDPOINT CALLED 🚨🚨🚨');
+      console.log('🔧 Request headers:', req.headers);
+      console.log('🔧 User from request:', req.user);
+      
+      if (!req.user || !req.user.id) {
+        console.log('🔧 ERROR: User not authenticated');
+        throw new UnauthorizedException('User not authenticated');
+      }
+      
+      console.log('🔧 Calling respondent service with userId:', req.user.id);
+      const cases = await this.respondentService.getRespondentCases(req.user.id);
+      console.log('🔧 Service returned:', cases.length, 'cases');
+      console.log('🔧 Cases data:', cases);
+      return cases;
+    } catch (error) {
+      console.error('🔧 ERROR in getRespondentCases:', error);
+      console.error('🔧 ERROR stack:', error.stack);
+      throw error;
+    }
+  }
+
   @Post('auth/register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() body: {
@@ -103,18 +128,7 @@ export class RespondentController {
     return this.respondentService.getRespondentDashboard(userId);
   }
 
-  // Get all cases for the respondent
-  @Get('cases')
-  @UseGuards(JwtAuthGuard)
-  async getRespondentCases(@Request() req) {
-    console.log('🔧 Respondent cases called with user:', req.user);
-    
-    if (!req.user || !req.user.id) {
-      throw new UnauthorizedException('User not found in request');
-    }
-    
-    return this.respondentService.getRespondentCases(req.user.id);
-  }
+
 
   // Get a specific case for the respondent
   @Get('cases/:id')

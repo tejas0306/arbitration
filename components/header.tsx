@@ -76,11 +76,17 @@ export default function Header() {
                 Dashboard
               </Link>
               
-              {/* Only show New Petition for CLAIMANT role */}
-              {user?.role === 'CLAIMANT' && (
-                <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
-                  New Petition
-                </Link>
+              {/* Show AI Petition for CLAIMANT and ADMIN roles */}
+              {(user?.role === 'CLAIMANT' || user?.role === 'ADMIN') && (
+                <>
+                  <Link href="/arbitration/ai-new" className="bg-purple-700 text-white px-4 py-1.5 rounded-md hover:bg-purple-800 transition-colors shadow-sm flex items-center gap-1">
+                    <span className="text-xs"></span>
+                    AI Petition
+                  </Link>
+                  <Link href="/arbitration/new" className="bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition-colors shadow-sm">
+                    Manual Petition
+                  </Link>
+                </>
               )}
               
               {isAdmin && (

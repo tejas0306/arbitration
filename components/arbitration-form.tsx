@@ -157,7 +157,7 @@ const initialClaimant = {
 }
 
 const initialAdditionalClaimant = {
-  type: "individual",
+  type: "",
   name: "",
   email: "",
   phoneCountryCode: "+91",
@@ -175,7 +175,7 @@ const initialAdditionalClaimant = {
 }
 
 const initialManagerDetails = {
-  type: "individual",
+  type: "",
   name: "",
   pincode: "",
   address1: "",
@@ -255,8 +255,8 @@ const initialDocumentEvidence = {
 const initialPrayers = {
   prayers: [{
     id: Math.random().toString(36).substr(2, 9),
-    title: "Default Prayer",
-    description: "Please describe the relief sought",
+    title: "",
+    description: "",
     amount: "",
     reliefType: "monetary"
   }]
@@ -267,12 +267,12 @@ const initialDocuments = {
   evidenceFiles: [] as File[],
   documentTypes: {} as Record<string, string>,
   scannedDocuments: [{
-    documentType: "Default Document",
+    documentType: "",
     date: "",
     file: null,
     linkedIssue: "",
     admissionStatus: "pending" as const,
-    description: "Default document description",
+    description: "",
     isOCREnabled: false,
     extractedText: "",
     keyMetadata: []
@@ -3535,12 +3535,24 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
         index = parseInt(parts[1]);
       }
 
-      // Auto-populate form fields
+      // Auto-populate form fields (only if field is empty to avoid overriding user data)
       Object.entries(extractedData).forEach(([key, value]) => {
+        let fieldPath = '';
         if (entityPath && index >= 0) {
-          setValue(`${entityPath}.${index}.${key}` as any, value);
+          fieldPath = `${entityPath}.${index}.${key}`;
         } else if (entityPath) {
-          setValue(`${entityPath}.${key}` as any, value);
+          fieldPath = `${entityPath}.${key}`;
+        }
+        
+        if (fieldPath) {
+          // Only update if the field is empty or undefined
+          const currentValue = getValues(fieldPath as any);
+          if (!currentValue || currentValue === '') {
+            setValue(fieldPath as any, value);
+            console.log(`✅ OCR updated ${fieldPath}: ${value}`);
+          } else {
+            console.log(`⚠️ OCR skipped ${fieldPath}: already has value "${currentValue}"`);
+          }
         }
       });
 

@@ -37,6 +37,7 @@ export interface ArbitrationCase {
   agreementFile: string | null
   disputeAmount?: string
   priority?: "High" | "Medium" | "Low"
+  userRole?: "claimant" | "respondent" | "admin"
   [key: string]: any
 }
 
@@ -119,6 +120,20 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
   const handleDownloadDocuments = React.useCallback((id: string) => {
     toast.info('Document download will be available soon')
   }, [])
+
+  const handleRespond = React.useCallback((caseId: string) => {
+    try {
+      if (!caseId) {
+        toast.error("Case ID is missing")
+        return
+      }
+      
+      // Navigate to respondent form page
+      router.push(`/respondent/respond/${caseId}`)
+    } catch (error) {
+      toast.error("Failed to navigate to respondent form. Please try again.")
+    }
+  }, [router])
 
   const handleViewDocument = React.useCallback((documentUrl: string | null) => {
     if (!documentUrl) {
@@ -415,10 +430,17 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleEditCase(caseData.id, caseData.status)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Case
-                </DropdownMenuItem>
+                {caseData.userRole === 'respondent' ? (
+                  <DropdownMenuItem onClick={() => handleRespond(caseData.id)}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Respond to Case
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => handleEditCase(caseData.id, caseData.status)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Case
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleDownloadDocuments(caseData.id)}>
                   <Download className="mr-2 h-4 w-4" />
@@ -438,7 +460,7 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
         enableHiding: false,
       },
     ],
-    [handleViewCase, handleEditCase, handleDownloadDocuments, handleViewDocument, getStatusColor, formatDate, formatCurrency]
+    [handleViewCase, handleEditCase, handleDownloadDocuments, handleRespond, handleViewDocument, getStatusColor, formatDate, formatCurrency]
   )
 
   return (

@@ -40,30 +40,34 @@ export default function DashboardWorklist({
       
       let allCases: any[] = [];
       
-      // Fetch claimant cases
-      try {
-        const claimantCases = await api.arbitration.getAll()
-        console.log('Claimant cases:', claimantCases.length)
-        allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
-      } catch (err) {
-        console.log('No claimant cases:', err);
+      // Fetch claimant cases (skip for respondents to avoid wrong API calls)
+      if (!userData || userData.role !== 'RESPONDENT') {
+        try {
+          const claimantCases = await api.arbitration.getAll()
+          console.log('Claimant cases:', claimantCases.length)
+          allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
+        } catch (err) {
+          console.log('No claimant cases:', err);
+        }
       }
       
-      // Fetch respondent cases
-      try {
-        const response = await fetch('/api/respondent/cases', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      // Fetch respondent cases (only if user is respondent or admin)
+      if (userData && (userData.role === 'RESPONDENT' || userData.role === 'ADMIN')) {
+        try {
+          const response = await fetch('/api/respondent/cases', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          });
+          
+          if (response.ok) {
+            const respondentCases = await response.json();
+            console.log('Respondent cases:', respondentCases.length)
+            allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
           }
-        });
-        
-        if (response.ok) {
-          const respondentCases = await response.json();
-          console.log('Respondent cases:', respondentCases.length)
-          allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
+        } catch (err) {
+          console.log('No respondent cases:', err);
         }
-      } catch (err) {
-        console.log('No respondent cases:', err);
       }
       
       console.log('Total cases:', allCases.length)
@@ -133,7 +137,8 @@ export default function DashboardWorklist({
           nextHearingDate: caseData.nextHearingDate || null,
           agreementFile,
           disputeAmount: caseData.disputeDetails?.disputeAmount || caseData.disputeAmount,
-          priority: caseData.priority || 'Medium'
+          priority: caseData.priority || 'Medium',
+          userRole: caseData.userRole || 'claimant' // Add userRole field
         }
       })
       

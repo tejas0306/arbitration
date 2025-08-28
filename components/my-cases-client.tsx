@@ -21,8 +21,9 @@ export default function MyCasesClient() {
         setIsLoading(true)
         
         // Fetch user data first
+        let user = null;
         try {
-          const user = await api.auth.getCurrentUser();
+          user = await api.auth.getCurrentUser();
           setUserData(user);
           console.log('🔧 User data:', user);
         } catch (err) {
@@ -33,32 +34,45 @@ export default function MyCasesClient() {
         let allCases: any[] = [];
         let draftsList: any[] = [];
         
-        try {
-          // Fetch claimant cases
-          const claimantCases = await arbitrationApi.getAll();
-          allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
-          console.log('🔧 Claimant cases fetched:', claimantCases.length);
-        } catch (err) {
-          console.log('🔧 No claimant cases or error:', err);
+        // Fetch claimant cases (skip for respondents to avoid wrong API calls)
+        if (!user || user.role !== 'RESPONDENT') {
+          try {
+            // Fetch claimant cases
+            const claimantCases = await arbitrationApi.getAll();
+            allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
+            console.log('🔧 Claimant cases fetched:', claimantCases.length);
+          } catch (err) {
+            console.log('🔧 No claimant cases or error:', err);
+          }
         }
         
-        try {
-          // Fetch respondent cases
-          const response = await fetch('/api/respondent/cases', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        // Only fetch respondent cases if user is respondent or admin
+        if (user && (user.role === 'RESPONDENT' || user.role === 'ADMIN')) {
+          try {
+            console.log('🔧 About to fetch respondent cases from /api/respondent/cases');
+            // Fetch respondent cases
+            const response = await fetch('/api/respondent/cases', {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+              }
+            });
+            
+            console.log('🔧 Response received:', response.status, response.ok);
+            console.log('🔧 Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (response.ok) {
+              const respondentCases = await response.json();
+              console.log('🔧 Raw response data:', respondentCases);
+              allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
+              console.log('🔧 Respondent cases fetched:', respondentCases.length);
+            } else {
+              console.log('🔧 Respondent API error:', response.status);
+              const errorText = await response.text();
+              console.log('🔧 Error response:', errorText);
             }
-          });
-          
-          if (response.ok) {
-            const respondentCases = await response.json();
-            allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
-            console.log('🔧 Respondent cases fetched:', respondentCases.length);
-          } else {
-            console.log('🔧 Respondent API error:', response.status);
+          } catch (err) {
+            console.log('🔧 No respondent cases or error:', err);
           }
-        } catch (err) {
-          console.log('🔧 No respondent cases or error:', err);
         }
         
         try {

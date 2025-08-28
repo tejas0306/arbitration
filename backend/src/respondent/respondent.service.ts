@@ -174,7 +174,7 @@ export class RespondentService {
         createdAt: caseItem.createdAt,
         updatedAt: caseItem.updatedAt,
         name: caseItem.name,
-        userRole: 'respondent',
+        userRole: 'RESPONDENT',
         currentRespondentEmail: user.email,
         
         // Claimant data (Step 1)
@@ -347,11 +347,56 @@ export class RespondentService {
     }
 
     // Check if the user is a respondent for this case
-    const isRespondent = arbitrationCase.respondentCases.some(
+    let isRespondent = arbitrationCase.respondentCases.some(
       (respCase) => respCase.respondentId === userId
     );
 
     console.log('🔧 Is user a respondent for this case?', isRespondent);
+
+    // If user is not in respondentCases but is a RESPONDENT user, try to create the relationship
+    if (!isRespondent && user.role === 'RESPONDENT') {
+      console.log('🔧 User is RESPONDENT but not linked to case. Attempting to create RespondentCase record...');
+      
+      try {
+        // Check if the case has respondents data
+        const caseRespondents = arbitrationCase.respondents as any[] || [];
+        const userEmail = user.email;
+        
+        // Check if user's email matches any respondent in the case
+        const matchingRespondent = caseRespondents.find(resp => resp.email === userEmail);
+        
+        if (matchingRespondent) {
+          console.log('🔧 Found matching respondent in case data. Creating RespondentCase record...');
+          
+          // Create the RespondentCase record
+          const responseDeadline = new Date();
+          responseDeadline.setDate(responseDeadline.getDate() + 21); // 21 days to respond
+          
+          await this.prisma.respondentCase.create({
+            data: {
+              caseId,
+              respondentId: userId,
+              respondentType: matchingRespondent.type || 'Individual',
+              respondentName: matchingRespondent.name || user.name,
+              respondentEmail: userEmail,
+              respondentPhone: matchingRespondent.phone || user.phone,
+              respondentAddress: matchingRespondent.address || {},
+              responseDeadline,
+              notificationStatus: 'UNREAD',
+              responseStatus: 'PENDING',
+              currentPhase: 'NOTICE_SENT'
+            }
+          });
+          
+          isRespondent = true;
+          console.log('🔧 Successfully created RespondentCase record. User is now authorized.');
+        } else {
+          console.log('🔧 User email not found in case respondents list');
+        }
+      } catch (error) {
+        console.error('🔧 Error creating RespondentCase record:', error);
+      }
+    }
 
     if (!isRespondent) {
       console.log('🔧 FORBIDDEN: User is not authorized to respond to this case');
@@ -641,7 +686,7 @@ export class RespondentService {
       {
         userId: user.id,
         email: user.email,
-        role: 'respondent',
+        role: 'RESPONDENT',
         caseId: foundCaseId || null
       },
       process.env.JWT_SECRET || 'your-secret-key',
@@ -655,7 +700,7 @@ export class RespondentService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: 'respondent'
+        role: 'RESPONDENT'
       },
       caseId: foundCaseId || null,
       sessionToken
@@ -709,7 +754,7 @@ export class RespondentService {
               {
                 userId: existingUser.id,
                 email: existingUser.email,
-                role: 'respondent',
+                role: 'RESPONDENT',
                 caseId: data.caseId || null,
               },
               secret,
@@ -723,7 +768,7 @@ export class RespondentService {
                 id: existingUser.id,
                 email: existingUser.email,
                 name: data.fullName || existingUser.name,
-                role: 'respondent',
+                role: 'RESPONDENT',
               },
               caseId: data.caseId || null,
               sessionToken: sessionTokenForExisting,
@@ -790,7 +835,7 @@ export class RespondentService {
       {
         userId: user.id,
         email: user.email,
-        role: 'respondent',
+        role: 'RESPONDENT',
         caseId: data.caseId || null
       },
       process.env.JWT_SECRET || 'your-secret-key',
@@ -804,7 +849,7 @@ export class RespondentService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: 'respondent'
+        role: 'RESPONDENT'
       },
       caseId: data.caseId || null,
       sessionToken

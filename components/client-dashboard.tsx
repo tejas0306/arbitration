@@ -49,34 +49,37 @@ export default function ClientDashboard() {
       try {
         let allCases: any[] = [];
         
-        // Fetch claimant cases
-        try {
-          const claimantResponse = await fetch('/api/arbitration/my-cases', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        // Fetch claimant cases (skip for respondents to avoid wrong API calls)
+        if (!user || user.role !== 'RESPONDENT') {
+          try {
+            const claimantResponse = await fetch('/api/arbitration/my-cases', {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+              }
+            });
+            
+            if (claimantResponse.ok) {
+              const claimantData = await claimantResponse.json();
+              allCases = [...allCases, ...(claimantData.cases || []).map((c: any) => ({ ...c, userRole: 'claimant' }))];
             }
-          });
-          
-          if (claimantResponse.ok) {
-            const claimantData = await claimantResponse.json();
-            allCases = [...allCases, ...(claimantData.cases || []).map((c: any) => ({ ...c, userRole: 'claimant' }))];
+          } catch (err) {
+            console.log('No claimant cases or error fetching:', err);
           }
-        } catch (err) {
-          console.log('No claimant cases or error fetching:', err);
         }
         
-        // Fetch respondent cases
-        try {
-          console.log('🔧 Fetching respondent cases...');
-          const respondentResponse = await fetch('/api/respondent/cases', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-          });
-          
-          console.log('🔧 Respondent response status:', respondentResponse.status);
-          
-          if (respondentResponse.ok) {
+        // Fetch respondent cases (only if user is respondent or admin)
+        if (user && (user.role === 'RESPONDENT' || user.role === 'ADMIN')) {
+          try {
+            console.log('🔧 Fetching respondent cases...');
+            const respondentResponse = await fetch('/api/respondent/cases', {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+              }
+            });
+            
+            console.log('🔧 Respondent response status:', respondentResponse.status);
+            
+            if (respondentResponse.ok) {
             const respondentData = await respondentResponse.json();
             console.log('🔧 Respondent data:', respondentData);
             allCases = [...allCases, ...(respondentData || []).map((c: any) => ({ ...c, userRole: 'respondent' }))];
@@ -84,8 +87,9 @@ export default function ClientDashboard() {
             const errorData = await respondentResponse.json().catch(() => ({}));
             console.log('🔧 Respondent API error:', errorData);
           }
-        } catch (err) {
-          console.log('No respondent cases or error fetching:', err);
+          } catch (err) {
+            console.log('No respondent cases or error fetching:', err);
+          }
         }
         
         setCases(allCases);

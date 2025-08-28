@@ -1,0 +1,1600 @@
+import axios, { AxiosRequestConfig, InternalAxiosRequestConfig, AxiosError } from 'axios';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+
+const apiClient = axios.create({
+  baseURL: '/api',  // Use relative path to let Next.js handle the routing
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 60000, // 1 minutes
+  withCredentials: true, // Include cookies in requests
+  
+    maxContentLength: Infinity,  // to prevent client-side limit
+    maxBodyLength: Infinity,      // to prevent axios limit
+});
+
+// Keep track of logout function for global usage
+let logoutCallback: (() => void) | null = null;
+
+export const setLogoutCallback = (callback: () => void) => {
+  logoutCallback = callback;
+};
+
+// Add request interceptor to include auth token
+apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = localStorage.getItem('auth_token');
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor to handle auth errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      console.error('Authentication error - clearing tokens and redirecting to login');
+      // Clear tokens
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      
+      // Call the logout callback if it exists
+      if (logoutCallback) {
+        logoutCallback();
+      } else {
+        // If no callback is set, redirect manually
+        window.location.href = '/auth/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export interface ArbitrationFormData {
+  type: string;
+  name: string;
+  pincode: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  district: string;
+  state: string;
+  country: string;
+  email: string;
+  phoneCountryCode: string;
+  phone: string;
+  gst?: string;
+  pan?: string;
+  cin?: string;
+  coi?: File;
+  panCard?: File;
+  gstCert?: File;
+  additionalClaimants: Array<{
+    name: string;
+    email: string;
+    phoneCountryCode: string;
+    phone: string;
+    pincode: string;
+    address1: string;
+    address2?: string;
+    city: string;
+    district: string;
+    state: string;
+    country: string;
+  }>;
+  respondents: Array<{
+    type: string;
+    name: string;
+    address?: string;
+    email: string;
+    phoneCountryCode?: string;
+    phone?: string;
+    gst?: string;
+    pan?: string;
+    cin?: string;
+  }>;
+  arbitrationAgreement: {
+    agreementDate: string;
+    placeOfSigning: string;
+    arbitrationText: string;
+    stampDutyPercentage: string;
+    numberOfArbitrators: string;
+    agreementFile: File;
+  };
+  disputeDetails: {
+    disputeType: string;
+    disputeAmount: string;
+    disputeDescription: string;
+    disputeDate: string;
+  };
+  documents?: {
+    supportingDocuments: File[];
+    evidenceFiles: File[];
+  };
+}
+
+export const arbitrationApi = {
+  create: async (formData: FormData) => {
+    try {
+      // Validate formData
+      if (!formData) {
+        throw new Error('No form data provided');
+      }
+      
+      // Validate authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+
+      console.log('Starting arbitration submission to:', `/api/arbitration/submit`);
+      
+      // Check if formData has required fields
+      const hasData = formData.has('data');
+      if (!hasData) {
+        console.error('FormData missing required data field');
+        throw new Error('Form data is incomplete');
+      }
+      
+      // Log FormData entries for debugging
+      const formDataEntries: string[] = [];
+      formData.forEach((value, key) => {
+        if (value instanceof File) {
+          formDataEntries.push(`${key}: File(${value.name}, ${value.size} bytes)`);
+        } else {
+          formDataEntries.push(`${key}: ${typeof value === 'string' && value.length > 100 ? value.substring(0, 100) + '...' : value}`);
+        }
+      });
+      console.log('FormData entries:', formDataEntries);
+      
+      // Create a new FormData to ensure it's clean
+      const cleanFormData = new FormData();
+      formData.forEach((value, key) => {
+        cleanFormData.append(key, value);
+      });
+      
+      console.log('Sending arbitration request...');
+      
+      const response = await apiClient.post('/api/arbitration/submit', cleanFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Increase timeout for large file uploads
+        timeout: 60000, // 60 seconds
+      });
+      
+      console.log('Arbitration created successfully:', response.data);
+      
+      // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating arbitration:', error.message);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle specific error codes
+        if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 413) {
+          throw new Error('File size too large. Please reduce the size of your uploads.');
+        } else if (error.response.status === 400) {
+          const message = error.response.data?.message || 'Invalid form data';
+          throw new Error(`Bad request: ${message}`);
+        } else if (error.response.status === 500) {
+          throw new Error('Server error. Please try again later.');
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
+      }
+      
+      // Rethrow the original error if no specific handling
+      throw error;
+    }
+  },
+
+
+  airesponse: async (formData: FormData) => {
+    try {
+      // Validate formData
+      if (!formData) {
+        throw new Error('No form data provided');
+      }
+      
+      // Validate authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+
+      console.log('Starting arbitration airesponse to:', `/api/arbitration/airesponse`);
+      
+     
+      // Log FormData entries for debugging
+      const formDataEntries: string[] = [];
+      formData.forEach((value, key) => {
+        if (value instanceof File) {
+          formDataEntries.push(`${key}: File(${value.name}, ${value.size} bytes)`);
+        } else {
+          formDataEntries.push(`${key}: ${typeof value === 'string' && value.length > 100 ? value.substring(0, 100) + '...' : value}`);
+        }
+      });
+      console.log('FormData entries:', formDataEntries);
+      
+      // Create a new FormData to ensure it's clean
+      const cleanFormData = new FormData();
+      formData.forEach((value, key) => {
+        cleanFormData.append(key, value);
+      });
+      
+      console.log('Sending arbitration request...', formData);
+      
+      const response = await apiClient.post('/api/arbitration/airesponse', cleanFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Increase timeout for large file uploads
+        timeout: 60000, // 1 Minutes
+      });
+      
+      console.log('Arbitration airesponse successfully:', response.data);
+      
+      // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating arbitration:', error.message);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle specific error codes
+        if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 413) {
+          throw new Error('File size too large. Please reduce the size of your uploads.');
+        } else if (error.response.status === 400) {
+          const message = error.response.data?.message || 'Invalid form data';
+          throw new Error(`Bad request: ${message}`);
+        } else if (error.response.status === 500) {
+          throw new Error('Server error. Please try again later.');
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
+      }
+      
+      // Rethrow the original error if no specific handling
+      throw error;
+    }
+  },
+
+
+uploadFileToAI: async (formData: FormData) => {
+
+let response :any;
+    try {
+      // Validate formData
+      if (!formData) {
+        throw new Error('No form data provided');
+      }
+      
+      // Validate authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+
+      console.log('Starting arbitration uploadFileToAI to:', `/api/arbitration/uploadFileToAI`);
+      
+     
+      // Log FormData entries for debugging
+      const formDataEntries: string[] = [];
+      formData.forEach((value, key) => {
+        if (value instanceof File) {
+          formDataEntries.push(`${key}: File(${value.name}, ${value.size} bytes)`);
+        } else {
+          formDataEntries.push(`${key}: ${typeof value === 'string' && value.length > 100 ? value.substring(0, 100) + '...' : value}`);
+        }
+      });
+      console.log('FormData entries:', formDataEntries);
+      
+      // Create a new FormData to ensure it's clean
+      const cleanFormData = new FormData();
+      formData.forEach((value, key) => {
+        cleanFormData.append(key, value);
+      });
+      
+      console.log('Sending arbitration request...', formData);
+      
+      response = await apiClient.post('/api/arbitration/uploadFileToAI', cleanFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Increase timeout for large file uploads
+        timeout: 60000, // 1 Minutes
+      });
+      
+      console.log('Arbitration airesponse successfully:', response.data);
+	  
+	  // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
+      }
+	  const { fileId } = response.data;
+	console.log('File ID:', fileId);
+	  //const aiResponse = arbitrationApi.generateAIResponse(fileId);  
+	  
+      return fileId;
+    } catch (error: any) {
+      console.error('Error creating arbitration:', error.message);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle specific error codes
+        if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 413) {
+          throw new Error('File size too large. Please reduce the size of your uploads.');
+        } else if (error.response.status === 400) {
+          const message = error.response.data?.message || 'Invalid form data';
+          throw new Error(`Bad request: ${message}`);
+        } else if (error.response.status === 500) {
+			//const { fileId } = response.data;
+			//const generatedAIResponse = await arbitrationApi.readAIResponseFromFile(fileId); 
+          //return generatedAIResponse;
+		  
+			throw new Error('Server error. Please try again later.');
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
+      }
+      
+      // Rethrow the original error if no specific handling
+	  
+	  
+      throw error;
+    }
+  },
+  
+  
+  
+readAIResponseFromFile: async (
+    fileId: string,
+    maxAttempts = 50,
+    interval = 10000
+  ): Promise<JsonData | null> => {
+    let attempt = 0;
+
+    return new Promise((resolve, reject) => {
+      const poll = async () => {
+        if (attempt >= maxAttempts) {
+          reject(new Error("Max attempts reached. JSON not found."));
+          return;
+        }
+
+        try {
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+          const directUrl = `/api/api/arbitration/readAIResponse/${fileId}`;
+          const token = localStorage.getItem('auth_token');
+
+          console.log(`⚠️ Attempting direct backend connection to: ${directUrl}`);
+          console.log(`⚠️ Token available: ${token ? 'YES' : 'NO'}`);
+
+          const response = await fetch(directUrl, {
+            headers: {
+              'Authorization': token ? `Bearer ${token}` : '',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            credentials: 'include'
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            resolve(data);
+          } else {
+            throw new Error('Not ready yet');
+          }
+
+        } catch (err) {
+          attempt++;
+          setTimeout(poll, interval);
+        }
+      };
+
+      poll();
+    });
+  },
+  
+
+generateAIResponse: async (fileId: string) => {
+    try {
+      // Validate fileId
+      if (!fileId) {
+        throw new Error('No fileId data provided');
+      }
+      
+      // Validate authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+
+     
+      // Create a new FormData to ensure it's clean
+      const cleanFormData = new FormData();
+	  cleanFormData.append('fileId', fileId);
+      
+      
+      const response = await apiClient.post('/api/arbitration/generateAIResponse', cleanFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Increase timeout for large file uploads
+        timeout: 60000, // 1 Minutes
+      });
+      
+      console.log('Arbitration airesponse successfully:', response.data);
+      
+      // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
+      }
+      
+	  
+	  
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating arbitration:', error.message);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle specific error codes
+        if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 413) {
+          throw new Error('File size too large. Please reduce the size of your uploads.');
+        } else if (error.response.status === 400) {
+          const message = error.response.data?.message || 'Invalid form data';
+          throw new Error(`Bad request: ${message}`);
+        } else if (error.response.status === 500) {
+          
+			const generatedAIResponse = await arbitrationApi.readAIResponseFromFile(fileId); 
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
+      }
+      
+      // Rethrow the original error if no specific handling
+      throw error;
+    }
+  },
+
+  saveDraft: async (formData: FormData) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      console.log('Token available:', token ? 'Yes (length: ' + token.length + ')' : 'No');
+      
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+      
+      // Log full request URL for debugging
+      const fullUrl = '/api/arbitration/draft';
+      console.log('Attempting to save draft to:', fullUrl);
+      
+      // Log formData entries in a more user-friendly way
+      const formDataLog: Record<string, any> = {};
+      let hasFiles = false;
+      formData.forEach((value, key) => {
+        // Don't log file contents, just file names for files
+        if (value instanceof File) {
+          hasFiles = true;
+          formDataLog[key] = `File: ${value.name} (${value.type}, ${value.size} bytes)`;
+        } else if (typeof value === 'string' && value.startsWith('{')) {
+          // Try to parse JSON strings for better logging
+          try {
+            formDataLog[key] = JSON.parse(value);
+          } catch (e) {
+            formDataLog[key] = value;
+          }
+        } else {
+          formDataLog[key] = value;
+        }
+      });
+      
+      console.log('Draft FormData contents:', formDataLog);
+      console.log('FormData has files:', hasFiles);
+      console.log('FormData entries count:', Array.from(formData.entries()).length);
+      
+      // Log the actual data structure being sent
+      const dataString = formData.get('data');
+      if (dataString && typeof dataString === 'string') {
+        try {
+          const parsedData = JSON.parse(dataString);
+          console.log('Parsed form data structure:', {
+            hasClaimant: !!parsedData.claimant,
+            hasRespondents: !!parsedData.respondents,
+            hasArbitrationAgreement: !!parsedData.arbitrationAgreement,
+            claimantKeys: parsedData.claimant ? Object.keys(parsedData.claimant) : [],
+            topLevelKeys: Object.keys(parsedData)
+          });
+        } catch (e) {
+          console.log('Could not parse data field:', e.message);
+        }
+      }
+      
+      const response = await apiClient.post('/api/arbitration/draft', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Increase timeout for large file uploads
+        timeout: 60000, // 60 seconds
+      });
+      
+      console.log('Draft saved successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error saving draft:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        stackTrace: error.stack,
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          headers: error.config.headers,
+          baseURL: error.config.baseURL,
+          fullUrl: error.config.baseURL + error.config.url,
+        } : 'No config available'
+      });
+      
+      // Log detailed error information for debugging
+      if (error.response) {
+        console.error('Response Error Details:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+      } else if (error.request) {
+        console.error('Request Error - No Response:', error.request);
+      } else {
+        console.error('Error Message:', error.message);
+      }
+      
+      if (error.response?.status === 404) {
+        console.error('404 Error: API endpoint not found. Check that the backend controller has the correct route defined.');
+      }
+      
+      if (error.response?.status === 401) {
+        // Handle token expiration or invalid token
+        console.error('Authentication failed. Token may be expired or invalid.');
+        localStorage.removeItem('auth_token');
+        
+        // Inform the user they need to log in again
+        throw new Error('Your session has expired. Please log in again.');
+      }
+      
+      throw error;
+    }
+  },
+
+  // Enhanced methods for draft management
+  getDrafts: async () => {
+    try {
+      console.log('Fetching drafts from:', '/api/arbitration/drafts');
+      const response = await apiClient.get('/api/arbitration/drafts');
+      console.log('Got drafts response:', response.data ? 'SUCCESS' : 'EMPTY');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error getting drafts:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullUrl: error.config?.baseURL + error.config?.url,
+      });
+      throw error;
+    }
+  },
+
+  getDraft: async (id: string) => {
+    try {
+      console.log(`Fetching draft with ID: ${id}`);
+      
+      // First try the direct backend connection
+      try {
+        // Get the API URL from environment or use default
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+        const directUrl = `${API_URL}/api/arbitration/draft/${id}`;
+        
+        // Get the auth token
+        const token = localStorage.getItem('auth_token');
+        
+        console.log(`⚠️ Attempting direct backend connection to: ${directUrl}`);
+        console.log(`⚠️ Token available: ${token ? 'YES' : 'NO'}`);
+        
+        // Make direct request to backend
+        const directResponse = await fetch(directUrl, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include' // Include cookies for cross-origin requests
+        });
+        
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          console.log('⚠️ Direct backend connection success:', data ? 'SUCCESS' : 'EMPTY');
+          return data;
+        } else {
+          console.log(`⚠️ Direct backend connection failed with status: ${directResponse.status}`);
+          throw new Error(`Direct connection failed: ${directResponse.status}`);
+        }
+      } catch (directError) {
+        console.log('⚠️ Direct backend connection error:', directError.message);
+        
+        // If direct connection fails, try Next.js API routes
+        console.log('⚠️ Falling back to Next.js API routes');
+        
+        // Try multiple possible endpoints in sequence
+        const possibleEndpoints = [
+          `/api/arbitration/drafts/${id}`,
+          `/api/arbitration/draft/${id}`,
+          `/api/arbitration/draft?id=${id}`, 
+          `/api/arbitration/drafts?id=${id}`
+        ];
+        
+        let lastError = null;
+        
+        // Try each endpoint until one works
+        for (const endpoint of possibleEndpoints) {
+          try {
+            console.log(`⚠️ Trying endpoint: ${endpoint}`);
+            const response = await apiClient.get(endpoint);
+            console.log(`⚠️ Success with endpoint ${endpoint}:`, response.data ? 'SUCCESS' : 'EMPTY');
+            
+            // Log the full response data structure
+            console.log('⚠️ Response data structure:', JSON.stringify(response.data, null, 2));
+            
+            return response.data;
+          } catch (error: any) {
+            console.log(`⚠️ Failed with endpoint ${endpoint}:`, error.message);
+            lastError = error;
+            // Continue to next endpoint
+          }
+        }
+        
+        // If we get here, all endpoints failed
+        console.error('⚠️ All draft endpoints failed for ID:', id);
+        throw lastError;
+      }
+    } catch (error: any) {
+      console.error('Error getting draft:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullUrl: error.config?.baseURL + error.config?.url,
+      });
+      
+      throw error;
+    }
+  },
+
+  submitDraft: async (draftId: string) => {
+    if (!draftId) {
+      throw new Error('Draft ID is required');
+    }
+    
+    try {
+      console.log(`Attempting to submit draft with ID: ${draftId}`);
+      
+      // Validate authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+      
+      console.log(`Sending draft submission request to: /api/arbitration/draft/${draftId}/submit`);
+      
+      const response = await apiClient.post(`/api/arbitration/draft/${draftId}/submit`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 second timeout
+      });
+      
+      console.log('Draft submission response:', response.data);
+      
+      // Validate response data
+      if (!response.data) {
+        throw new Error('Empty response from server');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error(`Error submitting draft ${draftId}:`, error.message);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle specific error codes
+        if (error.response.status === 404) {
+          throw new Error(`Draft with ID ${draftId} not found`);
+        } else if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (error.response.status === 403) {
+          throw new Error('You do not have permission to submit this draft.');
+        } else if (error.response.status === 500) {
+          const message = error.response.data?.message || 'Unknown server error';
+          throw new Error(`Server error: ${message}`);
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        throw new Error('No response from server. Please check your connection and try again.');
+      }
+      
+      // Rethrow the original error if no specific handling
+      throw error;
+    }
+  },
+
+  getAll: async () => {
+    try {
+      // Debug current user info
+      const token = localStorage.getItem('auth_token');
+      const user = localStorage.getItem('user');
+      console.log('🐛 DEBUG: Making cases request with:', {
+        hasToken: !!token,
+        tokenPreview: token?.substring(0, 20) + '...',
+        user: user ? JSON.parse(user) : null
+      });
+      
+      console.log('Fetching all cases from:', `${API_URL}/api/arbitration/cases`);
+      const response = await apiClient.get('/api/arbitration/cases');
+      console.log('Got cases response:', response.data ? 'SUCCESS' : 'EMPTY');
+      console.log('🐛 DEBUG: Response data preview:', {
+        count: response.data?.length,
+        firstCaseUserId: response.data?.[0]?.userId,
+        allUserIds: [...new Set((response.data || []).map(c => c.userId))]
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error getting cases:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullUrl: error.config?.baseURL + error.config?.url,
+      });
+      throw error;
+    }
+  },
+
+  getById: async (id: string) => {
+    try {
+      console.log(`Fetching petition with ID: ${id}`);
+      // First try to get it as a submitted case
+      try {
+        const response = await apiClient.get(`/api/arbitration/cases/${id}`);
+        return response.data;
+      } catch (error: any) {
+        console.log(`Not found as a case, trying as a draft...`);
+        if (error.response?.status === 404) {
+          // If not found as a case, try getting it as a draft
+          const draftResponse = await apiClient.get(`/api/arbitration/draft/${id}`);
+          return draftResponse.data;
+        }
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Error fetching petition:', error);
+      
+      // Provide more detailed error information
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      }
+      
+      throw error;
+    }
+  },
+
+  getByCaseNumber: async (caseNumber: string) => {
+    const response = await apiClient.get(`/arbitration/cases/${caseNumber}`);
+    return response.data;
+  },
+
+  update: async (id: string, formData: FormData) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in first.');
+      }
+      
+      const response = await apiClient.put(`/arbitration/cases/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        timeout: 60000, // 60 seconds
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error updating case:', error);
+      throw error;
+    }
+  },
+
+  updateStatus: async (id: string, status: string) => {
+    const response = await apiClient.put(`/arbitration/cases/${id}/status`, { status });
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/arbitration/cases/${id}`);
+    return response.data;
+  },
+};
+
+// Authentication endpoints
+export const auth = {
+  login: async (credentials: { email: string; password: string }) => {
+    try {
+      console.log('Starting login request to:', `${API_URL}/api/auth/login`);
+      const response = await apiClient.post('/api/auth/login', credentials);
+      console.log('Login response:', response.data);
+      
+      // The backend might return data in different formats, handle both possibilities
+      const token = response.data.token || response.data.access_token;
+      const user = response.data.user;
+      
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+      
+      // Store token with an expiration time (24 hours)
+      const tokenData = {
+        value: token,
+        expires: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+      };
+      
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('token_expiry', JSON.stringify(tokenData.expires));
+      
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      
+      return { user, token };
+    } catch (error: any) {
+      console.error('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        name: error.name,
+        code: error.code,
+        stack: error.stack,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL,
+        },
+        // Log the full error object for debugging
+        fullError: error,
+      });
+      throw error;
+    }
+  },
+  
+  register: async (userData: {
+    email: string;
+    password: string;
+    name: string;
+    organization?: string;
+  }) => {
+    try {
+      console.log('Registering user with data:', {
+        ...userData,
+        password: '[REDACTED]'  // Don't log the actual password
+      });
+      
+      const response = await apiClient.post('/api/auth/register', userData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Registration error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+        }
+      });
+      throw error;
+    }
+  },
+  
+  logout: () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('token_expiry');
+    
+    // Use the logout callback if it exists
+    if (logoutCallback) {
+      logoutCallback();
+    }
+    
+    return Promise.resolve();
+  },
+  
+  getCurrentUser: async () => {
+    try {
+      // Add debug logging for token existence
+      const token = localStorage.getItem('auth_token');
+      console.log('⚠️ getCurrentUser token status:', token ? 'EXISTS' : 'MISSING');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Check if token is expired
+      const expiryStr = localStorage.getItem('token_expiry');
+      if (expiryStr) {
+        const expiry = JSON.parse(expiryStr);
+        if (Date.now() > expiry) {
+          // Token is expired
+          console.warn('Token has expired');
+          auth.logout();
+          throw new Error('Your session has expired. Please log in again.');
+        }
+      }
+      
+      // Check token format
+      if (!token.startsWith('ey')) {
+        // Most JWT tokens start with 'ey'
+        console.warn('Token does not appear to be in JWT format:', token.substring(0, 10) + '...');
+      }
+      
+      console.log('⚠️ Fetching current user with token length:', token.length);
+      
+      try {
+        // Add detailed logging about the request
+        console.log('⚠️ Making request to:', `${API_URL}/api/auth/me`);
+        
+        const response = await apiClient.get('/api/auth/me', {
+          // Increase timeout for debugging
+          timeout: 10000,
+        });
+        
+        console.log('⚠️ User data received:', response.data ? 'SUCCESS' : 'EMPTY');
+        return response.data;
+      } catch (requestError: any) {
+        // Add detailed error logging specifically for the request
+        console.error('⚠️ Request error details:', {
+          message: requestError.message,
+          name: requestError.name,
+          code: requestError.code,
+          status: requestError.response?.status,
+          statusText: requestError.response?.statusText,
+          data: requestError.response?.data,
+          url: requestError.config?.url,
+          method: requestError.config?.method,
+          baseURL: requestError.config?.baseURL,
+          headers: requestError.config?.headers,
+        });
+        
+        // Re-throw with more specific message
+        if (requestError.response?.status === 401) {
+          throw new Error('Authentication failed: Invalid or expired token');
+        } else if (requestError.response?.status === 403) {
+          throw new Error('Authentication failed: Insufficient permissions');
+        } else if (requestError.code === 'ECONNABORTED') {
+          throw new Error('Request timed out. Please check your network connection');
+        } else if (requestError.message === 'Network Error') {
+          throw new Error('Network error. Please check your connection to the server');
+        }
+        
+        throw requestError;
+      }
+    } catch (error: any) {
+      console.error('Error getting current user:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      
+      // Clear token if there's an authentication problem
+      if (error.response?.status === 401) {
+        auth.logout();
+      }
+      
+      throw error;
+    }
+  },
+  
+  // Check if the user is currently authenticated
+  isAuthenticated: () => {
+    if (typeof window === 'undefined') {
+      return false; // Not authenticated on server-side
+    }
+    
+    const token = localStorage.getItem('auth_token');
+    const expiryStr = localStorage.getItem('token_expiry');
+    
+    if (!token) return false;
+    
+    // Check expiration if available
+    if (expiryStr) {
+      try {
+        const expiry = JSON.parse(expiryStr);
+        if (Date.now() > expiry) {
+          // Token expired, clean up
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('token_expiry');
+          return false;
+        }
+      } catch (e) {
+        console.error('Error parsing token expiry:', e);
+        return false;
+      }
+    }
+    
+    return true;
+  }
+};
+
+// Arbitration case management endpoints
+const arbitration = {
+  // Submit new arbitration request
+  submitRequest: (formData: any) => 
+    apiClient.post('/api/arbitration/submit', formData),
+  
+  // Save draft arbitration request
+  saveDraft: (formData: any) => 
+    apiClient.post('/api/arbitration/draft', formData),
+  
+  // Get list of cases for the current user
+  getCases: (filters?: { status?: string; category?: string }) => 
+    apiClient.get('/api/arbitration/cases', { params: filters }),
+  
+  // Get specific case details
+  getCaseDetails: (caseId: string) => 
+    apiClient.get(`/api/arbitration/cases/${caseId}`),
+  
+  // Update case status
+  updateCaseStatus: (caseId: string, status: string) => 
+    apiClient.patch(`/api/arbitration/cases/${caseId}/status`, { status }),
+  
+  // Submit response to arbitration request (for respondents)
+  submitResponse: (caseId: string, responseData: any) => 
+    apiClient.post(`/api/arbitration/cases/${caseId}/respond`, responseData),
+};
+
+// Document management endpoints
+const documents = {
+  // Upload document with metadata
+  uploadDocument: (caseId: string, documentData: FormData) => 
+    apiClient.post(`/api/documents/${caseId}/upload`, documentData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+  
+  // Get documents for a case
+  getDocuments: (caseId: string) => 
+    apiClient.get(`/api/documents/${caseId}`),
+  
+  // Download specific document
+  downloadDocument: (documentId: string) => {
+    // This needs special handling for file downloads
+    window.open(`${API_URL}/api/documents/download/${documentId}`, '_blank');
+    return Promise.resolve({ success: true });
+  },
+  
+  // Delete document
+  deleteDocument: (documentId: string) => 
+    apiClient.delete(`/api/documents/${documentId}`),
+};
+
+// Arbitrator management endpoints
+const arbitrators = {
+  // Get list of arbitrators
+  getArbitrators: (filters?: { expertise?: string; availability?: string }) => 
+    apiClient.get('/api/arbitrators', { params: filters }),
+  
+  // Get specific arbitrator details
+  getArbitratorDetails: (arbitratorId: string) => 
+    apiClient.get(`/api/arbitrators/${arbitratorId}`),
+  
+  // Assign arbitrator to case
+  assignArbitrator: (caseId: string, arbitratorId: string) => 
+    apiClient.post(`/api/arbitration/cases/${caseId}/assign-arbitrator`, { arbitratorId }),
+};
+
+// User profile management
+const profile = {
+  // Get current user profile
+  getProfile: () => apiClient.get('/api/auth/profile'),
+  
+  // Update user profile
+  updateProfile: (profileData: any) => 
+    apiClient.patch('/api/auth/profile', profileData),
+  
+  // Change password
+  changePassword: (passwordData: { currentPassword: string; newPassword: string }) => 
+    apiClient.post('/api/auth/change-password', passwordData),
+};
+
+// Communication endpoints
+const communications = {
+  // Get messages for a case
+  getMessages: (caseId: string) => 
+    apiClient.get(`/api/communications/${caseId}`),
+  
+  // Send message
+  sendMessage: (caseId: string, messageData: { content: string; attachments?: File[] }) => {
+    const formData = new FormData();
+    formData.append('content', messageData.content);
+    
+    if (messageData.attachments) {
+      messageData.attachments.forEach(file => {
+        formData.append('attachments', file);
+      });
+    }
+    
+    return apiClient.post(`/api/communications/${caseId}/send`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  // Delete message
+  deleteMessage: (messageId: string) => 
+    apiClient.delete(`/api/communications/messages/${messageId}`),
+  
+  // Get deleted messages (recycle bin)
+  getDeletedMessages: () => 
+    apiClient.get('/api/communications/deleted'),
+};
+
+// Hearings management
+const hearings = {
+  // Schedule hearing
+  scheduleHearing: (caseId: string, hearingData: {
+    date: string;
+    time: string;
+    duration: number;
+    type: 'virtual' | 'physical';
+    location?: string;
+    meetingLink?: string;
+  }) => 
+    apiClient.post('/api/hearings', hearingData),
+  
+  // Get hearings for a case
+  getHearings: (caseId: string) => 
+    apiClient.get(`/api/hearings/${caseId}`),
+  
+  // Update hearing details
+  updateHearing: (hearingId: string, hearingData: any) => 
+    apiClient.patch(`/api/hearings/${hearingId}`, hearingData),
+  
+  // Cancel hearing
+  cancelHearing: (hearingId: string, reason: string) => 
+    apiClient.post(`/api/hearings/${hearingId}/cancel`, { reason }),
+};
+
+// Feedback and ratings
+const feedback = {
+  // Submit feedback for arbitrator
+  submitFeedback: (arbitratorId: string, feedbackData: {
+    rating: number;
+    comments: string;
+    caseId: string;
+  }) => 
+    apiClient.post(`/api/feedback/arbitrator/${arbitratorId}`, feedbackData),
+  
+  // Get feedback for arbitrator
+  getArbitratorFeedback: (arbitratorId: string) => 
+    apiClient.get(`/api/feedback/arbitrator/${arbitratorId}`),
+};
+
+// Analytics and reporting
+const analytics = {
+  // Get case statistics
+  getCaseStats: (filters?: { period?: string; category?: string }) => 
+    apiClient.get('/api/analytics/cases', { params: filters }),
+  
+  // Get arbitrator performance metrics
+  getArbitratorMetrics: (arbitratorId?: string) => 
+    apiClient.get('/api/analytics/arbitrators', { params: { arbitratorId } }),
+};
+
+// Help desk and support
+const helpdesk = {
+  // Submit support ticket
+  submitTicket: (ticketData: {
+    subject: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high';
+    attachments?: File[];
+  }) => {
+    const formData = new FormData();
+    formData.append('subject', ticketData.subject);
+    formData.append('description', ticketData.description);
+    formData.append('priority', ticketData.priority);
+    
+    if (ticketData.attachments) {
+      ticketData.attachments.forEach(file => {
+        formData.append('attachments', file);
+      });
+    }
+    
+    return apiClient.post('/api/helpdesk/tickets', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  // Get user's support tickets
+  getTickets: (status?: 'open' | 'closed' | 'all') => 
+    apiClient.get('/api/helpdesk/tickets', { params: { status } }),
+  
+  // Get specific ticket details
+  getTicketDetails: (ticketId: string) => 
+    apiClient.get(`/api/helpdesk/tickets/${ticketId}`),
+  
+  // Add comment to ticket
+  addTicketComment: (ticketId: string, comment: string) => 
+    apiClient.post(`/api/helpdesk/tickets/${ticketId}/comment`, { comment }),
+};
+
+// Export all API functions
+export const api = {
+  arbitration: arbitrationApi,
+  auth,
+  profile,
+  communications,
+  hearings,
+  feedback,
+  analytics,
+  helpdesk,
+  // Verification methods
+  verification: {
+    // Verify if a GST number actually exists
+    verifyGST: async (gstNumber: string): Promise<{ valid: boolean; message?: string }> => {
+      try {
+        // Convert to uppercase for consistency
+        const formattedGST = gstNumber.toUpperCase();
+        
+        // First validate format
+        const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+        if (!gstRegex.test(formattedGST)) {
+          return { valid: false, message: 'Invalid GST format' };
+        }
+        
+        // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
+        const response = await apiClient.get(`/verification/gst?number=${formattedGST}`);
+        return response.data;
+      } catch (error: any) {
+        console.error('GST verification error:', error);
+        return { 
+          valid: false, 
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
+        };
+      }
+    },
+    
+    // Verify if a PAN number actually exists
+    verifyPAN: async (panNumber: string): Promise<{ valid: boolean; message?: string }> => {
+      try {
+        // Convert to uppercase for consistency
+        const formattedPAN = panNumber.toUpperCase();
+        
+        // First validate format
+        const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+        if (!panRegex.test(formattedPAN)) {
+          return { valid: false, message: 'Invalid PAN format' };
+        }
+        
+        // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
+        const response = await apiClient.get(`/verification/pan?number=${formattedPAN}`);
+        return response.data;
+      } catch (error: any) {
+        console.error('PAN verification error:', error);
+        return { 
+          valid: false, 
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
+        };
+      }
+    },
+    
+    // Verify if a CIN number actually exists
+    verifyCIN: async (cinNumber: string): Promise<{ valid: boolean; message?: string }> => {
+      try {
+        // Convert to uppercase for consistency
+        const formattedCIN = cinNumber.toUpperCase();
+        
+        // First validate format
+        const cinRegex = /^[LU][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/;
+        if (!cinRegex.test(formattedCIN)) {
+          return { valid: false, message: 'Invalid CIN format' };
+        }
+        
+        // Call the backend verification API
+        // The backend will perform full validation including online verification if enabled
+        const response = await apiClient.get(`/verification/cin?number=${formattedCIN}`);
+        return response.data;
+      } catch (error: any) {
+        console.error('CIN verification error:', error);
+        return { 
+          valid: false, 
+          message: error.response?.data?.message || 'Verification service unavailable. Please try again later.' 
+        };
+      }
+    }
+  }
+};
+
+export const teamMemberApi = {
+  // Dashboard data - use case-manager endpoint since team members have access
+  getDashboard: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/dashboard');
+      return response.data;
+    } catch (error) {
+      console.error('Team member dashboard API error:', error);
+      throw error;
+    }
+  },
+
+  // Team members list
+  getTeamMembers: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/team/members');
+      return response.data;
+    } catch (error) {
+      console.error('Get team members API error:', error);
+      throw error;
+    }
+  },
+
+  // Team availability
+  getTeamAvailability: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/team/availability', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get team availability API error:', error);
+      throw error;
+    }
+  },
+
+  // Team performance
+  getTeamPerformance: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/team/performance', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get team performance API error:', error);
+      throw error;
+    }
+  },
+
+  // Get my cases (for team members)
+  getMyCases: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/cases/my', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get my cases API error:', error);
+      throw error;
+    }
+  },
+
+  // Notifications
+  getNotifications: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/notifications', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get notifications API error:', error);
+      throw error;
+    }
+  },
+
+  markNotificationRead: async (notificationId: string) => {
+    try {
+      const response = await apiClient.patch(`/case-manager/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Mark notification read API error:', error);
+      throw error;
+    }
+  },
+
+  markAllNotificationsRead: async () => {
+    try {
+      const response = await apiClient.post('/case-manager/notifications/mark-all-read');
+      return response.data;
+    } catch (error) {
+      console.error('Mark all notifications read API error:', error);
+      throw error;
+    }
+  },
+
+  // QA Reviews
+  getPendingQAReview: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/qa/pending-review');
+      return response.data;
+    } catch (error) {
+      console.error('Get pending QA review API error:', error);
+      throw error;
+    }
+  },
+
+  // Calendar and scheduling
+  getCalendar: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/calendar', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get calendar API error:', error);
+      throw error;
+    }
+  },
+
+  getUpcomingEvents: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/schedule/upcoming', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get upcoming events API error:', error);
+      throw error;
+    }
+  },
+
+  // Case notes
+  getCaseNotes: async (caseId: string) => {
+    try {
+      const response = await apiClient.get(`/case-manager/cases/${caseId}/notes`);
+      return response.data;
+    } catch (error) {
+      console.error('Get case notes API error:', error);
+      throw error;
+    }
+  },
+
+  createCaseNote: async (caseId: string, noteData: any) => {
+    try {
+      const response = await apiClient.post(`/case-manager/cases/${caseId}/notes`, noteData);
+      return response.data;
+    } catch (error) {
+      console.error('Create case note API error:', error);
+      throw error;
+    }
+  },
+
+  // Reports and analytics
+  getCaseFlowReport: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/reports/case-flow', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get case flow report API error:', error);
+      throw error;
+    }
+  },
+
+  getEfficiencyMetrics: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/reports/efficiency', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get efficiency metrics API error:', error);
+      throw error;
+    }
+  },
+
+  getSLACompliance: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/reports/sla-compliance', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get SLA compliance API error:', error);
+      throw error;
+    }
+  },
+
+  // Deadlines
+  getUpcomingDeadlines: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/case-manager/deadlines/upcoming', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Get upcoming deadlines API error:', error);
+      throw error;
+    }
+  },
+
+  getOverdueDeadlines: async () => {
+    try {
+      const response = await apiClient.get('/case-manager/deadlines/overdue');
+      return response.data;
+    } catch (error) {
+      console.error('Get overdue deadlines API error:', error);
+      throw error;
+    }
+  },
+};

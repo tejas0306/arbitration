@@ -128,6 +128,13 @@ interface EditState {
 }
 
 export default function RespondentFormComplete({ caseId, caseData, round = 1 }: RespondentFormProps) {
+  // Helper function to safely render object values
+  const safeRender = (value: any, defaultValue: string = 'Not specified') => {
+    if (!value) return defaultValue
+    if (typeof value === 'object' && Object.keys(value).length === 0) return defaultValue
+    if (typeof value === 'string' && value.trim() === '') return defaultValue
+    return value
+  }
   const [currentStep, setCurrentStep] = useState(0)
   const [editState, setEditState] = useState<EditState>({})
   const [tempData, setTempData] = useState<any>({})
@@ -187,12 +194,32 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
         additionalClaimants: caseData.additionalClaimants,
         managerDetails: caseData.managerDetails,
         natureOfDispute: caseData.natureOfDispute,
-        prayers: caseData.prayers,
         arguments: caseData.arguments
       });
+      
+
       setFormData({
-        // Step 1: Claimant Details (Read-only)
-        claimant: caseData.claimant || {},
+        // Step 1: Claimant Details (Read-only) - FIXED: Include ALL claimant fields
+        claimant: {
+          type: caseData.claimant?.type || '',
+          name: caseData.claimant?.name || '',
+          email: caseData.claimant?.email || '',
+          phone: caseData.claimant?.phone || '',
+          phoneCountryCode: caseData.claimant?.phoneCountryCode || '',
+          address1: caseData.claimant?.address1 || '',
+          address2: caseData.claimant?.address2 || '',
+          city: caseData.claimant?.city || '',
+          district: caseData.claimant?.district || '',
+          state: caseData.claimant?.state || '',
+          country: caseData.claimant?.country || '',
+          pincode: caseData.claimant?.pincode || '',
+          gst: caseData.claimant?.gst || '',
+          pan: caseData.claimant?.pan || '',
+          cin: caseData.claimant?.cin || '',
+          coi: caseData.claimant?.coi || null,
+          panCard: caseData.claimant?.panCard || null,
+          gstCert: caseData.claimant?.gstCert || null
+        },
         
         // Step 2: Additional Claimants (Read-only)
         additionalClaimants: caseData.additionalClaimants || [],
@@ -212,29 +239,41 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
           numberOfArbitrators: caseData.arbitrationAgreement?.numberOfArbitrators || '1'
         },
         
-        // Step 5: Nature of Dispute (EDITABLE)
-        natureOfDispute: caseData.natureOfDispute || {},
+        // Step 5: Nature of Dispute (EDITABLE) - Should be an array
+        natureOfDispute: caseData.natureOfDispute || [],
         
         // Step 6: Dispute Description (EDITABLE)
         disputeDescriptions: caseData.disputeDescriptions || [],
         
-                  // Step 7: Prayers & Reliefs (EDITABLE)
-          prayers: caseData.prayers?.prayers ? [caseData.prayers.prayers] : (caseData.prayers || []),
+        // Step 7: Prayers & Reliefs (EDITABLE)
+        prayers: caseData.prayers?.prayers || [],
         
         // Step 8: Documents (EDITABLE)
-        evidence: caseData.evidence || {},
+        evidence: caseData.evidence || {
+          scannedDocuments: [],
+          supportingDocuments: [],
+          evidenceFiles: [],
+          companyDocs: [],
+          respondentsFiles: [],
+          managerDetailsFiles: [],
+          additionalClaimantsFiles: []
+        },
         
-        // Step 9: Payment (Read-only)
-        payment: caseData.payment || {},
+        // Step 9: Payment (EDITABLE)
+        payment: caseData.payment || {
+          paymentHead: '',
+          paymentAmount: '',
+          paymentDetails: ''
+        },
         
         // Step 10: Arguments (EDITABLE)
-        arguments: caseData.arguments || {},
+        arguments: caseData.arguments || {
+          argumentsPerIssue: [],
+          argumentsPerPrayer: []
+        },
       })
       
-      console.log('🔧 [RespondentForm] After setFormData, formData should be updated');
-      console.log('🔧 [RespondentForm] Manager details mapped to:', Array.isArray(caseData.managerDetails) && caseData.managerDetails.length > 0 
-        ? caseData.managerDetails[0] 
-        : (caseData.managerDetails || {}));
+
       
               // Mark steps as completed based on available data
         const completed = []
@@ -252,6 +291,20 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
       setCompletedSteps(completed)
     }
   }, [caseData])
+
+
+
+  // Don't render until formData is properly initialized
+  if (!formData || Object.keys(formData).length === 0 || !formData.claimant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">Loading case details...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Edit field functions for editable steps
   const handleEdit = (step: number, index: number | null, field: string) => {
@@ -359,7 +412,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
           {isEditing ? (
             <>
               {type === 'select' ? (
@@ -463,12 +516,21 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
 
   // Render read-only field
   const renderReadOnlyField = (label: string, value: string) => {
-    console.log(`🔧 [renderReadOnlyField] ${label}:`, value);
+    // Better handling of empty values
+    let displayValue = value;
+    if (value === '' || value === null || value === undefined) {
+      displayValue = 'Not filled by claimant';
+    } else if (Array.isArray(value) && value.length === 0) {
+      displayValue = 'No items added by claimant';
+    } else if (Array.isArray(value) && value.length === 1 && value[0] === '') {
+      displayValue = 'Claimant started but did not complete this field';
+    }
+    
     return (
       <div className="space-y-2">
         <Label className="text-sm font-medium">{label}</Label>
         <div className="p-2 bg-gray-100 rounded border min-h-[40px] flex items-center text-gray-700">
-          {value || <span className="text-gray-400">Not provided</span>}
+          {displayValue || <span className="text-gray-400">Not provided</span>}
         </div>
       </div>
     )
@@ -706,85 +768,6 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
           </div>
         )
 
-      case 2: // Step 3: Respondent Details (EDITABLE)
-        return (
-          <div className="space-y-6">
-            <Alert>
-              <Users className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Step 3: Respondent Details (EDITABLE)</strong><br/>
-                These are the exact same fields (3.1-3.14) as the claimant form. You can modify any information using the "Change" buttons.
-              </AlertDescription>
-            </Alert>
-            
-            <Card>
-              <CardContent className="space-y-4 pt-6">
-                <h3 className="font-medium text-lg mb-4">Respondent Information</h3>
-                {formData.respondents && formData.respondents.length > 0 ? (
-                  formData.respondents.map((respondent, index) => (
-                    <Card key={index} className="border-l-4 border-l-red-500">
-                      <CardContent className="space-y-4 pt-6">
-                        <h4 className="font-medium text-md">Respondent {index + 1}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {renderEditableField(2, index, 'type', '3.1 Type*', respondent.type, 'select', entityTypeOptions)}
-                          {renderEditableField(2, index, 'name', '3.2 Name*', respondent.name, 'text')}
-                          {renderEditableField(2, index, 'email', '3.3 Email*', respondent.email, 'email')}
-                          {renderEditableField(2, index, 'phone', '3.4 Phone*', respondent.phone, 'text')}
-                          {renderEditableField(2, index, 'phoneCountryCode', '3.5 Country Code*', respondent.phoneCountryCode, 'text')}
-                          {renderEditableField(2, index, 'address1', '3.6 Address Line 1*', respondent.address1, 'text')}
-                          {renderEditableField(2, index, 'address2', '3.7 Address Line 2', respondent.address2, 'text')}
-                          {renderEditableField(2, index, 'city', '3.8 City*', respondent.city, 'text')}
-                          {renderEditableField(2, index, 'district', '3.9 District*', respondent.district, 'text')}
-                          {renderEditableField(2, index, 'state', '3.10 State*', respondent.state, 'text')}
-                          {renderEditableField(2, index, 'country', '3.11 Country*', respondent.country, 'text')}
-                          {renderEditableField(2, index, 'pincode', '3.12 Pincode*', respondent.pincode, 'text')}
-                          {renderEditableField(2, index, 'gst', '3.13 GST Number', respondent.gst, 'text')}
-                          {renderEditableField(2, index, 'pan', '3.14 PAN Number', respondent.pan, 'text')}
-                          {renderEditableField(2, index, 'cin', '3.15 CIN Number', respondent.cin, 'text')}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No respondent details found
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )
-
-      case 3: // Step 4: Arbitration Agreement (EDITABLE)
-        return (
-          <div className="space-y-6">
-            <Alert>
-              <Gavel className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Step 4: Arbitration Agreement (EDITABLE)</strong><br/>
-                These are the exact same fields (4.1-4.5) as the claimant form. You can modify any information using the "Change" buttons.
-              </AlertDescription>
-            </Alert>
-            
-            <Card>
-              <CardContent className="space-y-4 pt-6">
-                <h3 className="font-medium text-lg mb-4">Arbitration Agreement Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderEditableField(3, null, 'agreementDate', '4.1 Agreement Date*', formData.arbitrationAgreement?.agreementDate, 'date')}
-                  {renderEditableField(3, null, 'placeOfSigning', '4.2 Place of Signing*', formData.arbitrationAgreement?.placeOfSigning, 'text')}
-                  {renderEditableField(3, null, 'arbitrationText', '4.3 Arbitration Text*', formData.arbitrationAgreement?.arbitrationText, 'textarea')}
-                  {renderEditableField(3, null, 'numberOfArbitrators', '4.4 Number of Arbitrators*', formData.arbitrationAgreement?.numberOfArbitrators, 'select', [
-                    { value: '1', label: '1 (Sole Arbitrator)' },
-                    { value: '3', label: '3 (Tribunal)' },
-                    { value: 'other', label: 'Other' }
-                  ])}
-                  {renderEditableField(3, null, 'stampDutyPercentage', '4.5 Stamp Duty Percentage*', formData.arbitrationAgreement?.stampDutyPercentage, 'text')}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
-
       case 4: // Step 5: Nature of Dispute (EDITABLE)
         return (
           <div className="space-y-6">
@@ -799,36 +782,54 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
             <Card>
               <CardContent className="space-y-4 pt-6">
                 <h3 className="font-medium text-lg mb-4">Nature of Dispute</h3>
-                {renderEditableField(4, null, 'category', '5.1 Category*', formData.natureOfDispute?.category, 'select', [
-                  { value: 'commercial', label: 'Commercial' },
-                  { value: 'construction', label: 'Construction' },
-                  { value: 'employment', label: 'Employment' },
-                  { value: 'intellectual_property', label: 'Intellectual Property' },
-                  { value: 'corporate', label: 'Corporate' },
-                  { value: 'real_estate', label: 'Real Estate' },
-                  { value: 'banking', label: 'Banking & Finance' },
-                  { value: 'other', label: 'Other' }
-                ], 'Select category')}
-                {renderEditableField(4, null, 'subCategory', '5.2 Sub Category*', formData.natureOfDispute?.subCategory, 'select', [
-                  { value: 'breach', label: 'Breach of Contract' },
-                  { value: 'payment', label: 'Payment Dispute' },
-                  { value: 'quality', label: 'Quality/Performance Issue' },
-                  { value: 'delivery', label: 'Delivery Delay' },
-                  { value: 'warranty', label: 'Warranty Claim' },
-                  { value: 'termination', label: 'Contract Termination' },
-                  { value: 'other', label: 'Other' }
-                ], 'Select sub-category')}
-                {renderEditableField(4, null, 'description', '5.3 Nature of Dispute*', formData.natureOfDispute?.description, 'textarea', undefined, 'Describe the dispute', 4)}
-                {renderEditableField(4, null, 'dateWhenRightToClaimArose', '5.4 Date when right to claim arose*', formData.natureOfDispute?.dateWhenRightToClaimArose, 'date')}
-                {renderEditableField(4, null, 'standardisedPrayerClauses', '5.5 Standardised prayer clauses*', formData.natureOfDispute?.standardisedPrayerClauses, 'select', [
-                  { value: 'monetary_relief', label: 'Monetary Relief' },
-                  { value: 'specific_performance', label: 'Specific Performance' },
-                  { value: 'declaratory_relief', label: 'Declaratory Relief' },
-                  { value: 'injunctive_relief', label: 'Injunctive Relief' },
-                  { value: 'damages', label: 'Damages' },
-                  { value: 'costs', label: 'Costs and Expenses' },
-                  { value: 'other', label: 'Other' }
-                ], 'Select prayer type')}
+                
+
+                
+                {formData.natureOfDispute && formData.natureOfDispute.length > 0 ? (
+                  formData.natureOfDispute.map((dispute, index) => (
+                    <Card key={index} className="border-l-4 border-l-orange-500">
+                      <CardContent className="space-y-4 pt-6">
+                        <h4 className="font-medium text-md">Dispute {index + 1}</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {renderEditableField(4, index, 'category', '5.1 Category*', dispute.category, 'select', [
+                            { value: 'commercial', label: 'Commercial' },
+                            { value: 'construction', label: 'Construction' },
+                            { value: 'employment', label: 'Employment' },
+                            { value: 'intellectual_property', label: 'Intellectual Property' },
+                            { value: 'corporate', label: 'Corporate' },
+                            { value: 'real_estate', label: 'Real Estate' },
+                            { value: 'banking', label: 'Banking & Finance' },
+                            { value: 'other', label: 'Other' }
+                          ], 'Select category')}
+                          {renderEditableField(4, index, 'subCategory', '5.2 Sub Category*', dispute.subCategory, 'select', [
+                            { value: 'breach', label: 'Breach of Contract' },
+                            { value: 'payment', label: 'Payment Dispute' },
+                            { value: 'quality', label: 'Quality/Performance Issue' },
+                            { value: 'delivery', label: 'Delivery Delay' },
+                            { value: 'warranty', label: 'Warranty Claim' },
+                            { value: 'termination', label: 'Contract Termination' },
+                            { value: 'other', label: 'Other' }
+                          ], 'Select sub-category')}
+                          {renderEditableField(4, index, 'description', '5.3 Nature of Dispute*', dispute.description, 'textarea', undefined, 'Describe the dispute', 4)}
+                          {renderEditableField(4, index, 'dateWhenRightToClaimArose', '5.4 Date when right to claim arose*', dispute.dateWhenRightToClaimArose, 'date')}
+                          {renderEditableField(4, index, 'standardisedPrayerClauses', '5.5 Standardised prayer clauses*', dispute.standardisedPrayerClauses, 'select', [
+                            { value: 'monetary_relief', label: 'Monetary Relief' },
+                            { value: 'specific_performance', label: 'Specific Performance' },
+                            { value: 'declaratory_relief', label: 'Declaratory Relief' },
+                            { value: 'injunctive_relief', label: 'Injunctive Relief' },
+                            { value: 'damages', label: 'Damages' },
+                            { value: 'costs', label: 'Costs and Expenses' },
+                            { value: 'other', label: 'Other' }
+                          ], 'Select prayer type')}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No nature of dispute found. Claimant has not specified any dispute details yet.
+                  </div>
+                  )}
               </CardContent>
             </Card>
           </div>
@@ -904,16 +905,34 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
             <Card>
               <CardContent className="space-y-4 pt-6">
                 <h3 className="font-medium text-lg mb-4">Prayers & Reliefs</h3>
+                
+
+                
                 <div className="grid grid-cols-1 gap-4">
-                  {renderEditableField(6, null, 'prayers', '7.1 Prayers and Reliefs*', Array.isArray(formData.prayers) ? formData.prayers.join(', ') : formData.prayers, 'textarea')}
-                  {renderEditableField(6, null, 'prayerType', '7.2 Prayer Type*', formData.prayers?.prayerType, 'select', [
-                    { value: 'damages', label: 'Damages' },
-                    { value: 'specific_performance', label: 'Specific Performance' },
-                    { value: 'injunction', label: 'Injunction' },
-                    { value: 'declaration', label: 'Declaration' },
-                    { value: 'costs', label: 'Costs and Expenses' },
-                    { value: 'other', label: 'Other' }
-                  ], 'Select prayer type')}
+                  {formData.prayers && formData.prayers.length > 0 ? (
+                    formData.prayers.map((prayer, index) => (
+                      <Card key={index} className="border-l-4 border-l-purple-500">
+                        <CardContent className="space-y-4 pt-6">
+                          <h4 className="font-medium text-md">Prayer {index + 1}</h4>
+                          <div className="grid grid-cols-1 gap-4">
+                            {renderEditableField(6, index, 'prayer', '7.1 Prayer Text*', typeof prayer === 'string' ? prayer : prayer.prayer || '', 'textarea')}
+                            {renderEditableField(6, index, 'prayerType', '7.2 Prayer Type*', typeof prayer === 'object' ? prayer.prayerType : '', 'select', [
+                              { value: 'damages', label: 'Damages' },
+                              { value: 'specific_performance', label: 'Specific Performance' },
+                              { value: 'injunction', label: 'Injunction' },
+                              { value: 'declaration', label: 'Declaration' },
+                              { value: 'costs', label: 'Costs and Expenses' },
+                              { value: 'other', label: 'Other' }
+                            ], 'Select prayer type')}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No prayers found. Claimant has not specified any prayers yet.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -978,10 +997,48 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                   </div>
                 )}
                 
+                {/* Company Documents */}
+                {formData.evidence?.companyDocs && formData.evidence.companyDocs.length > 0 && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-md">Company Documents</h4>
+                    {formData.evidence.companyDocs.map((doc, index) => (
+                      <Card key={index} className="border-l-4 border-l-yellow-500">
+                        <CardContent className="space-y-4 pt-6">
+                          <h5 className="font-medium text-sm">Company Document {index + 1}</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {renderReadOnlyField('File Name', doc.fileName || 'Not uploaded')}
+                            {renderReadOnlyField('Description', doc.description || 'Not provided')}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Evidence Files */}
+                {formData.evidence?.evidenceFiles && formData.evidence.evidenceFiles.length > 0 && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-md">Evidence Files</h4>
+                    {formData.evidence.evidenceFiles.map((doc, index) => (
+                      <Card key={index} className="border-l-4 border-l-red-500">
+                        <CardContent className="space-y-4 pt-6">
+                          <h5 className="font-medium text-sm">Evidence File {index + 1}</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {renderReadOnlyField('File Name', doc.fileName || 'Not uploaded')}
+                            {renderReadOnlyField('Description', doc.description || 'Not provided')}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
                 {(!formData.evidence?.scannedDocuments || formData.evidence.scannedDocuments.length === 0) && 
-                 (!formData.evidence?.supportingDocuments || formData.evidence.supportingDocuments.length === 0) && (
+                 (!formData.evidence?.supportingDocuments || formData.evidence.supportingDocuments.length === 0) &&
+                 (!formData.evidence?.companyDocs || formData.evidence.companyDocs.length === 0) &&
+                 (!formData.evidence?.evidenceFiles || formData.evidence.evidenceFiles.length === 0) && (
                   <div className="text-center py-8 text-gray-500">
-                    No documents found
+                    No documents found. Claimant has not uploaded any documents yet.
                   </div>
                 )}
               </CardContent>
@@ -1004,10 +1061,9 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
               <CardContent className="space-y-4 pt-6">
                 <h3 className="font-medium text-lg mb-4">Payment Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderReadOnlyField('Amount', formData.payment?.amount)}
-                  {renderReadOnlyField('Currency', formData.payment?.currency)}
-                  {renderReadOnlyField('Payment Method', formData.payment?.method)}
-                  {renderReadOnlyField('Transaction ID', formData.payment?.transactionId)}
+                  {renderReadOnlyField('Payment Head', formData.payment?.paymentHead || 'Not specified')}
+                  {renderReadOnlyField('Payment Amount', formData.payment?.paymentAmount || 'Not specified')}
+                  {renderReadOnlyField('Payment Details', formData.payment?.paymentDetails || 'Not specified')}
                 </div>
               </CardContent>
             </Card>
@@ -1028,6 +1084,8 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
             <Card>
               <CardContent className="space-y-4 pt-6">
                 <h3 className="font-medium text-lg mb-4">Legal Arguments</h3>
+                
+
                 
                 {/* Arguments Per Issue */}
                 {formData.arguments?.argumentsPerIssue && formData.arguments.argumentsPerIssue.length > 0 ? (
@@ -1218,7 +1276,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 3: Manager Details */}
-                {formData.managerDetails && Object.keys(formData.managerDetails).length > 0 && (
+                {formData.managerDetails && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-orange-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1386,7 +1444,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 6: Nature of Dispute */}
-                {formData.natureOfDispute && (
+                {(
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1403,35 +1461,46 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                         Edit
                       </Button>
                     </div>
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">6.1 Category</label>
-                          <p className="text-gray-900 capitalize">{formData.natureOfDispute.category || 'Not provided'}</p>
+                    <div className="p-6 space-y-4">
+                      {formData.natureOfDispute && Array.isArray(formData.natureOfDispute) && formData.natureOfDispute.length > 0 ? (
+                        formData.natureOfDispute.map((dispute, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-900 mb-3">Nature of Dispute {index + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.1 Category</label>
+                                <p className="text-gray-900 capitalize">{dispute?.category || 'Not provided'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.2 Sub Category</label>
+                                <p className="text-gray-900">{dispute?.subCategory || 'Not provided'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600">6.3 Nature of Dispute</label>
+                                <p className="text-gray-900">{dispute?.description || 'Not provided'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.4 Date When Right to Claim Arose</label>
+                                <p className="text-gray-900">{dispute?.dateWhenRightToClaimArose || 'Not provided'}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded">
+                                <label className="text-sm font-medium text-gray-600">6.5 Standardised Prayer Clauses</label>
+                                <p className="text-gray-900">{dispute?.standardisedPrayerClauses || 'Not provided'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No nature of dispute information found. Click Edit to add details.</p>
                         </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">6.2 Sub Category</label>
-                          <p className="text-gray-900">{formData.natureOfDispute.subCategory || 'Not provided'}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">6.3 Nature of Dispute</label>
-                          <p className="text-gray-900">{formData.natureOfDispute.natureOfDispute || 'Not provided'}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">6.4 Date When Right to Claim Arose</label>
-                          <p className="text-gray-900">{formData.natureOfDispute.dateWhenRightToClaimArose || 'Not provided'}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">6.5 Standardised Prayer Clauses</label>
-                          <p className="text-gray-900">{formData.natureOfDispute.standardisedPrayerClauses || 'Not provided'}</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {/* Step 7: Dispute Descriptions */}
-                {formData.disputeDescriptions && formData.disputeDescriptions.length > 0 && (
+                {(
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1449,7 +1518,8 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       </Button>
                     </div>
                     <div className="p-6 space-y-4">
-                      {formData.disputeDescriptions.map((dispute, index) => (
+                      {formData.disputeDescriptions && formData.disputeDescriptions.length > 0 ? (
+                        formData.disputeDescriptions.map((dispute, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                           <h4 className="font-semibold text-gray-900 mb-3">Dispute {index + 1}</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1487,13 +1557,18 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                             </div>
                           </div>
                         </div>
-                      ))}
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No dispute descriptions found. Click Edit to add dispute descriptions.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {/* Step 8: Prayers & Reliefs */}
-                {formData.prayers && (
+                {(
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1514,7 +1589,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       <div className="grid grid-cols-1 gap-4">
                         <div className="bg-gray-50 p-3 rounded">
                           <label className="text-sm font-medium text-gray-600">8.1 Prayers and Reliefs</label>
-                          <p className="text-gray-900">{Array.isArray(formData.prayers) ? formData.prayers.join(', ') : formData.prayers || 'Not provided'}</p>
+                          <p className="text-gray-900">{Array.isArray(formData.prayers) ? (formData.prayers.length > 0 ? formData.prayers.join(', ') : 'No prayers and reliefs added yet. Click Edit to add.') : (formData.prayers?.prayers ? (Array.isArray(formData.prayers.prayers) ? formData.prayers.prayers.join(', ') : formData.prayers.prayers) : 'Not provided')}</p>
                         </div>
                       </div>
                     </div>
@@ -1522,7 +1597,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 9: Documents */}
-                {formData.evidence && (
+                {(
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1540,43 +1615,38 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       </Button>
                     </div>
                     <div className="p-6">
-                      {formData.evidence.scannedDocuments && formData.evidence.scannedDocuments.length > 0 ? (
-                        <div className="space-y-4">
-                          {formData.evidence.scannedDocuments.map((doc, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                              <h4 className="font-semibold text-gray-900 mb-3">Document {index + 1}</h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">9.1 Description</label>
-                                  <p className="text-gray-900">{doc.description || 'Not provided'}</p>
-                                </div>
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">9.2 Date</label>
-                                  <p className="text-gray-900">{doc.date || 'Not provided'}</p>
-                                </div>
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">9.3 Linked Issue</label>
-                                  <p className="text-gray-900">{doc.linkedIssue || 'Not provided'}</p>
-                                </div>
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">9.4 Admission Status</label>
-                                  <p className="text-gray-900">{doc.admissionStatus || 'Not provided'}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">9.1 Company Documents</label>
+                          <p className="text-gray-900">{formData.evidence?.companyDocs ? 'Available' : 'Not provided'}</p>
                         </div>
-                      ) : (
-                        <div className="bg-gray-50 p-4 rounded">
-                          <p className="text-gray-900">No documents uploaded</p>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">9.2 Evidence Files</label>
+                          <p className="text-gray-900">{formData.evidence?.evidenceFiles?.length > 0 ? `${formData.evidence.evidenceFiles.length} files` : 'No files uploaded'}</p>
                         </div>
-                      )}
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">9.3 Respondent Files</label>
+                          <p className="text-gray-900">{formData.evidence?.respondentsFiles ? 'Available' : 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">9.4 Manager Files</label>
+                          <p className="text-gray-900">{formData.evidence?.managerDetailsFiles ? 'Available' : 'Not provided'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">9.5 Supporting Documents</label>
+                          <p className="text-gray-900">{formData.evidence?.supportingDocuments?.length > 0 ? `${formData.evidence.supportingDocuments.length} documents` : 'No documents uploaded'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                          <label className="text-sm font-medium text-gray-600">9.6 Additional Claimant Files</label>
+                          <p className="text-gray-900">{formData.evidence?.additionalClaimantsFiles ? 'Available' : 'Not provided'}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* Step 10: Payment */}
-                {formData.payment && (
+                {(
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-emerald-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1594,26 +1664,32 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       </Button>
                     </div>
                     <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">10.1 Payment Head</label>
-                          <p className="text-gray-900">{formData.payment.paymentHead || 'Not provided'}</p>
+                      {(!formData.payment.paymentHead && !formData.payment.paymentAmount && !formData.payment.paymentDetails) ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No payment information provided by claimant.</p>
                         </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <label className="text-sm font-medium text-gray-600">10.2 Payment Amount</label>
-                          <p className="text-gray-900">{formData.payment.paymentAmount || 'Not provided'}</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">10.1 Payment Head</label>
+                            <p className="text-gray-900">{formData.payment.paymentHead || 'Not filled by claimant'}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded">
+                            <label className="text-sm font-medium text-gray-600">10.2 Payment Amount</label>
+                            <p className="text-gray-900">{formData.payment.paymentAmount || 'Not filled by claimant'}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded md:col-span-2">
+                            <label className="text-sm font-medium text-gray-600">10.3 Payment Details</label>
+                            <p className="text-gray-900">{formData.payment.paymentDetails || 'Not filled by claimant'}</p>
+                          </div>
                         </div>
-                        <div className="bg-gray-50 p-3 rounded md:col-span-2">
-                          <label className="text-sm font-medium text-gray-600">10.3 Payment Details</label>
-                          <p className="text-gray-900">{formData.payment.paymentDetails || 'Not provided'}</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {/* Step 11: Legal Arguments */}
-                {formData.arguments && (
+                {(
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-violet-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1631,27 +1707,23 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       </Button>
                     </div>
                     <div className="p-6">
-                      {formData.arguments.argumentsPerIssue && formData.arguments.argumentsPerIssue.length > 0 ? (
+                      {formData.arguments?.argumentsPerIssue && Array.isArray(formData.arguments.argumentsPerIssue) && formData.arguments.argumentsPerIssue.length > 0 ? (
                         <div className="space-y-4">
                           {formData.arguments.argumentsPerIssue.map((argument, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                               <h4 className="font-semibold text-gray-900 mb-3">Argument {index + 1}</h4>
                               <div className="grid grid-cols-1 gap-3">
                                 <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">11.1 Issue</label>
-                                  <p className="text-gray-900">{argument.issue || 'Not provided'}</p>
-                                </div>
-                                <div className="bg-white p-3 rounded">
-                                  <label className="text-sm font-medium text-gray-600">11.2 Legal Argument</label>
-                                  <p className="text-gray-900">{argument.argument || 'Not provided'}</p>
+                                  <label className="text-sm font-medium text-gray-600">11.1 Legal Argument</label>
+                                  <p className="text-gray-900">{typeof argument === 'string' ? argument : 'Not provided'}</p>
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="bg-gray-50 p-4 rounded">
-                          <p className="text-gray-900">No legal arguments provided</p>
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No legal arguments provided by claimant. Click Edit to add your arguments.</p>
                         </div>
                       )}
                     </div>

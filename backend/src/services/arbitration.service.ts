@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { DuplicateDetectionService, DuplicateCheckRequest, DuplicateCheckResult } from './duplicate-detection.service';
+import { RespondentNotificationService } from '../respondent/respondent-notification.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -44,7 +45,8 @@ async function generateCaseId(): Promise<string> {
 export class ArbitrationService {
   constructor(
     private prisma: PrismaService,
-    private duplicateDetectionService: DuplicateDetectionService
+    private duplicateDetectionService: DuplicateDetectionService,
+    private respondentNotificationService: RespondentNotificationService
   ) {}
 
   // New method to check for duplicates before case creation
@@ -192,9 +194,32 @@ export class ArbitrationService {
         status: processedData.status
       });
       
-      return this.prisma.arbitration.create({
+      const createdCase = await this.prisma.arbitration.create({
         data: processedData,
       });
+      
+      // After creating the case, send notifications to all respondents
+      if (data.respondents && Array.isArray(data.respondents)) {
+        console.log(`🔧 Creating RespondentCase entries for ${data.respondents.length} respondents`);
+        
+        for (const respondent of data.respondents) {
+          if (respondent.email && respondent.name) {
+            try {
+              console.log(`🔧 Sending case notice to respondent: ${respondent.email}`);
+              await this.respondentNotificationService.sendCaseNotice(
+                createdCase.id,
+                respondent.email,
+                respondent.name
+              );
+            } catch (error) {
+              console.error(`🔧 Error sending notice to respondent ${respondent.email}:`, error);
+              // Don't fail the case creation if notification fails
+            }
+          }
+        }
+      }
+      
+      return createdCase;
     } catch (error) {
       console.error('Error creating arbitration case:', error);
       throw error;

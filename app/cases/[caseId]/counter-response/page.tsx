@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CounterResponse from '@/components/petitioner/counter-response';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
+import Header from '@/components/header';
+import Footer from '@/components/footer';
 
 interface CaseData {
   id: string;
@@ -45,32 +47,77 @@ export default function CounterResponsePage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/cases/${caseId}/counter-response-data`, {
+      const token = localStorage.getItem('auth_token');
+      console.log('🔍 Debug: Token exists:', !!token);
+      console.log('🔍 Debug: Case ID:', caseId);
+
+      // Call the backend API directly instead of going through Next.js API routes
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = `${backendUrl}/api/arbitration/cases/${caseId}`;
+      
+      console.log('🔍 Debug: Calling backend directly:', apiUrl);
+
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
+      console.log('🔍 Debug: Response status:', response.status);
+      console.log('🔍 Debug: Response ok:', response.ok);
+
       if (response.status === 401) {
+        console.log('🔍 Debug: 401 Unauthorized - redirecting to login');
         router.push('/auth/login');
         return;
       }
 
       if (response.status === 403) {
+        console.log('🔍 Debug: 403 Forbidden');
         setError('You are not authorized to access this case.');
         return;
       }
 
       if (!response.ok) {
-        throw new Error('Failed to load case data');
+        const errorText = await response.text();
+        console.log('🔍 Debug: Response not ok, error text:', errorText);
+        throw new Error(`Failed to load case data: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      setCaseData(data);
+      const caseData = await response.json();
+      console.log('🔍 Debug: Successfully loaded case data:', caseData);
+      
+      // Transform the case data into the format expected by the component
+      const transformedData = {
+        id: caseData.id,
+        caseNumber: caseData.caseNumber || caseData.id,
+        status: caseData.status,
+        originalData: {
+          title: caseData.name || 'Untitled Case',
+          description: caseData.disputeDetails || {},
+          disputeType: (caseData.disputeDetails as any)?.disputeType || 'Not specified',
+          disputeAmount: (caseData.disputeDetails as any)?.disputeAmount || 'Not specified',
+          claimant: {
+            name: caseData.user?.name || 'Unknown',
+            email: caseData.user?.email || 'Unknown'
+          },
+          respondents: caseData.respondents || [],
+          documents: caseData.documents || {},
+          createdAt: caseData.createdAt
+        },
+        respondentResponses: [], // Will be populated when responses are implemented
+        respondentIssues: [], // Will implement AI judgments later
+        hasCounterResponse: false, // Will be determined based on actual responses
+        counterResponseDeadline: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toISOString(), // Default 7 days from now
+        currentRound: null // Will implement workflow rounds later
+      };
+      
+      setCaseData(transformedData);
 
     } catch (err) {
+      console.error('🔍 Debug: Error in loadCaseData:', err);
       setError(err instanceof Error ? err.message : 'Failed to load case data');
     } finally {
       setLoading(false);
@@ -83,7 +130,7 @@ export default function CounterResponsePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify({
           counterResponses,
@@ -256,60 +303,66 @@ export default function CounterResponsePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-4 mb-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.back()}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-                <h1 className="text-2xl font-bold">Counter-Response Required</h1>
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      
+      <main className="flex-1 bg-gray-50">
+        {/* Page Header */}
+        <div className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-4 mb-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.back()}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                  <h1 className="text-2xl font-bold">Counter-Response Required</h1>
+                </div>
+                <p className="text-gray-600">
+                  Case #{caseData.caseNumber} • 
+                  Deadline: {deadline.toLocaleDateString()} at 11:59 PM
+                </p>
               </div>
-              <p className="text-gray-600">
-                Case #{caseData.caseNumber} • 
-                Deadline: {deadline.toLocaleDateString()} at 11:59 PM
-              </p>
-            </div>
-            
-            <div className="text-right">
-              <div className="text-sm text-gray-600">Time Remaining</div>
-              <div className="text-lg font-medium text-red-600">
-                {Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days
+              
+              <div className="text-right">
+                <div className="text-sm text-gray-600">Time Remaining</div>
+                <div className="text-lg font-medium text-red-600">
+                  {Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Important Notice */}
-      <div className="max-w-7xl mx-auto p-6">
-        <Alert className="mb-6 border-yellow-200 bg-yellow-50">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800">
-            <strong>Important:</strong> The respondent has submitted their response to your petition. 
-            You now have the opportunity to review their responses and provide a counter-response. 
-            This is your final opportunity to address their points before the case proceeds to arbitration.
-          </AlertDescription>
-        </Alert>
+        {/* Important Notice */}
+        <div className="max-w-7xl mx-auto p-6">
+          <Alert className="mb-6 border-yellow-200 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              <strong>Important:</strong> The respondent has submitted their response to your petition. 
+              You now have the opportunity to review their responses and provide a counter-response. 
+              This is your final opportunity to address their points before the case proceeds to arbitration.
+            </AlertDescription>
+          </Alert>
 
-        {/* Counter Response Component */}
-        <CounterResponse
-          caseId={caseData.id}
-          originalData={caseData.originalData}
-          respondentResponses={caseData.respondentResponses}
-          respondentIssues={caseData.respondentIssues}
-          onSubmit={handleCounterResponseSubmit}
-          mode="respond"
-        />
-      </div>
+          {/* Counter Response Component */}
+          <CounterResponse
+            caseId={caseData.id}
+            originalData={caseData.originalData}
+            respondentResponses={caseData.respondentResponses}
+            respondentIssues={caseData.respondentIssues}
+            onSubmit={handleCounterResponseSubmit}
+            mode="respond"
+          />
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }

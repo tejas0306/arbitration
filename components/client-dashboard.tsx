@@ -322,6 +322,26 @@ export default function ClientDashboard() {
             </div>
           </div>
         </Link>
+
+        {/* Counter-Response Quick Action for Claimants */}
+        {user?.role === 'CLAIMANT' && cases.some(c => c.status === 'RESPONSE SUBMITTED') && (
+          <Link href="/dashboard/my-cases">
+            <div className="border-l-4 border-l-indigo-500 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-pointer transition-colors">
+              <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                    <FileText className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Counter-Response</p>
+                    <p className="text-sm text-gray-500">Respond to submissions</p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
       
       {/* Dashboard Content */}

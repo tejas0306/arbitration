@@ -61,4 +61,38 @@ export class CreateCaseResponseDto {
   @IsOptional()
   @IsNumber()
   round?: number;
+
+  // Field-level responses for Accept/Reject system
+  @IsOptional()
+  @IsArray()
+  fieldResponses?: FieldResponseDto[];
+}
+
+export class FieldResponseDto {
+  @IsString()
+  fieldId: string; // e.g., "1.1", "1.2", "2.1"
+
+  @IsString()
+  fieldName: string; // e.g., "Type", "Name", "Email"
+
+  @IsString()
+  fieldValue: string; // Original value from claimant
+
+  @IsString()
+  fieldType: string; // e.g., "text", "select", "file"
+
+  @IsString()
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CORRECTED';
+
+  @IsOptional()
+  @IsString()
+  respondentComment?: string; // Comment from respondent
+
+  @IsOptional()
+  @IsString()
+  correctedValue?: string; // Corrected value if rejected
+
+  @IsOptional()
+  @IsObject()
+  evidence?: any; // Supporting evidence
 } 

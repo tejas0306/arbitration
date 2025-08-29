@@ -103,6 +103,72 @@ export class ArbitrationService {
     return results;
   }
 
+  async getCaseWithDetails(caseId: string) {
+    try {
+      // For now, just get the basic case data
+      const caseData = await this.prisma.arbitration.findUnique({
+        where: { id: caseId }
+      });
+
+      if (!caseData) {
+        throw new NotFoundException('Case not found');
+      }
+
+      // Get user data separately
+      const user = await this.prisma.user.findUnique({
+        where: { id: caseData.userId }
+      });
+
+      // Get case responses separately
+      const caseResponses = await this.prisma.caseResponse.findMany({
+        where: { caseId }
+      });
+
+      return {
+        ...caseData,
+        user,
+        caseResponses
+      };
+    } catch (error) {
+      console.error('Error fetching case with details:', error);
+      throw new NotFoundException('Failed to fetch case details');
+    }
+  }
+
+  async createCounterResponse(
+    caseId: string,
+    userId: string,
+    counterResponses: any[],
+    issueResponses: any[]
+  ) {
+    try {
+      // Create a new case response for the counter-response
+      const counterResponse = await this.prisma.caseResponse.create({
+        data: {
+          caseId,
+          respondentId: userId,
+          status: 'SUBMITTED',
+          responseOverview: 'Counter-response submitted by claimant',
+          submittedAt: new Date()
+        }
+      });
+
+      // Update case status
+      await this.prisma.arbitration.update({
+        where: { id: caseId },
+        data: {
+          status: 'COUNTER_RESPONSE_SUBMITTED',
+          updatedAt: new Date()
+        }
+      });
+
+      return counterResponse;
+    } catch (error) {
+      console.error('Error creating counter-response:', error);
+      throw new BadRequestException('Failed to create counter-response');
+    }
+  }
+
   async getCaseById(id: string) {
     const arbitrationCase = await this.arbitrationCaseRepository.findOne({
       where: { id },
@@ -703,4 +769,94 @@ export class ArbitrationService {
 
     return fileMetadata;
   }
+
+  async getCounterResponseData(caseId: string, userId: string) {
+    try {
+      // Get case data
+      const caseData = await this.prisma.arbitration.findUnique({
+        where: { id: caseId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      if (!caseData) {
+        throw new NotFoundException('Case not found');
+      }
+
+      // Get case responses
+      const caseResponses = await this.prisma.caseResponse.findMany({
+        where: { caseId },
+        include: {
+          respondent: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      // Get respondent responses (filter out the current user's responses)
+      const respondentResponses = caseResponses
+        .filter(response => response.respondentId !== userId)
+        .map(response => ({
+          id: response.id,
+          respondentId: response.respondentId,
+          respondentName: response.respondent?.name || 'Unknown',
+          respondentEmail: response.respondent?.email || '',
+          submittedAt: response.createdAt,
+          fieldResponses: [], // Will implement field responses later
+          status: response.status,
+          comments: response.responseOverview || ''
+        }));
+
+      // Check if there are counter responses
+      const hasCounterResponse = respondentResponses.length > 0;
+      
+      // Calculate deadline (7 days from last respondent response)
+      const lastResponseDate = respondentResponses.length > 0 
+        ? Math.max(...respondentResponses.map(r => new Date(r.submittedAt).getTime()))
+        : new Date().getTime();
+      
+      const counterResponseDeadline = new Date(lastResponseDate + (7 * 24 * 60 * 60 * 1000));
+
+      const responseData = {
+        id: caseData.id,
+        caseNumber: caseData.caseNumber,
+        status: caseData.status,
+        originalData: {
+          title: caseData.name,
+          description: caseData.disputeDetails,
+          disputeType: (caseData.disputeDetails as any)?.disputeType || 'Not specified',
+          disputeAmount: (caseData.disputeDetails as any)?.disputeAmount || 'Not specified',
+          claimant: {
+            name: caseData.user?.name,
+            email: caseData.user?.email
+          },
+          respondents: caseData.respondents,
+          documents: caseData.documents,
+          createdAt: caseData.createdAt
+        },
+        respondentResponses,
+        respondentIssues: [], // Will implement AI judgments later
+        hasCounterResponse,
+        counterResponseDeadline: counterResponseDeadline.toISOString(),
+        currentRound: null // Will implement workflow rounds later
+      };
+
+      return responseData;
+    } catch (error) {
+      console.error('Error in getCounterResponseData:', error);
+      throw error;
+    }
+  }
+
 }

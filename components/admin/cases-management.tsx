@@ -435,6 +435,15 @@ export default function CasesManagement() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+                                             {/* Counter-Response option */}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => router.push(`/cases/${case_.id}/counter-response`)}
+                         title="Counter-Response"
+                       >
+                         <FileText className="h-4 w-4" />
+                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -135,6 +135,20 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
     }
   }, [router])
 
+  const handleCounterResponse = React.useCallback((caseId: string) => {
+    try {
+      if (!caseId) {
+        toast.error("Case ID is missing")
+        return
+      }
+      
+      // Navigate to counter-response page
+      router.push(`/cases/${caseId}/counter-response`)
+    } catch (error) {
+      toast.error("Failed to navigate to counter-response form. Please try again.")
+    }
+  }, [router])
+
   const handleViewDocument = React.useCallback((documentUrl: string | null) => {
     if (!documentUrl) {
       toast.error('No document file available')
@@ -436,10 +450,19 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
                     Respond to Case
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem onClick={() => handleEditCase(caseData.id, caseData.status)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Case
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => handleEditCase(caseData.id, caseData.status)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Case
+                    </DropdownMenuItem>
+                    {/* Show Counter-Response option for claimants when case is in appropriate status */}
+                    {caseData.userRole === 'claimant' && caseData.status === 'RESPONSE SUBMITTED' && (
+                      <DropdownMenuItem onClick={() => handleCounterResponse(caseData.id)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Counter-Response
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleDownloadDocuments(caseData.id)}>
@@ -460,7 +483,7 @@ export function CasesDataTable({ data, loading = false, onRefresh }: CasesDataTa
         enableHiding: false,
       },
     ],
-    [handleViewCase, handleEditCase, handleDownloadDocuments, handleRespond, handleViewDocument, getStatusColor, formatDate, formatCurrency]
+    [handleViewCase, handleEditCase, handleDownloadDocuments, handleRespond, handleCounterResponse, handleViewDocument, getStatusColor, formatDate, formatCurrency]
   )
 
   return (

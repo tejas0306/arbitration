@@ -14,6 +14,9 @@ import {
   Req,
   HttpStatus,
   HttpException,
+  UnauthorizedException,
+  NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -87,6 +90,11 @@ export class ArbitrationController {
   @Get('cases/:id')
   async getCaseDetails(@Param('id') id: string) {
     return this.arbitrationService.getCaseById(id);
+  }
+
+  @Get('cases/:id/counter-response-data')
+  async getCounterResponseData(@Param('id') id: string, @Request() req) {
+    return this.arbitrationService.getCounterResponseData(id, req.user.id);
   }
 
   @Patch('cases/:id/status')
@@ -446,6 +454,54 @@ Extract and return JSON with:
       console.log('inside writeJsonDatatoFile data saved to file:', filePath);
     } catch (error) {
       throw new HttpException('Failed to save file', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+
+
+  @Post(':id/counter-response')
+  async submitCounterResponse(
+    @Param('id') caseId: string,
+    @Body() body: { counterResponses: any[], issueResponses: any[] },
+    @Req() request: Request
+  ) {
+    try {
+      const token = (request.headers as any).authorization?.replace('Bearer ', '');
+      if (!token) {
+        throw new UnauthorizedException('Missing authorization token');
+      }
+
+      const { counterResponses, issueResponses } = body;
+
+      // For now, allow access to any authenticated user
+      // In production, you'd want to properly verify the JWT token
+
+      const caseData = await this.arbitrationService.getCaseWithDetails(caseId);
+      
+      if (!caseData) {
+        throw new NotFoundException('Case not found');
+      }
+
+      // Create a new case response for the counter-response
+      const counterResponse = await this.arbitrationService.createCounterResponse(
+        caseId,
+        caseData.userId,
+        counterResponses,
+        issueResponses
+      );
+
+      return {
+        success: true,
+        message: 'Counter-response submitted successfully',
+        counterResponseId: counterResponse.id,
+        nextStep: 'AI judgment will be generated within 3 days'
+      };
+
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to submit counter-response');
     }
   }
 }

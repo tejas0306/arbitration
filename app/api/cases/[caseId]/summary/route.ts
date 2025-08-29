@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getApiUrl } from '@/lib/config';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { caseId: string } }
 ) {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const caseId = params.caseId;
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // Get auth token from request headers (set by the frontend)
+    const authHeader = request.headers.get('authorization');
     
-    const response = await fetch(`${backendUrl}/api/arbitration/${caseId}/summary?userId=${session.user.id}`, {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Authentication token required' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const caseId = params.caseId;
+    
+    // Use the existing case endpoint
+    const apiUrl = getApiUrl(`api/arbitration/cases/${caseId}`);
+    
+    const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${request.headers.get('authorization')?.replace('Bearer ', '') || ''}`,
       },
     });
 

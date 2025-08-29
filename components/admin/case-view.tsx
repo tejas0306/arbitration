@@ -757,10 +757,21 @@ export default function CaseView({ caseId: propsCaseId }: CaseViewProps) {
             </p>
           </div>
         </div>
-        <Button onClick={handleEditCase}>
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Case
-        </Button>
+        <div className="flex space-x-2">
+          <Button onClick={handleEditCase}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Case
+          </Button>
+                     {/* Counter-Response option */}
+           <Button 
+             variant="outline" 
+             onClick={() => router.push(`/cases/${caseData.id}/counter-response`)}
+             title="Access Counter-Response Form"
+           >
+             <FileText className="h-4 w-4 mr-2" />
+             Counter-Response
+           </Button>
+        </div>
       </div>
 
       {/* Status Card */}

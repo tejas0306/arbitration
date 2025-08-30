@@ -154,14 +154,23 @@ export class RespondentService {
       managerDetails: c.managerDetails,
       respondents: c.respondents,
       arbitrationAgreement: c.arbitrationAgreement,
-      natureOfDispute: c.disputeDetails?.natureOfDispute || [],
-      disputeDetails: c.disputeDetails || {},
-      disputeDescriptions: c.disputeDetails?.disputeDescriptions || [],
+      // Support legacy and new storage locations
+      disputeDetails: c.disputeDetails || c.formData?.disputeDetails || {},
+      natureOfDispute:
+        c.disputeDetails?.natureOfDispute ||
+        c.formData?.natureOfDispute ||
+        c.formData?.disputeDetails?.natureOfDispute ||
+        [],
+      disputeDescriptions:
+        c.disputeDetails?.disputeDescriptions ||
+        c.formData?.disputeDescriptions ||
+        c.formData?.disputeDetails?.disputeDescriptions ||
+        [],
       evidence: c.documents || {},
-      prayers: c.prayers || {},
-      arguments: c.arguments || {},
-      payment: c.payment || {},
-      summary: c.summary || {},
+      prayers: c.prayers || c.formData?.prayers || {},
+      arguments: c.arguments || c.formData?.arguments || {},
+      payment: c.payment || c.formData?.payment || {},
+      summary: c.summary || c.formData?.summary || {},
     }));
   }
 

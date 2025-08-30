@@ -34,8 +34,15 @@ export default function DashboardWorklist({
   const [cases, setCases] = useState<ArbitrationCase[]>([])
   const [loading, setLoading] = useState(externalLoading)
   const [error, setError] = useState<string | null>(externalError)
+  
+  console.log('🔧 DashboardWorklist rendered with userData:', userData);
 
   const fetchCases = async () => {
+    if (!userData) {
+      console.log('🔧 No userData available, skipping fetchCases');
+      return;
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -49,30 +56,40 @@ export default function DashboardWorklist({
   
           allCases = [...allCases, ...claimantCases.map((c: any) => ({ ...c, userRole: 'claimant' }))];
         } catch (err) {
-  
+          console.log('🔧 No claimant cases or error:', err);
         }
       }
       
       // Fetch respondent cases (only if user is respondent or admin)
       if (userData && (userData.role === 'RESPONDENT' || userData.role === 'ADMIN')) {
         try {
+          console.log('🔧 About to fetch respondent cases from /api/respondent/cases');
           const response = await fetch('/api/respondent/cases', {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
             }
           });
           
+          console.log('🔧 Response received:', response.status, response.ok);
+          
           if (response.ok) {
             const respondentCases = await response.json();
-    
+            console.log('🔧 Raw response data:', respondentCases);
             allCases = [...allCases, ...respondentCases.map((c: any) => ({ ...c, userRole: 'respondent' }))];
+            console.log('🔧 Respondent cases fetched:', respondentCases.length);
+          } else {
+            console.log('🔧 Respondent API error:', response.status);
+            const errorText = await response.text();
+            console.log('🔧 Error response:', errorText);
           }
         } catch (err) {
-  
+          console.log('🔧 No respondent cases or error:', err);
         }
       }
       
       
+      
+      console.log('🔧 Total cases before formatting:', allCases.length);
       
       // Transform data to match our required format if needed
       const formattedCases: ArbitrationCase[] = allCases.map((caseData: any) => {
@@ -141,6 +158,7 @@ export default function DashboardWorklist({
       })
       
       setCases(formattedCases)
+      console.log('🔧 Cases set in state:', formattedCases.length);
     } catch (err) {
       setError('Failed to load your cases. Please try again later.')
       toast.error('Unable to load your cases')
@@ -184,12 +202,20 @@ export default function DashboardWorklist({
       getCasesNeedingCounterResponse().then(setCasesNeedingCounterResponse);
     }
   }, [cases, userData]);
+  
+  // Debug effect to monitor userData changes
+  useEffect(() => {
+    console.log('🔧 userData changed in DashboardWorklist:', userData);
+  }, [userData]);
 
 
 
   useEffect(() => {
-    fetchCases()
-  }, [])
+    if (userData && userData.role) {
+      console.log('🔧 UserData changed, fetching cases for role:', userData.role);
+      fetchCases()
+    }
+  }, [userData])
   
   useEffect(() => {
     setLoading(externalLoading);
@@ -248,30 +274,30 @@ export default function DashboardWorklist({
               </div>
             </div>
             <div className="flex space-x-3">
-              {casesNeedingCounterResponse.length === 1 ? (
-                <Button 
-                  onClick={() => {
-                    const caseItem = casesNeedingCounterResponse[0];
-                    router.push(`/cases/${caseItem.id}/counter-response`);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Go to Counter-Response
-                </Button>
-              ) : (
-                <Button 
-                  onClick={() => {
-                    // Navigate to the first case that needs counter-response
-                    const firstCase = casesNeedingCounterResponse[0];
-                    router.push(`/cases/${firstCase.id}/counter-response`);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  View Counter-Responses
-                </Button>
-              )}
+                             {casesNeedingCounterResponse.length === 1 ? (
+                 <Button 
+                   onClick={() => {
+                     const caseItem = casesNeedingCounterResponse[0];
+                     router.push(`/respondent/case/${caseItem.id}`);
+                   }}
+                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm"
+                 >
+                   <FileText className="h-4 w-4 mr-2" />
+                   Go to Counter-Response
+                 </Button>
+               ) : (
+                 <Button 
+                   onClick={() => {
+                     // Navigate to the first case that needs counter-response
+                     const firstCase = casesNeedingCounterResponse[0];
+                     router.push(`/respondent/case/${firstCase.id}`);
+                   }}
+                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm"
+                 >
+                   <FileText className="h-4 w-4 mr-2" />
+                   View Counter-Responses
+                 </Button>
+               )}
             </div>
           </div>
           
@@ -294,14 +320,14 @@ export default function DashboardWorklist({
                         </p>
                         
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => router.push(`/cases/${caseItem.id}/counter-response`)}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 transition-colors"
-                      >
-                        Respond
-                      </Button>
+                                             <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => router.push(`/respondent/case/${caseItem.id}`)}
+                         className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                       >
+                         Respond
+                       </Button>
                     </div>
                   </div>
                 ))}

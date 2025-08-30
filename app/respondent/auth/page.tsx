@@ -166,10 +166,19 @@ export default function RespondentAuthPage() {
       
       if (data.success) {
         setShowOTPDialog(true);
-        toast({
-          title: 'OTP Sent',
-          description: `Email OTP sent to ${email}. Please check your inbox.`,
-        });
+        
+        if (data.isDemoOTP) {
+          toast({
+            title: 'Demo OTP Generated',
+            description: data.message || `Demo OTP for ${email}: ${otp} (Check browser console)`,
+          });
+          console.log(`🔧 Demo OTP for ${email}: ${otp}`);
+        } else {
+          toast({
+            title: 'OTP Sent',
+            description: `Email OTP sent to ${email}. Please check your inbox.`,
+          });
+        }
       } else {
         // Fallback to demo mode if email fails
         console.log(`🔧 OTP for ${email}: ${otp}`);

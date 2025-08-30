@@ -1402,6 +1402,8 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
   // Manager verification states (arrays to handle multiple managers)
   const [managerEmailVerified, setManagerEmailVerified] = useState<boolean[]>([]);
   const [managerPhoneVerified, setManagerPhoneVerified] = useState<boolean[]>([]);
+  const [managerEmailOTPs, setManagerEmailOTPs] = useState<string[]>([]);
+  const [showManagerEmailModal, setShowManagerEmailModal] = useState<boolean[]>([]);
   
   // Respondent verification states (arrays to handle multiple respondents)
   const [respondentEmailVerified, setRespondentEmailVerified] = useState<boolean[]>([]);
@@ -2219,7 +2221,13 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       if (result.success && result.otp) {
         setSentEmailOTP(result.otp);
         setShowEmailOTP(true);
-        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        
+        if (result.isDemoOTP) {
+          toast.success(`Demo OTP sent: ${result.message}`);
+          console.log(`🔧 Demo OTP for ${email}: ${result.otp}`);
+        } else {
+          toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        }
       } else {
         toast.error('Failed to send email OTP. Please try again.');
         console.error('Email error:', result.error);
@@ -2331,21 +2339,26 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
       const result = await response.json();
       
       if (result.success && result.otp) {
-      // Update arrays to show modal for this specific claimant
-      const newSentOTPs = [...sentAdditionalEmailOTP];
-      const newShowModals = [...showAdditionalEmailOTP];
-      
-      // Ensure arrays are large enough
-      while (newSentOTPs.length <= index) newSentOTPs.push("");
-      while (newShowModals.length <= index) newShowModals.push(false);
-      
-        newSentOTPs[index] = result.otp;
-      newShowModals[index] = true;
-      
-      setSentAdditionalEmailOTP(newSentOTPs);
-      setShowAdditionalEmailOTP(newShowModals);
+        // Update arrays to show modal for this specific claimant
+        const newSentOTPs = [...sentAdditionalEmailOTP];
+        const newShowModals = [...showAdditionalEmailOTP];
         
-        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        // Ensure arrays are large enough
+        while (newSentOTPs.length <= index) newSentOTPs.push("");
+        while (newShowModals.length <= index) newShowModals.push(false);
+        
+        newSentOTPs[index] = result.otp;
+        newShowModals[index] = true;
+        
+        setSentAdditionalEmailOTP(newSentOTPs);
+        setShowAdditionalEmailOTP(newShowModals);
+        
+        if (result.isDemoOTP) {
+          toast.success(`Demo OTP sent: ${result.message}`);
+          console.log(`🔧 Demo OTP for ${email}: ${result.otp}`);
+        } else {
+          toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        }
       } else {
         toast.error('Failed to send email OTP. Please try again.');
         console.error('Email error:', result.error);
@@ -2556,7 +2569,12 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
           return newModals;
         });
         
-        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        if (result.isDemoOTP) {
+          toast.success(`Demo OTP sent: ${result.message}`);
+          console.log(`🔧 Demo OTP for ${email}: ${result.otp}`);
+        } else {
+          toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        }
       } else {
         toast.error('Failed to send email OTP. Please try again.');
         console.error('Email error:', result.error);
@@ -2641,7 +2659,12 @@ function ArbitrationForm({ onSubmit, initialData, mode = 'create', petitionId, d
         return newModals;
       });
       
-        toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        if (result.isDemoOTP) {
+          toast.success(`Demo OTP sent: ${result.message}`);
+          console.log(`🔧 Demo OTP for ${email}: ${result.otp}`);
+        } else {
+          toast.success(`Email OTP sent to ${email}. Please check your inbox.`);
+        }
       } else {
         toast.error('Failed to send email OTP. Please try again.');
         console.error('Email error:', result.error);

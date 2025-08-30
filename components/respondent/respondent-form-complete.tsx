@@ -184,11 +184,14 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
       console.log('🔧 caseData keys:', Object.keys(caseData));
       console.log('🔧 caseData.managerDetails:', caseData.managerDetails);
       console.log('🔧 caseData.disputeDescriptions:', caseData.disputeDescriptions);
+      console.log('🔧 caseData.natureOfDispute:', caseData.natureOfDispute);
       console.log('🔧 caseData.prayers:', caseData.prayers);
       console.log('🔧 caseData.evidence:', caseData.evidence);
       console.log('🔧 caseData.arguments:', caseData.arguments);
       console.log('🔧 caseData._rawFormData:', caseData._rawFormData);
-      console.log('🔧 caseData._rawAll:', caseData._rawAll);
+      console.log('🔧 caseData._rawFlattenedFields:', caseData._rawFlattenedFields);
+      console.log('🔧 caseData._rawDisputeDetails:', caseData._rawDisputeDetails);
+      console.log('🔧 caseData._rawManagerDetails:', caseData._rawManagerDetails);
       console.log('🔧 [RespondentForm] Setting form data with:', {
         claimant: caseData.claimant,
         additionalClaimants: caseData.additionalClaimants,
@@ -246,7 +249,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
         disputeDescriptions: caseData.disputeDescriptions || [],
         
         // Step 7: Prayers & Reliefs (EDITABLE)
-        prayers: caseData.prayers?.prayers || [],
+        prayers: caseData.prayers || [],
         
         // Step 8: Documents (EDITABLE)
         evidence: caseData.evidence || {
@@ -1444,7 +1447,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 6: Nature of Dispute */}
-                {(
+                {formData.natureOfDispute && Array.isArray(formData.natureOfDispute) && formData.natureOfDispute.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1500,7 +1503,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 7: Dispute Descriptions */}
-                {(
+                {formData.disputeDescriptions && formData.disputeDescriptions.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-pink-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1568,7 +1571,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 8: Prayers & Reliefs */}
-                {(
+                {formData.prayers && formData.prayers.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-teal-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1589,7 +1592,19 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       <div className="grid grid-cols-1 gap-4">
                         <div className="bg-gray-50 p-3 rounded">
                           <label className="text-sm font-medium text-gray-600">8.1 Prayers and Reliefs</label>
-                          <p className="text-gray-900">{Array.isArray(formData.prayers) ? (formData.prayers.length > 0 ? formData.prayers.join(', ') : 'No prayers and reliefs added yet. Click Edit to add.') : (formData.prayers?.prayers ? (Array.isArray(formData.prayers.prayers) ? formData.prayers.prayers.join(', ') : formData.prayers.prayers) : 'Not provided')}</p>
+                          <p className="text-gray-900">
+                            {Array.isArray(formData.prayers) && formData.prayers.length > 0 
+                              ? formData.prayers.map((prayer: any, idx: number) => (
+                                  <span key={idx} className="block mb-2 p-2 bg-white rounded border">
+                                    {typeof prayer === 'string' ? prayer : prayer.prayer || 'No prayer text'}
+                                    {typeof prayer === 'object' && prayer.prayerType && (
+                                      <span className="text-sm text-gray-500 block">Type: {prayer.prayerType}</span>
+                                    )}
+                                  </span>
+                                ))
+                              : 'No prayers and reliefs added yet. Click Edit to add.'
+                            }
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1597,7 +1612,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 9: Documents */}
-                {(
+                {formData.evidence && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-yellow-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">
@@ -1646,7 +1661,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                 )}
 
                 {/* Step 10: Payment */}
-                {(
+                {formData.payment && (
                   <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div className="bg-emerald-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                       <h3 className="text-lg font-semibold flex items-center">

@@ -66,8 +66,8 @@ pnpm run start:dev
 ## Environment Variables
 
 ### Frontend (.env.local)
-```
-NEXT_PUBLIC_API_URL=http://localhost:3001
+   ```
+   NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXTAUTH_SECRET=your-secret-here
 NEXTAUTH_URL=http://localhost:3000
 ```

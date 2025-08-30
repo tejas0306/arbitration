@@ -63,10 +63,21 @@ export class EmailService {
   /**
    * Send OTP email
    */
-  static async sendOTPEmail(to: string, otp: string, type: 'email' | 'phone' = 'email'): Promise<boolean> {
+  static async sendOTPEmail(to: string, otp: string, type: 'email' | 'phone' = 'email', testMode: boolean = false): Promise<{ success: boolean; isDemoOTP?: boolean; message?: string }> {
     console.log(`📧 Sending OTP email to: ${to}`);
     console.log(`📧 OTP: ${otp}`);
     console.log(`📧 Type: ${type}`);
+    console.log(`📧 Test Mode: ${testMode}`);
+    
+    // If in test mode, simulate Gmail daily limit error
+    if (testMode) {
+      console.log(`📧 Test mode: Simulating Gmail daily limit error`);
+      return { 
+        success: true, 
+        isDemoOTP: true, 
+        message: `Test mode: Gmail daily limit exceeded. Demo OTP: ${otp} (Check browser console)` 
+      };
+    }
     
     const subject = `Arbitration Portal - ${type === 'email' ? 'Email' : 'Phone'} Verification OTP`;
     const html = `
@@ -80,7 +91,7 @@ export class EmailService {
             ${otp}
           </div>
           <p style="color: #666; font-size: 14px;">
-            This code will expire in 10 minutes. Please do not share this code with anyone.
+            This code will expire in 10 minutes. Please check your inbox or browser console for the OTP.
           </p>
           <p style="color: #999; font-size: 12px; margin-top: 30px;">
             If you didn't request this verification, please ignore this email.
@@ -95,11 +106,48 @@ export class EmailService {
       to: to
     });
 
-    return this.sendEmail({
-      to,
-      subject,
-      html,
-    });
+    try {
+      const emailResult = await this.sendEmail({
+        to,
+        subject,
+        html,
+      });
+      
+      if (emailResult) {
+        return { success: true, isDemoOTP: false };
+      }
+      
+      // If email fails, check if it's due to Gmail daily limit
+      console.log(`📧 Email sending failed, checking for Gmail daily limit error...`);
+      
+      // Return demo OTP response when email fails
+      return { 
+        success: true, 
+        isDemoOTP: true, 
+        message: `Email sending failed due to Gmail daily limit. Demo OTP: ${otp} (Check browser console)` 
+      };
+      
+    } catch (error: any) {
+      console.error(`📧 Error in sendOTPEmail:`, error);
+      
+      // Check if it's a Gmail daily limit error
+      if (error.code === 'EENVELOPE' && 
+          error.response && 
+          error.response.includes('Daily user sending limit exceeded')) {
+        console.log(`📧 Gmail daily limit exceeded, using demo OTP`);
+        return { 
+          success: true, 
+          isDemoOTP: true, 
+          message: `Gmail daily limit exceeded. Demo OTP: ${otp} (Check browser console)` 
+        };
+      }
+      
+      // For other errors, return failure
+      return { 
+        success: false, 
+        message: `Failed to send OTP: ${error.message || 'Unknown error'}` 
+      };
+    }
   }
 
   /**

@@ -3,7 +3,7 @@ import EmailService from '@/lib/email-service';
 
 export async function POST(request: NextRequest) {
   try {
-    const { to, type = 'test', caseLink, caseData, caseNumber, email, otp, recipientType } = await request.json();
+    const { to, type = 'test', caseLink, caseData, caseNumber, email, otp, recipientType, testMode = false } = await request.json();
 
     // Only require 'to' for non-case-submission-all-parties types
     if (type !== 'case-submission-all-parties' && type !== 'otp-verification' && !to) {
@@ -20,12 +20,21 @@ export async function POST(request: NextRequest) {
       case 'otp':
         // Test OTP email
         const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        success = await EmailService.sendOTPEmail(to, generatedOtp, 'email');
-        message = success ? 'OTP email sent successfully' : 'Failed to send OTP email';
+        const otpResult = await EmailService.sendOTPEmail(to, generatedOtp, 'email', testMode);
+        success = otpResult.success;
+        
+        if (otpResult.isDemoOTP) {
+          message = `Demo OTP sent: ${otpResult.message}`;
+          console.log(`🔧 Demo OTP for ${to}: ${generatedOtp}`);
+        } else {
+          message = success ? 'OTP email sent successfully' : 'Failed to send OTP email';
+        }
+        
         return NextResponse.json({
           success,
           message,
           otp: success ? generatedOtp : null, // Return the OTP to frontend
+          isDemoOTP: otpResult.isDemoOTP || false,
           timestamp: new Date().toISOString()
         });
         break;
@@ -39,12 +48,21 @@ export async function POST(request: NextRequest) {
           );
         }
         console.log(`🔧 OTP verification - Sending to: ${email}`);
-        success = await EmailService.sendOTPEmail(email, otp, 'email');
-        message = success ? 'OTP verification email sent successfully' : 'Failed to send OTP verification email';
+        const verificationResult = await EmailService.sendOTPEmail(email, otp, 'email', testMode);
+        success = verificationResult.success;
+        
+        if (verificationResult.isDemoOTP) {
+          message = `Demo OTP sent: ${verificationResult.message}`;
+          console.log(`🔧 Demo OTP for ${email}: ${otp}`);
+        } else {
+          message = success ? 'OTP verification email sent successfully' : 'Failed to send OTP verification email';
+        }
+        
         return NextResponse.json({
           success,
           message,
           otp: success ? otp : null, // Return the OTP to frontend
+          isDemoOTP: verificationResult.isDemoOTP || false,
           timestamp: new Date().toISOString()
         });
         break;

@@ -105,30 +105,111 @@ export class RespondentService {
 
   // Get cases for a respondent
   async getRespondentCases(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId }
-    });
+    // Validate user & role
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || user.role !== 'RESPONDENT') {
       throw new ForbiddenException('Access denied');
     }
 
-    // Return empty array for now
-    // TODO: Implement proper case retrieval when database schema is fixed
-    return [];
+    // Fetch cases where this respondent's email appears in the respondents JSON array
+    // NOTE: Prisma JSON filter support is still experimental; using raw query for flexibility
+    const cases = await this.prisma.arbitration.findMany({
+      where: {
+        AND: [
+          { isDraft: false },
+          {
+            // Check if respondents JSON array contains an object with the same email
+            // This utilises the contains filter which works for simple JSON scalars;
+            // in case of object array we fallback to post-processing filter below
+            OR: [
+              { respondents: { path: ["email"], equals: user.email } },
+              { respondents: { equals: user.email } }, // safeguard if stored as string[]
+            ],
+          },
+        ],
+      },
+    });
+
+    // Post-filter for DBs that cannot query deep JSON (e.g. SQLite)
+    const filteredCases = cases.filter((c: any) => {
+      if (Array.isArray(c.respondents)) {
+        return c.respondents.some((r: any) => r?.email === user.email);
+      }
+      return false;
+    });
+
+    // Map to lightweight DTO expected by the frontend
+    return filteredCases.map((c: any) => ({
+      id: c.id,
+      caseNumber: c.caseNumber,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      name: c.claimantDetails?.name || 'Unknown',
+      userRole: 'RESPONDENT',
+      currentRespondentEmail: user.email,
+      claimant: c.claimantDetails,
+      additionalClaimants: c.additionalClaimants,
+      managerDetails: c.managerDetails,
+      respondents: c.respondents,
+      arbitrationAgreement: c.arbitrationAgreement,
+      natureOfDispute: c.disputeDetails?.natureOfDispute || [],
+      disputeDetails: c.disputeDetails || {},
+      disputeDescriptions: c.disputeDetails?.disputeDescriptions || [],
+      evidence: c.documents || {},
+      prayers: c.prayers || {},
+      arguments: c.arguments || {},
+      payment: c.payment || {},
+      summary: c.summary || {},
+    }));
   }
 
   // Get a specific case for a respondent
   async getRespondentCase(userId: string, caseId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId }
-    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || user.role !== 'RESPONDENT') {
       throw new ForbiddenException('Access denied');
     }
 
-    throw new NotFoundException('Case not found');
+    const arbitration = await this.prisma.arbitration.findUnique({ where: { id: caseId } });
+
+    if (!arbitration) {
+      throw new NotFoundException('Case not found');
+    }
+
+    // Verify respondent email belongs to this case
+    if (
+      !Array.isArray(arbitration.respondents) ||
+      !arbitration.respondents.some((r: any) => r?.email === user.email)
+    ) {
+      throw new ForbiddenException('You do not have access to this case');
+    }
+
+    return {
+      id: arbitration.id,
+      caseNumber: arbitration.caseNumber,
+      status: arbitration.status,
+      createdAt: arbitration.createdAt,
+      updatedAt: arbitration.updatedAt,
+      name: arbitration.claimantDetails?.name || 'Unknown',
+      userRole: 'RESPONDENT',
+      currentRespondentEmail: user.email,
+      claimant: arbitration.claimantDetails,
+      additionalClaimants: arbitration.additionalClaimants,
+      managerDetails: arbitration.managerDetails,
+      respondents: arbitration.respondents,
+      arbitrationAgreement: arbitration.arbitrationAgreement,
+      natureOfDispute: arbitration.disputeDetails?.natureOfDispute || [],
+      disputeDetails: arbitration.disputeDetails || {},
+      disputeDescriptions: arbitration.disputeDetails?.disputeDescriptions || [],
+      evidence: arbitration.documents || {},
+      prayers: arbitration.prayers || {},
+      arguments: arbitration.arguments || {},
+      payment: arbitration.payment || {},
+      summary: arbitration.summary || {},
+    };
   }
 
   // Submit a response to a case

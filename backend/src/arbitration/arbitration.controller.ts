@@ -33,6 +33,7 @@ import { AssignArbitratorDto } from './dto/assign-arbitrator.dto';
 import { ProposeArbitratorDto } from './dto/propose-arbitrator.dto';
 import { RespondArbitratorProposalDto } from './dto/respond-arbitrator-proposal.dto';
 import { ArbitratorResponseDto } from './dto/arbitrator-response.dto';
+import { ArbitrationWorkflowService } from './workflow-integration.service';
 
 // Initialize OpenAI client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });

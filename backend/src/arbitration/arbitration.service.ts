@@ -63,15 +63,110 @@ export class ArbitrationService {
     userId: string,
     isDraft: boolean,
   ) {
-    const newCase = this.arbitrationCaseRepository.create({
-      ...createArbitrationDto,
-      claimantId: userId,
-      status: isDraft ? 'DRAFT' : 'SUBMITTED',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    console.log('🔧 [ArbitrationService] createCase called with:', {
+      isDraft,
+      userId,
+      dtoKeys: Object.keys(createArbitrationDto)
     });
 
-    return this.arbitrationCaseRepository.save(newCase);
+    // Extract the raw form data from the DTO
+    const rawFormData = createArbitrationDto as any;
+    
+    // Debug: Log the actual data structure being received
+    console.log('🔧 [ArbitrationService] Raw form data structure:', {
+      hasNatureOfDispute: !!rawFormData.natureOfDispute,
+      hasDisputeDescriptions: !!rawFormData.disputeDescriptions,
+      hasArguments: !!rawFormData.arguments,
+      hasPrayers: !!rawFormData.prayers,
+      hasManagerDetails: !!rawFormData.managerDetails,
+      natureOfDisputeType: typeof rawFormData.natureOfDispute,
+      disputeDescriptionsType: typeof rawFormData.disputeDescriptions,
+      natureOfDisputeValue: rawFormData.natureOfDispute,
+      disputeDescriptionsValue: rawFormData.disputeDescriptions
+    });
+    
+    // Create the case data with proper structure for Prisma
+    const caseData = {
+      // Map to Prisma schema fields
+      userId: userId,
+      type: rawFormData.type || rawFormData.claimantDetails?.type || 'Individual',
+      name: rawFormData.name || rawFormData.claimantDetails?.name || '',
+      email: rawFormData.email || rawFormData.claimantDetails?.email || '',
+      phone: rawFormData.phone || rawFormData.claimantDetails?.phone || '',
+      phoneCountryCode: rawFormData.phoneCountryCode || rawFormData.claimantDetails?.phoneCountryCode || '+91',
+      address1: rawFormData.address1 || rawFormData.claimantDetails?.address1 || '',
+      address2: rawFormData.address2 || rawFormData.claimantDetails?.address2 || '',
+      city: rawFormData.city || rawFormData.claimantDetails?.city || '',
+      district: rawFormData.district || rawFormData.claimantDetails?.district || '',
+      state: rawFormData.state || rawFormData.claimantDetails?.state || '',
+      country: rawFormData.country || rawFormData.claimantDetails?.country || '',
+      pincode: rawFormData.pincode || rawFormData.claimantDetails?.pincode || '',
+      gst: rawFormData.gst || rawFormData.claimantDetails?.gst || '',
+      pan: rawFormData.pan || rawFormData.claimantDetails?.pan || '',
+      cin: rawFormData.cin || rawFormData.claimantDetails?.cin || '',
+      
+      // Additional data - keep as arrays/objects where needed
+      additionalClaimants: rawFormData.additionalClaimants || [],
+      managerDetails: rawFormData.managerDetails || rawFormData.manager,
+      respondents: rawFormData.respondents || [rawFormData.respondentDetails],
+      arbitrationAgreement: rawFormData.arbitrationAgreement || {},
+      documents: rawFormData.documents || {},
+      
+      // Keep disputeDetails for Prisma schema compatibility
+      disputeDetails: rawFormData.disputeDetails || rawFormData.dispute || {},
+      
+      // NEW: Save to flattened fields for easy reading - use the exact field names from frontend
+      natureOfDispute: this.extractFieldValue(rawFormData.natureOfDispute),
+      disputeDescription: this.extractFieldValue(rawFormData.disputeDescriptions),
+      arguments: this.extractFieldValue(rawFormData.arguments),
+      prayers: this.extractFieldValue(rawFormData.prayers),
+      paymentAmount: this.extractFieldValue(rawFormData.payment?.amount),
+      paymentDetails: this.extractFieldValue(rawFormData.payment?.details),
+      
+      // Add formData field to store the complete form structure
+      formData: {
+        // Store the complete raw form data
+        ...rawFormData,
+        
+        // Ensure natureOfDispute and disputeDescriptions are properly stored as arrays
+        natureOfDispute: rawFormData.natureOfDispute || [],
+        disputeDescriptions: rawFormData.disputeDescriptions || [],
+        
+        // Store other form fields
+        claimant: rawFormData.claimant || rawFormData.claimantDetails,
+        additionalClaimants: rawFormData.additionalClaimants || [],
+        managerDetails: rawFormData.managerDetails || rawFormData.manager || {},
+        respondents: rawFormData.respondents || [rawFormData.respondentDetails] || [],
+        arbitrationAgreement: rawFormData.arbitrationAgreement || {},
+        prayers: rawFormData.prayers || {},
+        arguments: rawFormData.arguments || {},
+        payment: rawFormData.payment || {},
+        documents: rawFormData.documents || {},
+      },
+      
+      // Set status and timestamps
+      status: isDraft ? 'draft' : 'pending',
+      isDraft: isDraft,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    console.log('🔧 [ArbitrationService] Processed case data:', {
+      formDataKeys: Object.keys(caseData.formData || {}),
+      natureOfDispute: caseData.formData?.natureOfDispute,
+      disputeDescriptions: caseData.formData?.disputeDescriptions,
+      flattenedNatureOfDispute: caseData.natureOfDispute,
+      flattenedDisputeDescription: caseData.disputeDescription
+    });
+
+    // Use Prisma to create the case in the arbitration table
+    const newCase = await this.prisma.arbitration.create({
+      data: caseData,
+    });
+
+    console.log('🔧 [ArbitrationService] Case created successfully with ID:', newCase.id);
+
+    return newCase;
   }
 
   async getCasesByUser(userId: string, filters: any) {
@@ -768,6 +863,58 @@ export class ArbitrationService {
     }
 
     return fileMetadata;
+  }
+
+  // Helper method to extract field value and convert to readable string
+  private extractFieldValue(field: any): string {
+    if (!field) return '';
+    
+    if (Array.isArray(field)) {
+      if (field.length === 0) return '';
+      
+      // If it's an array of objects with specific properties, extract the relevant text
+      if (typeof field[0] === 'object' && field[0] !== null) {
+        // Check for common field names
+        const textFields: string[] = [];
+        for (const item of field) {
+          if (item.natureOfDispute) textFields.push(String(item.natureOfDispute));
+          if (item.disputeDescription) textFields.push(String(item.disputeDescription));
+          if (item.argument) textFields.push(String(item.argument));
+          if (item.prayer) textFields.push(String(item.prayer));
+          if (item.text) textFields.push(String(item.text));
+          if (item.description) textFields.push(String(item.description));
+          if (item.content) textFields.push(String(item.content));
+          if (item.value) textFields.push(String(item.value));
+        }
+        return textFields.length > 0 ? textFields.join('; ') : JSON.stringify(field);
+      }
+      
+      // If it's an array of strings, join them
+      if (typeof field[0] === 'string') {
+        return field.join('; ');
+      }
+      
+      // Otherwise, stringify the array
+      return JSON.stringify(field);
+    }
+    
+    if (typeof field === 'object' && field !== null) {
+      // If it's an object, try to extract text content
+      if (field.natureOfDispute) return String(field.natureOfDispute);
+      if (field.disputeDescription) return String(field.disputeDescription);
+      if (field.argument) return String(field.argument);
+      if (field.prayer) return String(field.prayer);
+      if (field.text) return String(field.text);
+      if (field.description) return String(field.description);
+      if (field.content) return String(field.content);
+      if (field.value) return String(field.value);
+      
+      // If no text field found, stringify the object
+      return JSON.stringify(field);
+    }
+    
+    // If it's a string or number, convert to string
+    return String(field);
   }
 
   async getCounterResponseData(caseId: string, userId: string) {

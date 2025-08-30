@@ -49,6 +49,9 @@ export class ArbitrationCase {
   @Column('json', { nullable: true })
   documents: any[];
 
+  @Column('json', { nullable: true })
+  formData: any;
+
   @Column({ nullable: true })
   preferredArbitratorId: string;
 

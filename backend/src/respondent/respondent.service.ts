@@ -124,36 +124,6 @@ export class RespondentService {
       where: {
         // Since respondents is a JSON field, we need to filter differently
         // We'll get all cases and filter in memory for now
-      },
-      select: {
-        id: true,
-        caseNumber: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        respondents: true,
-        // Include ALL form data for respondent view
-        type: true,
-        name: true,
-        email: true,
-        phone: true,
-        phoneCountryCode: true,
-        address1: true,
-        address2: true,
-        city: true,
-        district: true,
-        state: true,
-        country: true,
-        pincode: true,
-        gst: true,
-        pan: true,
-        cin: true,
-        additionalClaimants: true,
-        managerDetails: true,
-        arbitrationAgreement: true,
-        disputeDetails: true,
-        documents: true,
-        formData: true // This contains the complete structured form data
       }
     });
 
@@ -166,6 +136,109 @@ export class RespondentService {
     // Format cases for frontend with all necessary data
     const formattedCases = userCases.map(caseItem => {
       const formData = caseItem.formData as any || {};
+      const flat = caseItem as any;
+      
+      console.log('🔧 [RespondentService] Processing case:', caseItem.caseNumber);
+      console.log('🔧 [RespondentService] Raw formData:', formData);
+      console.log('🔧 [RespondentService] formData keys:', Object.keys(formData));
+      console.log('🔧 [RespondentService] formData.natureOfDispute:', formData.natureOfDispute);
+      console.log('🔧 [RespondentService] formData.disputeDescriptions:', formData.disputeDescriptions);
+      console.log('🔧 [RespondentService] formData.prayers:', formData.prayers);
+      console.log('🔧 [RespondentService] formData.arguments:', formData.arguments);
+      
+      // Try to get natureOfDispute and disputeDescriptions (prefer flattened fields first)
+      let natureOfDispute: any[] = [];
+      let disputeDescriptions: any[] = [];
+      
+      // First, try flattened string fields on the Arbitration row
+      try {
+        if (flat.natureOfDispute) {
+          const parsed = JSON.parse(flat.natureOfDispute);
+          natureOfDispute = Array.isArray(parsed) ? parsed : [parsed];
+        }
+      } catch (_) {
+        if (typeof flat.natureOfDispute === 'string') {
+          natureOfDispute = [flat.natureOfDispute];
+        }
+      }
+
+      try {
+        if (flat.disputeDescription) {
+          const parsed = JSON.parse(flat.disputeDescription);
+          disputeDescriptions = Array.isArray(parsed) ? parsed : [parsed];
+        }
+      } catch (_) {
+        if (typeof flat.disputeDescription === 'string') {
+          disputeDescriptions = [flat.disputeDescription];
+        }
+      }
+
+      console.log('🔧 [RespondentService] Processing case:', caseItem.caseNumber);
+      console.log('🔧 [RespondentService] Has flattened fields:', !!flat.natureOfDispute, !!flat.disputeDescription);
+      console.log('🔧 [RespondentService] formData keys:', Object.keys(formData || {}));
+      
+      // Try to find natureOfDispute in formData (fallback if flattened field failed)
+      if (natureOfDispute.length === 0 && formData.natureOfDispute) {
+        natureOfDispute = Array.isArray(formData.natureOfDispute) ? formData.natureOfDispute : [formData.natureOfDispute];
+      }
+      
+      // Try to find disputeDescriptions in formData (fallback if flattened field failed) 
+      if (disputeDescriptions.length === 0 && formData.disputeDescriptions) {
+        disputeDescriptions = Array.isArray(formData.disputeDescriptions) ? formData.disputeDescriptions : [formData.disputeDescriptions];
+      }
+      
+      // If still empty, try disputeDetails as fallback
+      if (natureOfDispute.length === 0 && caseItem.disputeDetails) {
+        const disputeDetails = caseItem.disputeDetails as any;
+        if (disputeDetails.natureOfDispute) {
+          natureOfDispute = Array.isArray(disputeDetails.natureOfDispute) ? disputeDetails.natureOfDispute : [disputeDetails.natureOfDispute];
+        }
+      }
+      
+      if (disputeDescriptions.length === 0 && caseItem.disputeDetails) {
+        const disputeDetails = caseItem.disputeDetails as any;
+        if (disputeDetails.disputeDescriptions) {
+          disputeDescriptions = Array.isArray(disputeDetails.disputeDescriptions) ? disputeDetails.disputeDescriptions : [disputeDetails.disputeDescriptions];
+        }
+      }
+      
+      // Try to get prayers and arguments (prefer flattened fields first)
+      let prayers: any[] = [];
+      let argumentsData: any[] = [];
+
+      // Flattened fields first (strings that contain JSON objects)
+      try {
+        if (flat.prayers) {
+          const parsed = JSON.parse(flat.prayers);
+          // Expect format: {"prayers": [array of prayer objects]}
+          prayers = parsed.prayers || [];
+        }
+      } catch (_) {
+        console.log('🔧 [RespondentService] Failed to parse prayers string field');
+      }
+
+      try {
+        if (flat.arguments) {
+          const parsed = JSON.parse(flat.arguments);
+          // Expect format: {"argumentsPerPrayer": [array], "argumentsPerIssue": [array]}
+          argumentsData = parsed.argumentsPerPrayer || parsed.argumentsPerIssue || [];
+        }
+      } catch (_) {
+        console.log('🔧 [RespondentService] Failed to parse arguments string field');
+      }
+      
+      // Handle prayers structure from formData as fallback
+      if (prayers.length === 0 && formData.prayers && formData.prayers.prayers) {
+        prayers = Array.isArray(formData.prayers.prayers) ? formData.prayers.prayers : [formData.prayers.prayers];
+      }
+      
+      // Handle arguments structure from formData as fallback  
+      if (argumentsData.length === 0 && formData.arguments) {
+        argumentsData = formData.arguments.argumentsPerPrayer || formData.arguments.argumentsPerIssue || [];
+      }
+      
+      console.log('🔧 [RespondentService] Final natureOfDispute:', natureOfDispute);
+      console.log('🔧 [RespondentService] Final disputeDescriptions:', disputeDescriptions);
       
       return {
         id: caseItem.id,
@@ -202,8 +275,8 @@ export class RespondentService {
         // Additional claimants (Step 3)
         additionalClaimants: caseItem.additionalClaimants || [],
         
-        // Manager details (Step 4)
-        managerDetails: caseItem.managerDetails,
+        // Manager details (Step 4) - try multiple sources
+        managerDetails: caseItem.managerDetails || formData.step2?.managerDetails || formData.managerDetails || {},
         
         // Respondents (Step 5)
         respondents: caseItem.respondents || [],
@@ -212,14 +285,27 @@ export class RespondentService {
         arbitrationAgreement: caseItem.arbitrationAgreement || {},
         
         // Form data from formData field if it exists
-        natureOfDispute: formData.natureOfDispute || {},
+        natureOfDispute: natureOfDispute,
         disputeDetails: formData.disputeDetails || caseItem.disputeDetails || {},
-        disputeDescriptions: formData.disputeDescriptions || [],
+        disputeDescriptions: disputeDescriptions,
         evidence: formData.documents || caseItem.documents || {},
-        prayers: formData.prayers || {},
-        arguments: formData.arguments || {},
+        prayers: prayers,
+        arguments: argumentsData,
         payment: formData.payment || {},
-        summary: formData.review || {}
+        summary: formData.review || {},
+        
+        // DEBUG: Raw database fields to see what's actually stored
+        _rawFormData: formData,
+        _rawFlattenedFields: {
+          natureOfDispute: flat.natureOfDispute || null,
+          disputeDescription: flat.disputeDescription || null,
+          arguments: flat.arguments || null,
+          prayers: flat.prayers || null,
+          paymentAmount: flat.paymentAmount || null,
+          paymentDetails: flat.paymentDetails || null
+        },
+        _rawDisputeDetails: caseItem.disputeDetails,
+        _rawManagerDetails: caseItem.managerDetails
       };
     });
 
@@ -247,10 +333,46 @@ export class RespondentService {
     console.log('[RespondentService] User role verified:', { id: user.id, email: user.email, role: user.role });
 
     // Accept both DB id (UUID) and caseNumber
-    let caseData = await this.prisma.arbitration.findUnique({ where: { id: caseId } });
+    let caseData = await this.prisma.arbitration.findUnique({ 
+      where: { id: caseId },
+      select: {
+        id: true,
+        caseNumber: true,
+        status: true,
+        respondents: true,
+        formData: true,
+        disputeDetails: true,
+        documents: true,
+        // NEW: Select the flattened fields directly
+        natureOfDispute: true,
+        disputeDescription: true,
+        arguments: true,
+        prayers: true,
+        paymentAmount: true,
+        paymentDetails: true
+      }
+    });
     if (!caseData) {
       console.log('[RespondentService] Case not found for id/caseNumber. Trying suffix match.', { caseId });
-      caseData = await this.prisma.arbitration.findFirst({ where: { caseNumber: caseId } });
+      caseData = await this.prisma.arbitration.findFirst({ 
+        where: { caseNumber: caseId },
+        select: {
+          id: true,
+          caseNumber: true,
+          status: true,
+          respondents: true,
+          formData: true,
+          disputeDetails: true,
+          documents: true,
+          // NEW: Select the flattened fields directly
+          natureOfDispute: true,
+          disputeDescription: true,
+          arguments: true,
+          prayers: true,
+          paymentAmount: true,
+          paymentDetails: true
+        }
+      });
     }
     // Fallback: try matching by trailing numeric sequence (e.g., 0000107)
     if (!caseData && caseId) {
@@ -259,6 +381,22 @@ export class RespondentService {
       if (suffix) {
         caseData = await this.prisma.arbitration.findFirst({
           where: { caseNumber: { endsWith: suffix } },
+          select: {
+            id: true,
+            caseNumber: true,
+            status: true,
+            respondents: true,
+            formData: true,
+            disputeDetails: true,
+            documents: true,
+            // NEW: Select the flattened fields directly
+            natureOfDispute: true,
+            disputeDescription: true,
+            arguments: true,
+            prayers: true,
+            paymentAmount: true,
+            paymentDetails: true
+          }
         });
       }
     }
@@ -290,6 +428,91 @@ export class RespondentService {
     // Type the formData as any to avoid TypeScript errors with JSON fields
     const formData = caseData.formData as any || {};
     
+    console.log('🔧 [RespondentService] getRespondentCase - Raw caseData:', caseData);
+    console.log('🔧 [RespondentService] getRespondentCase - formData:', formData);
+    
+    // Extract data from formData and other sources
+    let natureOfDispute: any[] = [];
+    let disputeDescriptions: any[] = [];
+    let prayers: any[] = [];
+    let argumentsData: any[] = [];
+    
+    // Try to get data from flattened fields first, then formData 
+    const flat = caseData as any;
+    
+    // First try flattened string fields
+    try {
+      if (flat.natureOfDispute) {
+        const parsed = JSON.parse(flat.natureOfDispute);
+        natureOfDispute = Array.isArray(parsed) ? parsed : [parsed];
+      }
+    } catch (_) {
+      // If parse fails, try formData
+      if (formData.natureOfDispute) {
+        natureOfDispute = Array.isArray(formData.natureOfDispute) ? formData.natureOfDispute : [formData.natureOfDispute];
+      }
+    }
+    
+    try {
+      if (flat.disputeDescription) {
+        const parsed = JSON.parse(flat.disputeDescription);
+        disputeDescriptions = Array.isArray(parsed) ? parsed : [parsed];
+      }
+    } catch (_) {
+      // If parse fails, try formData
+      if (formData.disputeDescriptions) {
+        disputeDescriptions = Array.isArray(formData.disputeDescriptions) ? formData.disputeDescriptions : [formData.disputeDescriptions];
+      }
+    }
+    
+    // Handle prayers - try flattened field first
+    try {
+      if (flat.prayers) {
+        const parsed = JSON.parse(flat.prayers);
+        prayers = parsed.prayers || [];
+      }
+    } catch (_) {
+      // If parse fails, try formData
+      if (formData.prayers && formData.prayers.prayers) {
+        prayers = Array.isArray(formData.prayers.prayers) ? formData.prayers.prayers : [formData.prayers.prayers];
+      }
+    }
+    
+    // Handle arguments - try flattened field first  
+    try {
+      if (flat.arguments) {
+        const parsed = JSON.parse(flat.arguments);
+        argumentsData = parsed.argumentsPerPrayer || parsed.argumentsPerIssue || [];
+      }
+    } catch (_) {
+      // If parse fails, try formData
+      if (formData.arguments) {
+        argumentsData = formData.arguments.argumentsPerPrayer || formData.arguments.argumentsPerIssue || [];
+      }
+    }
+    
+    // If still empty, try disputeDetails as fallback
+    if (natureOfDispute.length === 0 && caseData.disputeDetails) {
+      const disputeDetails = caseData.disputeDetails as any;
+      if (disputeDetails.natureOfDispute) {
+        natureOfDispute = Array.isArray(disputeDetails.natureOfDispute) ? disputeDetails.natureOfDispute : [disputeDetails.natureOfDispute];
+      }
+    }
+    
+    if (disputeDescriptions.length === 0 && caseData.disputeDetails) {
+      const disputeDetails = caseData.disputeDetails as any;
+      if (disputeDetails.disputeDescriptions) {
+        disputeDescriptions = Array.isArray(disputeDetails.disputeDescriptions) ? disputeDetails.disputeDescriptions : [disputeDetails.disputeDescriptions];
+      }
+    }
+
+    console.log('🔧 [RespondentService] getRespondentCase - Final values:', {
+      natureOfDispute,
+      disputeDescriptions,
+      arguments: argumentsData,
+      prayers: prayers
+    });
+    
     return {
       success: true,
       case: {
@@ -299,15 +522,15 @@ export class RespondentService {
         // Extract data from JSON fields
         claimant: formData.claimant || {},
         additionalClaimants: formData.additionalClaimants || [],
-        managerDetails: formData.managerDetails || {},
+        managerDetails: formData.step2?.managerDetails || formData.managerDetails || {},
         respondents: caseData.respondents || [],
         arbitrationAgreement: formData.arbitrationAgreement || {},
-        natureOfDispute: formData.natureOfDispute || {},
-        disputeDescriptions: formData.disputeDescriptions || {},
+        natureOfDispute: natureOfDispute,
+        disputeDescriptions: disputeDescriptions,
         documents: caseData.documents || {},
-        prayers: formData.prayers || {},
-        arguments: formData.arguments || {},
-        payment: formData.payment || {},
+        prayers: prayers,
+        arguments: argumentsData,
+        payment: null, // formData.payment || {},
         // respondentResponse and round are not in the schema yet
         respondentResponse: null,
         round: 1

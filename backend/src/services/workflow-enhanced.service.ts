@@ -114,6 +114,7 @@ export class WorkflowEnhancedService {
         },
         update: {
           status: fieldResponse.status,
+          
           respondentComment: fieldResponse.respondentComment,
           correctedValue: fieldResponse.correctedValue,
           evidence: fieldResponse.evidence || {},
@@ -318,7 +319,8 @@ export class WorkflowEnhancedService {
         respondentPosition: judgment.respondentPosition,
         aiAnalysis: judgment.aiAnalysis,
         aiRecommendation: judgment.aiRecommendation,
-        confidence: judgment.confidence
+        confidence: judgment.confidence,
+        reasoning: judgment.aiAnalysis // Use aiAnalysis as reasoning for now
       }
     });
   }

@@ -160,6 +160,7 @@ export class ArbitrationService {
       };
       
       // Create the final processed data structure that matches the Prisma schema
+      // IMPORTANT: Persist full form structure and flattened fields for respondent views
       const processedData = {
         type: data.type,
         name: data.name,
@@ -179,6 +180,7 @@ export class ArbitrationService {
         additionalClaimants: data.additionalClaimants,
         respondents: data.respondents,
         arbitrationAgreement: arbitrationAgreement,
+        // Keep disputeDetails and also store step-based fields below
         disputeDetails: data.disputeDetails || {},
         documents: documents,
         caseNumber,
@@ -186,6 +188,48 @@ export class ArbitrationService {
         isDraft: false, // When created through submit, it's not a draft
         lastEditedAt: new Date(),
         userId: userId, // Link to the user who created it
+        // Persist respondent-facing JSON fields
+        managerDetails: data.managerDetails || {},
+        payment: data.payment || {},
+        // Flattened String? fields for quick reads (store JSON where applicable)
+        natureOfDispute: data.natureOfDispute ? JSON.stringify(data.natureOfDispute) : null,
+        disputeDescription: data.disputeDescriptions ? JSON.stringify(data.disputeDescriptions) : null,
+        // Note: Prisma schema has String? for these; store JSON string to preserve structure
+        arguments: data.arguments ? JSON.stringify(data.arguments) : null,
+        prayers: data.prayers ? JSON.stringify(data.prayers) : null,
+        paymentAmount: (data.payment && data.payment.amount != null) ? String(data.payment.amount) : null,
+        paymentDetails: (data.payment && data.payment.details != null) ? String(data.payment.details) : null,
+        // Store complete form structure for flexible reads
+        formData: {
+          claimant: data.claimant || {
+            type: data.type,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            phoneCountryCode: data.phoneCountryCode,
+            address1: data.address1,
+            address2: data.address2,
+            city: data.city,
+            district: data.district,
+            state: data.state,
+            country: data.country,
+            pincode: data.pincode,
+            gst: data.gst,
+            pan: data.pan,
+            cin: data.cin,
+          },
+          additionalClaimants: data.additionalClaimants || [],
+          managerDetails: data.managerDetails || {},
+          respondents: data.respondents || [],
+          arbitrationAgreement: data.arbitrationAgreement || {},
+          disputeDetails: data.disputeDetails || {},
+          natureOfDispute: data.natureOfDispute || [],
+          disputeDescriptions: data.disputeDescriptions || [],
+          documents: data.documents || documents || {},
+          prayers: data.prayers || {},
+          arguments: data.arguments || {},
+          payment: data.payment || {},
+        },
       };
       
       console.log('Saving arbitration case with data:', {

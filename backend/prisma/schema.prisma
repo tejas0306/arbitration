@@ -33,11 +33,11 @@ model User {
   teamMembers           String[]
   availabilityInfo      String?
   documents             Json?
-  phone                 String?
   paymentId             String?
   resetToken            String?
   status                String?
   temporaryPassword     String?
+  phone                 String?
   arbitrations          Arbitration[]
   availability          ArbitratorAvailability[]
   awards                Award[]
@@ -51,7 +51,6 @@ model User {
   qaReviews             QAReview[]
   reminders             Reminder[]
   respondentCases       RespondentCase[]
-
 }
 
 model ArbitratorAvailability {
@@ -161,6 +160,15 @@ model Arbitration {
   arbitrationAgreement Json
   disputeDetails       Json
   documents            Json?
+  
+  // Flattened fields for easy reading and fetching
+  natureOfDispute      String?
+  disputeDescription   String?
+  arguments            String?
+  prayers              String?
+  paymentAmount        String?
+  paymentDetails       String?
+  
   status               String           @default("pending")
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
@@ -168,11 +176,9 @@ model Arbitration {
   lastEditedAt         DateTime         @default(now())
   userId               String
   version              Int              @default(1)
-  arguments            Json?
   formData             Json?
   managerDetails       Json?
   payment              Json?
-  prayers              Json?
   archiveReason        String?
   archivedAt           DateTime?
   archivedBy           String?
@@ -200,6 +206,11 @@ model Arbitration {
   qaReviews            QAReview[]
   reminders            Reminder[]
   respondentCases      RespondentCase[]
+  
+  // New workflow relations
+  workflowRounds       WorkflowRound[]
+  fieldResponses       FieldResponse[]
+  aiJudgments          AIJudgment[]
 }
 
 model CaseTimeline {
@@ -396,80 +407,15 @@ model CaseResponse {
   lawsReliedUpon        Json[]
   additionalNotes       String?
   requestedReliefs      Json[]
-  responseData          Json?
-  round                 Int            @default(1)
   status                ResponseStatus @default(PENDING)
   submittedAt           DateTime?
   reviewedAt            DateTime?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
+  responseData          Json?
+  round                 Int            @default(1)
   case                  Arbitration    @relation(fields: [caseId], references: [id])
   respondent            User           @relation(fields: [respondentId], references: [id])
-  
-  // New fields for multi-round workflow
-  fieldResponses        FieldResponse[]
-  roundStatus          RoundStatus     @default(IN_PROGRESS)
-  previousRoundId      String?
-  nextRoundId          String?
-}
-
-// New model for field-level responses
-model FieldResponse {
-  id                    String         @id @default(uuid())
-  caseResponseId        String
-  caseId                String
-  respondentId          String
-  fieldId               String          // e.g., "1.1", "1.2", "2.1"
-  fieldName             String          // e.g., "Type", "Name", "Email"
-  fieldValue            String          // Original value from claimant
-  fieldType             String          // e.g., "text", "select", "file"
-  status                FieldStatus     @default(PENDING)
-  respondentComment     String?         // Comment from respondent
-  correctedValue        String?         // Corrected value if rejected
-  evidence              Json?           // Supporting evidence
-  round                 Int             @default(1)
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  
-  caseResponse          CaseResponse    @relation(fields: [caseResponseId], references: [id])
-  
-  @@unique([caseId, respondentId, fieldId, round])
-}
-
-// New model for workflow rounds
-model WorkflowRound {
-  id                    String         @id @default(uuid())
-  caseId                String
-  roundNumber           Int
-  roundType             RoundType
-  status                RoundStatus     @default(IN_PROGRESS)
-  assignedTo            String          // User ID
-  assignedRole          UserRole
-  deadline              DateTime
-  startedAt             DateTime?
-  completedAt           DateTime?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  
-  
-  @@unique([caseId, roundNumber])
-}
-
-// New model for AI judgments
-model AIJudgment {
-  id                    String         @id @default(uuid())
-  caseId                String
-  round                 Int
-  issueId               String          // Field ID or issue identifier
-  issueDescription      String
-  claimantPosition      String
-  respondentPosition    String
-  aiAnalysis            String
-  aiRecommendation      String
-  confidence            Float           // 0.0 to 1.0
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  
 }
 
 model RespondentRegistration {
@@ -566,26 +512,57 @@ enum CasePhase {
   APPEALED
 }
 
-enum FieldStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  CORRECTED
-  UNDER_REVIEW
+// Missing models for workflow service
+model WorkflowRound {
+  id           String   @id @default(uuid())
+  caseId       String
+  roundNumber  Int
+  roundType    String
+  status       String   @default("PENDING")
+  assignedTo   String
+  assignedRole String
+  deadline     DateTime
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  case         Arbitration @relation(fields: [caseId], references: [id])
 }
 
-enum RoundStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  OVERDUE
-  CANCELLED
+model FieldResponse {
+  id                String   @id @default(uuid())
+  caseResponseId    String
+  caseId            String
+  respondentId      String
+  fieldId           String
+  fieldName         String
+  fieldValue        String
+  fieldType         String
+  status            String
+  respondentComment String?
+  correctedValue    String?
+  evidence          Json?
+  round             Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  case              Arbitration @relation(fields: [caseId], references: [id])
+  
+  @@unique([caseId, respondentId, fieldId, round])
 }
 
-enum RoundType {
-  CLAIMANT_SUBMISSION
-  RESPONDENT_REVIEW
-  CLAIMANT_COUNTER
-  FINAL_SUBMISSION
-  AI_JUDGMENT
+model AIJudgment {
+  id                String   @id @default(uuid())
+  caseId            String
+  issueId           String
+  issueDescription  String
+  claimantPosition  String
+  respondentPosition String
+  aiAnalysis        String
+  aiRecommendation  String
+  round             Int      @default(1)
+  confidence        Float
+  reasoning         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  case              Arbitration @relation(fields: [caseId], references: [id])
 }

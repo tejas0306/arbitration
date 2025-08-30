@@ -220,8 +220,10 @@ export class RespondentService {
       try {
         if (flat.arguments) {
           const parsed = JSON.parse(flat.arguments);
+          console.log('🔧 [RespondentService] Parsed arguments:', JSON.stringify(parsed, null, 2));
           // Expect format: {"argumentsPerPrayer": [array], "argumentsPerIssue": [array]}
           argumentsData = parsed.argumentsPerPrayer || parsed.argumentsPerIssue || [];
+          console.log('🔧 [RespondentService] Extracted argumentsData:', argumentsData);
         }
       } catch (_) {
         console.log('🔧 [RespondentService] Failed to parse arguments string field');
@@ -239,6 +241,8 @@ export class RespondentService {
       
       console.log('🔧 [RespondentService] Final natureOfDispute:', natureOfDispute);
       console.log('🔧 [RespondentService] Final disputeDescriptions:', disputeDescriptions);
+      console.log('🔧 [RespondentService] Final argumentsData:', argumentsData);
+      console.log('🔧 [RespondentService] Final prayers:', prayers);
       
       return {
         id: caseItem.id,
@@ -290,7 +294,10 @@ export class RespondentService {
         disputeDescriptions: disputeDescriptions,
         evidence: formData.documents || caseItem.documents || {},
         prayers: prayers,
-        arguments: argumentsData,
+        arguments: {
+          argumentsPerIssue: argumentsData.filter(arg => typeof arg === 'string' && arg.trim() !== ''),
+          argumentsPerPrayer: argumentsData.filter(arg => typeof arg === 'object' && arg.argument)
+        },
         payment: formData.payment || {},
         summary: formData.review || {},
         
@@ -529,7 +536,10 @@ export class RespondentService {
         disputeDescriptions: disputeDescriptions,
         documents: caseData.documents || {},
         prayers: prayers,
-        arguments: argumentsData,
+        arguments: {
+          argumentsPerIssue: argumentsData.filter(arg => typeof arg === 'string' && arg.trim() !== ''),
+          argumentsPerPrayer: argumentsData.filter(arg => typeof arg === 'object' && arg.argument)
+        },
         payment: null, // formData.payment || {},
         // respondentResponse and round are not in the schema yet
         respondentResponse: null,

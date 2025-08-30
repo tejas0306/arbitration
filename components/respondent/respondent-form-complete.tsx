@@ -274,6 +274,11 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
           argumentsPerIssue: [],
           argumentsPerPrayer: []
         },
+        
+        // Respondent workflow fields
+        respondentStatus: 'reviewing', // reviewing, responded, submitted
+        respondentResponses: {}, // Field-specific responses
+        respondentComments: {}, // General comments per section
       })
       
 
@@ -918,8 +923,8 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                         <CardContent className="space-y-4 pt-6">
                           <h4 className="font-medium text-md">Prayer {index + 1}</h4>
                           <div className="grid grid-cols-1 gap-4">
-                            {renderEditableField(6, index, 'prayer', '7.1 Prayer Text*', typeof prayer === 'string' ? prayer : prayer.prayer || '', 'textarea')}
-                            {renderEditableField(6, index, 'prayerType', '7.2 Prayer Type*', typeof prayer === 'object' ? prayer.prayerType : '', 'select', [
+                            {renderEditableField(6, index, 'prayer', '7.1 Prayer Text*', typeof prayer === 'string' ? prayer : prayer.title || prayer.description || '', 'textarea')}
+                            {renderEditableField(6, index, 'prayerType', '7.2 Prayer Type*', typeof prayer === 'object' ? prayer.reliefType || prayer.prayerType : '', 'select', [
                               { value: 'damages', label: 'Damages' },
                               { value: 'specific_performance', label: 'Specific Performance' },
                               { value: 'injunction', label: 'Injunction' },
@@ -1088,10 +1093,20 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
               <CardContent className="space-y-4 pt-6">
                 <h3 className="font-medium text-lg mb-4">Legal Arguments</h3>
                 
-
+                {/* DEBUG: Log arguments data */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>DEBUG Arguments Data:</strong><br/>
+                    formData.arguments: {JSON.stringify(formData.arguments, null, 2)}<br/>
+                    argumentsPerIssue: {formData.arguments?.argumentsPerIssue ? JSON.stringify(formData.arguments.argumentsPerIssue) : 'undefined'}<br/>
+                    argumentsPerPrayer: {formData.arguments?.argumentsPerPrayer ? JSON.stringify(formData.arguments.argumentsPerPrayer) : 'undefined'}<br/>
+                    argumentsPerIssue length: {formData.arguments?.argumentsPerIssue?.length || 0}<br/>
+                    argumentsPerPrayer length: {formData.arguments?.argumentsPerPrayer?.length || 0}
+                  </p>
+                </div>
                 
                 {/* Arguments Per Issue */}
-                {formData.arguments?.argumentsPerIssue && formData.arguments.argumentsPerIssue.length > 0 ? (
+                {formData.arguments?.argumentsPerIssue && formData.arguments.argumentsPerIssue.length > 0 && formData.arguments.argumentsPerIssue.some(arg => arg && arg.trim() !== '') ? (
                   <div className="space-y-4">
                     <h4 className="font-medium text-md">Arguments Per Issue</h4>
                     {formData.arguments.argumentsPerIssue.map((argument, index) => (
@@ -1101,6 +1116,24 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                           <div className="grid grid-cols-1 gap-4">
                             {renderEditableField(9, index, 'issue', '10.1 Issue*', argument.issue, 'text')}
                             {renderEditableField(9, index, 'argument', '10.2 Legal Argument*', argument.argument, 'textarea')}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : formData.arguments?.argumentsPerPrayer && formData.arguments.argumentsPerPrayer.length > 0 ? (
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-md">Arguments Per Prayer</h4>
+                    {formData.arguments.argumentsPerPrayer.map((argument, index) => (
+                      <Card key={index} className="border-l-4 border-l-purple-500">
+                        <CardContent className="space-y-4 pt-6">
+                          <h5 className="font-medium text-sm">Prayer Argument {index + 1}</h5>
+                          <div className="grid grid-cols-1 gap-4">
+                            {renderEditableField(9, index, 'prayerTitle', '10.1 Prayer Title*', argument.prayerTitle || '', 'text')}
+                            {renderEditableField(9, index, 'argument', '10.2 Legal Argument*', argument.argument || '', 'textarea')}
+                            {renderEditableField(9, index, 'legalBasis', '10.3 Legal Basis*', argument.legalBasis || '', 'textarea')}
+                            {renderEditableField(9, index, 'factualBasis', '10.4 Factual Basis*', argument.factualBasis || '', 'textarea')}
+                            {renderEditableField(9, index, 'precedents', '10.5 Precedents*', argument.precedents || '', 'textarea')}
                           </div>
                         </CardContent>
                       </Card>
@@ -1596,9 +1629,12 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                             {Array.isArray(formData.prayers) && formData.prayers.length > 0 
                               ? formData.prayers.map((prayer: any, idx: number) => (
                                   <span key={idx} className="block mb-2 p-2 bg-white rounded border">
-                                    {typeof prayer === 'string' ? prayer : prayer.prayer || 'No prayer text'}
-                                    {typeof prayer === 'object' && prayer.prayerType && (
-                                      <span className="text-sm text-gray-500 block">Type: {prayer.prayerType}</span>
+                                    {typeof prayer === 'string' ? prayer : prayer.title || prayer.description || 'No prayer text'}
+                                    {typeof prayer === 'object' && (prayer.reliefType || prayer.prayerType) && (
+                                      <span className="text-sm text-gray-500 block">Type: {prayer.reliefType || prayer.prayerType}</span>
+                                    )}
+                                    {typeof prayer === 'object' && prayer.amount && (
+                                      <span className="text-sm text-gray-500 block">Amount: {prayer.amount}</span>
                                     )}
                                   </span>
                                 ))
@@ -1722,7 +1758,7 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       </Button>
                     </div>
                     <div className="p-6">
-                      {formData.arguments?.argumentsPerIssue && Array.isArray(formData.arguments.argumentsPerIssue) && formData.arguments.argumentsPerIssue.length > 0 ? (
+                      {formData.arguments?.argumentsPerIssue && Array.isArray(formData.arguments.argumentsPerIssue) && formData.arguments.argumentsPerIssue.length > 0 && formData.arguments.argumentsPerIssue.some(arg => arg && arg.trim() !== '') ? (
                         <div className="space-y-4">
                           {formData.arguments.argumentsPerIssue.map((argument, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -1731,6 +1767,37 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                                 <div className="bg-white p-3 rounded">
                                   <label className="text-sm font-medium text-gray-600">11.1 Legal Argument</label>
                                   <p className="text-gray-900">{typeof argument === 'string' ? argument : 'Not provided'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : formData.arguments?.argumentsPerPrayer && Array.isArray(formData.arguments.argumentsPerPrayer) && formData.arguments.argumentsPerPrayer.length > 0 ? (
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-md">Arguments Per Prayer</h4>
+                          {formData.arguments.argumentsPerPrayer.map((argument, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                              <h4 className="font-semibold text-gray-900 mb-3">Prayer Argument {index + 1}</h4>
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Prayer Title</label>
+                                  <p className="text-gray-900">{argument.prayerTitle || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Legal Argument</label>
+                                  <p className="text-gray-900">{argument.argument || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Legal Basis</label>
+                                  <p className="text-gray-900">{argument.legalBasis || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Factual Basis</label>
+                                  <p className="text-gray-900">{argument.factualBasis || 'Not provided'}</p>
+                                </div>
+                                <div className="bg-white p-3 rounded">
+                                  <label className="text-sm font-medium text-gray-600">Precedents</label>
+                                  <p className="text-gray-900">{argument.precedents || 'Not provided'}</p>
                                 </div>
                               </div>
                             </div>
@@ -1841,13 +1908,38 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
             <div className="max-w-4xl mx-auto">
               {/* Header */}
               <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Respondent Response Form
-                </h1>
-                <p className="text-gray-600">
-                  Case: {caseId} | Round: {round}
-                </p>
-
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                      Respondent Response Form
+                    </h1>
+                    <p className="text-gray-600">
+                      Case: {caseId} | Round: {round}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Status:</span>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        formData.respondentStatus === 'reviewing' ? 'bg-yellow-100 text-yellow-800' :
+                        formData.respondentStatus === 'accepted' ? 'bg-green-100 text-green-800' :
+                        formData.respondentStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {formData.respondentStatus === 'reviewing' ? 'Under Review' :
+                         formData.respondentStatus === 'accepted' ? 'Accepted' :
+                         formData.respondentStatus === 'rejected' ? 'Rejected' :
+                         'Unknown'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formData.respondentStatus === 'reviewing' ? 'Review each section and provide your response' :
+                       formData.respondentStatus === 'accepted' ? 'You have accepted this case' :
+                       formData.respondentStatus === 'rejected' ? 'You have rejected this case' :
+                       'Processing...'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Form Content */}
@@ -1889,6 +1981,46 @@ export default function RespondentFormComplete({ caseId, caseData, round = 1 }: 
                       onClick={() => setCurrentStep(Math.min(10, currentStep + 1))}
                     >
                       Next
+                    </Button>
+                  )}
+                  
+                  {/* NEW: Add Accept/Reject buttons for reviewing */}
+                  {currentStep === 10 && formData.respondentStatus === 'reviewing' && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setFormData(prev => ({...prev, respondentStatus: 'rejected'}))}
+                        className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                      >
+                        Reject Case
+                      </Button>
+                      <Button
+                        onClick={() => setFormData(prev => ({...prev, respondentStatus: 'accepted'}))}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Accept Case
+                      </Button>
+                    </>
+                  )}
+                  
+                  {/* Show different actions based on status */}
+                  {formData.respondentStatus === 'accepted' && currentStep === 10 && (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {submitting ? 'Submitting...' : 'Submit Acceptance'}
+                    </Button>
+                  )}
+                  
+                  {formData.respondentStatus === 'rejected' && currentStep === 10 && (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {submitting ? 'Submitting...' : 'Submit Rejection'}
                     </Button>
                   )}
                 </div>

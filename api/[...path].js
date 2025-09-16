@@ -25,12 +25,12 @@ const getRemappedPath = (originalPath) => {
   
   // Handle draft ID routes
   if (originalPath.match(/^\/api\/arbitration\/draft\/[^\/]+$/)) {
-    return originalPath.replace('/api/arbitration/drafts/', '/arbitration/draft/');
+    return originalPath.replace('/api/arbitration/draft/', '/arbitration/draft/');
   }
   
   // Handle draft submission routes 
   if (originalPath.match(/^\/api\/arbitration\/draft\/[^\/]+\/submit$/)) {
-    return originalPath.replace('/api/arbitration/drafts/', '/arbitration/draft/');
+    return originalPath.replace('/api/arbitration/draft/', '/arbitration/draft/');
   }
   
   // Handle case ID routes
